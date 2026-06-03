@@ -4,6 +4,8 @@ import (
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/i18n"
 	"github.com/invopop/gobl/pkg/here"
+
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 )
 
 // Flow 10 extension keys.
@@ -60,4 +62,6 @@ var extensions = []*cbc.Definition{
 			{Code: B2CCategoryMargin, Name: i18n.String{i18n.EN: "VAT-on-margin regime", i18n.FR: "Régime de TVA sur la marge"}},
 		},
 	},
+	// Shared DGFiP billing-mode code list (also declared by Flow 2).
+	dgfip.ExtBillingMode,
 }

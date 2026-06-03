@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/invopop/gobl/bill"
-	"github.com/invopop/gobl/catalogues/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/currency"
@@ -162,7 +162,7 @@ func billInvoiceRules() *rules.Set {
 					rules.Assert("08", "invoice tax ext untdid-document-type must be one of the Flow 10 permitted UNTDID 1001 codes",
 						tax.ExtensionsHasCodes(untdid.ExtKeyDocumentType, allowedDocumentTypes...),
 					),
-					rules.Assert("09", "invoice tax ext dgfip-billing-mode is required (G1.02)",
+					rules.Assert("09", "invoice tax ext fr-ctc-billing-mode is required (G1.02)",
 						tax.ExtensionsRequire(dgfip.ExtKeyBillingMode),
 					),
 				),

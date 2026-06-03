@@ -14,6 +14,8 @@ import (
 	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/rules/is"
 	"github.com/invopop/gobl/tax"
+
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 )
 
 const (
@@ -77,6 +79,8 @@ func newV1Addon() *tax.AddonDef {
 				URL: "https://www.impots.gouv.fr/specifications-externes-b2b",
 			},
 		},
+		// Shared DGFiP billing-mode code list (also declared by Flow 10).
+		Extensions: []*cbc.Definition{dgfip.ExtBillingMode},
 		Scenarios:  scenarios,
 		Normalizer: normalize,
 	}
