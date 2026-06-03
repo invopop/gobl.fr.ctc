@@ -4,7 +4,7 @@ on:
     branches:
       - main
 
-# Allow the workflow to create and push tags using the default GITHUB_TOKEN.
+# Allow the workflow to create tags and releases using the default GITHUB_TOKEN.
 permissions:
   contents: write
 
@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  tag:
-    name: Tag
+  release:
+    name: Release
     runs-on: ubuntu-latest
 
     steps:
@@ -24,11 +24,10 @@ jobs:
         with:
           fetch-depth: 0 # full history + tags, needed to find the latest tag
 
-      - name: Create next patch tag
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           latest=$(git tag --list 'v*' --sort=-v:refname | head -n1)
           if [ -z "$latest" ]; then
             next="v0.0.1"
@@ -41,6 +40,11 @@ jobs:
             next="v${major}.${minor}.$((patch + 1))"
           fi
 
-          echo "Latest tag: ${latest:-none}; creating $next"
-          git tag -a "$next" -m "Release $next"
-          git push origin "$next"
+          echo "Latest tag: ${latest:-none}; creating release $next"
+
+          # Creates the tag at this commit and a GitHub Release whose notes are
+          # auto-generated from the PRs/commits since the previous release.
+          gh release create "$next" \
+            --target "$GITHUB_SHA" \
+            --title "$next" \
+            --generate-notes
