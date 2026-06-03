@@ -2,6 +2,16 @@
 
 French Continuous Transaction Control (CTC) addon for [GOBL](https://github.com/invopop/gobl).
 
+Released under the Apache 2.0 [LICENSE](https://github.com/invopop/gobl.fr.ctc/blob/main/LICENSE), Copyright 2026 [Invopop S.L.](https://invopop.com).
+
+[![Lint](https://github.com/invopop/gobl.fr.ctc/actions/workflows/lint.yaml/badge.svg)](https://github.com/invopop/gobl.fr.ctc/actions/workflows/lint.yaml)
+[![Test Go](https://github.com/invopop/gobl.fr.ctc/actions/workflows/test.yaml/badge.svg)](https://github.com/invopop/gobl.fr.ctc/actions/workflows/test.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/invopop/gobl.fr.ctc)](https://goreportcard.com/report/github.com/invopop/gobl.fr.ctc)
+[![codecov](https://codecov.io/gh/invopop/gobl.fr.ctc/graph/badge.svg)](https://codecov.io/gh/invopop/gobl.fr.ctc)
+[![GoDoc](https://godoc.org/github.com/invopop/gobl.fr.ctc?status.svg)](https://godoc.org/github.com/invopop/gobl.fr.ctc)
+![Latest Tag](https://img.shields.io/github/v/tag/invopop/gobl.fr.ctc)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/invopop/gobl.fr.ctc)
+
 This module implements the French e-invoicing / e-reporting reform as a set of
 GOBL tax addons covering the three exchange flows:
 
