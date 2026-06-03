@@ -1,0 +1,95 @@
+{
+	"$schema": "https://gobl.org/draft-0/envelope",
+	"head": {
+		"uuid": "8a51fd30-2a27-11ee-be56-0242ac120002",
+		"dig": {
+			"alg": "sha256",
+			"val": "02db52b25e7fb0f3ba9838d10f0645b4e9e418b0158f22a2855d1da6f0d6e3f4"
+		}
+	},
+	"doc": {
+		"$schema": "https://gobl.org/draft-0/bill/payment",
+		"$regime": "FR",
+		"$addons": [
+			"fr-ctc-v1",
+			"fr-ctc-flow10-v1"
+		],
+		"uuid": "1f4d3e8a-9b6c-4d2e-8e7f-7a3c4d5e6f01",
+		"type": "receipt",
+		"series": "PAY",
+		"code": "2026-00042",
+		"issue_date": "2026-05-02",
+		"value_date": "2026-05-02",
+		"currency": "EUR",
+		"supplier": {
+			"name": "Fournisseur Reporting SARL",
+			"tax_id": {
+				"country": "FR",
+				"code": "44732829320"
+			},
+			"identities": [
+				{
+					"scope": "legal",
+					"type": "SIREN",
+					"code": "732829320",
+					"ext": {
+						"iso-scheme-id": "0002"
+					}
+				}
+			]
+		},
+		"customer": {
+			"name": "Kunde Deutschland GmbH",
+			"tax_id": {
+				"country": "DE",
+				"code": "111111125"
+			},
+			"identities": [
+				{
+					"scope": "legal",
+					"code": "DE111111125",
+					"ext": {
+						"iso-scheme-id": "0223"
+					}
+				}
+			]
+		},
+		"lines": [
+			{
+				"i": 1,
+				"document": {
+					"issue_date": "2026-04-15",
+					"code": "2026-INT-001"
+				},
+				"amount": "1200.00",
+				"tax": {
+					"categories": [
+						{
+							"code": "VAT",
+							"rates": [
+								{
+									"base": "1000.00",
+									"percent": "20%",
+									"amount": "200.00"
+								}
+							],
+							"amount": "200.00"
+						}
+					],
+					"sum": "200.00"
+				}
+			}
+		],
+		"methods": [
+			{
+				"key": "credit-transfer",
+				"amount": "1200.00",
+				"credit_transfer": {
+					"iban": "FR7630006000011234567890189",
+					"name": "Fournisseur Reporting SARL"
+				}
+			}
+		],
+		"total": "1200.00"
+	}
+}

@@ -51,14 +51,24 @@ Declare the addon on a document (or let the regime/scenario add it) and
 
 ## Development
 
-The addon builds on core GOBL features (the `bill` lifecycle, the `dgfip`
-catalogue, and the approved external-addon registry) that are not yet in a
-tagged release. The `go.mod` therefore carries a `replace` directive pointing at
-a local checkout of `../gobl`; drop it once a core release including those
-features is available.
+The addon builds on core GOBL features (the `bill` lifecycle and the approved
+external-addon registry) that are not yet in a tagged release. The `go.mod`
+therefore carries a `replace` directive pointing at a local checkout of
+`../gobl`; drop it once a core release including those features is available.
 
 ```sh
 go test ./...
+```
+
+### Examples
+
+`examples/` holds sample documents for each flow, with their expected JSON
+envelopes under `examples/out/`. They are verified via GOBL's shared
+`pkg/examples` helpers. Regenerate the golden output after intentional changes
+with:
+
+```sh
+go test . -run TestExamples -update
 ```
 
 ## License
