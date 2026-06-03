@@ -16,32 +16,21 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-        with:
-          path: gobl.fr.ctc
-
-      # TEMPORARY: this module depends on unreleased core via the
-      # `replace github.com/invopop/gobl => ../gobl` directive in go.mod.
-      # Provide that sibling by checking out the core branch. Remove this step
-      # (and the replace) once the core release is tagged and the module pins
-      # the tag.
-      - name: Check out core gobl as sibling (for the replace directive)
-        uses: actions/checkout@v4
-        with:
-          repository: invopop/gobl
-          ref: fr-ctc-extract
-          path: gobl
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: "gobl.fr.ctc/go.mod"
+          go-version-file: "go.mod"
+
+      - name: Install Dependencies
+        env:
+          GOPROXY: https://proxy.golang.org,direct
+        run: go mod download
 
       - name: Test
-        working-directory: gobl.fr.ctc
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Coverage summary
-        working-directory: gobl.fr.ctc
         run: go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
 
       # Runs once the repo is enabled on Codecov and a CODECOV_TOKEN secret is
@@ -52,4 +41,3 @@ jobs:
         with:
           token: ${{ env.CODECOV_TOKEN }}
           slug: invopop/gobl.fr.ctc
-          files: gobl.fr.ctc/coverage.out

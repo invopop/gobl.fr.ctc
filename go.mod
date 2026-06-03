@@ -3,7 +3,7 @@ module github.com/invopop/gobl.fr.ctc
 go 1.24.0
 
 require (
-	github.com/invopop/gobl v0.403.0
+	github.com/invopop/gobl v0.403.1-0.20260603150027-941c5b0b21dc
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -26,8 +26,3 @@ require (
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-// The core features this addon builds upon (bill lifecycle, the approved
-// external-addon registry, the dgfip catalogue) are not yet released.
-// Develop against the local checkout until a tag including them is cut.
-replace github.com/invopop/gobl => ../gobl

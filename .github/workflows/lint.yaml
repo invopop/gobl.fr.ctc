@@ -14,27 +14,11 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-        with:
-          path: gobl.fr.ctc
-
-      # TEMPORARY: this module depends on unreleased core via the
-      # `replace github.com/invopop/gobl => ../gobl` directive in go.mod.
-      # Provide that sibling by checking out the core branch. Remove this step
-      # (and the replace) once the core release is tagged and the module pins
-      # the tag.
-      - name: Check out core gobl as sibling (for the replace directive)
-        uses: actions/checkout@v4
-        with:
-          repository: invopop/gobl
-          ref: fr-ctc-extract
-          path: gobl
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: "gobl.fr.ctc/go.mod"
+          go-version-file: "go.mod"
 
       - name: Lint
         uses: golangci/golangci-lint-action@v8
-        with:
-          working-directory: gobl.fr.ctc
