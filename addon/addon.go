@@ -1,4 +1,4 @@
-// Package ctc registers the French CTC meta-addon (fr-ctc-v1) which
+// Package addon registers the French CTC meta-addon (fr-ctc-v1) which
 // inspects each GOBL document at normalize-time and appends the
 // appropriate flow-specific addon (fr-ctc-flow2-v1, fr-ctc-flow6-v1,
 // or fr-ctc-flow10-v1) so the right validation rules fire without the
@@ -6,12 +6,12 @@
 //
 // The flow-specific addons live in subpackages and are independent:
 // callers can declare any of them directly if they prefer.
-package ctc
+package addon
 
 import (
-	"github.com/invopop/gobl.fr.ctc/flow10"
-	"github.com/invopop/gobl.fr.ctc/flow2"
-	"github.com/invopop/gobl.fr.ctc/flow6"
+	"github.com/invopop/gobl.fr.ctc/addon/flow10"
+	"github.com/invopop/gobl.fr.ctc/addon/flow2"
+	"github.com/invopop/gobl.fr.ctc/addon/flow6"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"

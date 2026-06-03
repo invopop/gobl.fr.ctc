@@ -19,14 +19,24 @@ registers extensions, normalizers, and validation rules into GOBL's global
 registry. It lives in its own module so that only projects handling French CTC
 documents take on its weight.
 
+## Layout
+
+- `addon/` — the GOBL addon: extensions, normalizers, scenarios, and validation
+  rules that register into GOBL on import (`addon/flow2`, `addon/flow6`,
+  `addon/flow10` plus the `fr-ctc-v1` meta-addon). This package is kept dependency-
+  light so importing it never pulls in conversion tooling.
+- the module root (and future subpackages) is reserved for converters and other
+  CTC logic that build on the addon.
+
 ## Usage
 
-Add a blank import so the addon registers itself, then use GOBL as normal:
+Add a blank import of the **addon** so it registers itself, then use GOBL as
+normal:
 
 ```go
 import (
 	"github.com/invopop/gobl"
-	_ "github.com/invopop/gobl.fr.ctc"
+	_ "github.com/invopop/gobl.fr.ctc/addon"
 )
 ```
 

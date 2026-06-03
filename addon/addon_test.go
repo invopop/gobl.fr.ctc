@@ -1,12 +1,12 @@
-package ctc_test
+package addon_test
 
 import (
 	"testing"
 
-	"github.com/invopop/gobl.fr.ctc"
-	"github.com/invopop/gobl.fr.ctc/flow10"
-	"github.com/invopop/gobl.fr.ctc/flow2"
-	"github.com/invopop/gobl.fr.ctc/flow6"
+	"github.com/invopop/gobl.fr.ctc/addon"
+	"github.com/invopop/gobl.fr.ctc/addon/flow10"
+	"github.com/invopop/gobl.fr.ctc/addon/flow2"
+	"github.com/invopop/gobl.fr.ctc/addon/flow6"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/dgfip"
@@ -69,7 +69,7 @@ func deParty() *org.Party {
 func TestInvoiceTwoFrenchPartiesDispatchesFlow2(t *testing.T) {
 	inv := &bill.Invoice{
 		Regime:   tax.WithRegime("FR"),
-		Addons:   tax.WithAddons(ctc.V1),
+		Addons:   tax.WithAddons(addon.V1),
 		Code:     "FAC-2024-001",
 		Currency: "EUR",
 		Type:     bill.InvoiceTypeStandard,
@@ -116,7 +116,7 @@ func TestInvoiceTwoFrenchPartiesDispatchesFlow2(t *testing.T) {
 func TestInvoiceCrossBorderDispatchesFlow10(t *testing.T) {
 	inv := &bill.Invoice{
 		Regime:    tax.WithRegime("FR"),
-		Addons:    tax.WithAddons(ctc.V1),
+		Addons:    tax.WithAddons(addon.V1),
 		Code:      "INV-2026-001",
 		Currency:  "EUR",
 		IssueDate: cal.MakeDate(2026, 1, 15),
@@ -142,7 +142,7 @@ func TestInvoiceCrossBorderDispatchesFlow10(t *testing.T) {
 func TestInvoiceB2CDispatchesFlow10(t *testing.T) {
 	inv := &bill.Invoice{
 		Regime:    tax.WithRegime("FR"),
-		Addons:    tax.WithAddons(ctc.V1),
+		Addons:    tax.WithAddons(addon.V1),
 		Code:      "INV-2026-B2C-001",
 		Currency:  "EUR",
 		IssueDate: cal.MakeDate(2026, 1, 15),
@@ -165,7 +165,7 @@ func TestStatusDispatchesFlow6(t *testing.T) {
 	issued := cal.MakeDate(2026, 2, 1)
 	st := &bill.Status{
 		Regime:    tax.WithRegime("FR"),
-		Addons:    tax.WithAddons(ctc.V1),
+		Addons:    tax.WithAddons(addon.V1),
 		IssueDate: cal.MakeDate(2026, 2, 2),
 		Code:      "STA-2026-0001",
 		Supplier: &org.Party{
@@ -203,7 +203,7 @@ func TestPaymentB2CDispatchesFlow10(t *testing.T) {
 	value := cal.MakeDate(2026, 1, 15)
 	pmt := &bill.Payment{
 		Regime:    tax.WithRegime("FR"),
-		Addons:    tax.WithAddons(ctc.V1),
+		Addons:    tax.WithAddons(addon.V1),
 		Code:      "PMT-2026-001",
 		Currency:  "EUR",
 		IssueDate: cal.MakeDate(2026, 1, 15),
@@ -223,7 +223,7 @@ func TestPaymentReceiptBetweenFrenchPartiesDispatchesFlow6(t *testing.T) {
 	value := cal.MakeDate(2026, 1, 15)
 	pmt := &bill.Payment{
 		Regime:    tax.WithRegime("FR"),
-		Addons:    tax.WithAddons(ctc.V1),
+		Addons:    tax.WithAddons(addon.V1),
 		Code:      "PMT-2026-002",
 		Currency:  "EUR",
 		IssueDate: cal.MakeDate(2026, 1, 15),
@@ -253,7 +253,7 @@ func TestPaymentRequestBetweenFrenchPartiesDispatchesFlow10(t *testing.T) {
 	value := cal.MakeDate(2026, 1, 15)
 	pmt := &bill.Payment{
 		Regime:    tax.WithRegime("FR"),
-		Addons:    tax.WithAddons(ctc.V1),
+		Addons:    tax.WithAddons(addon.V1),
 		Code:      "PMT-2026-003",
 		Currency:  "EUR",
 		IssueDate: cal.MakeDate(2026, 1, 15),
