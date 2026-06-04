@@ -67,6 +67,16 @@ func normalizeStatusLine(s *bill.Status, line *bill.StatusLine) {
 				"207", // disputed
 				"206", // partially accepted
 			)
+		case bill.StatusLineError:
+			line.Ext = line.Ext.Set(ExtKeyStatus, "213")
+		case bill.StatusLineOther:
+			// 203 (Mise à disposition) and 209 (Complétée) have no
+			// dedicated GOBL line key; both round-trip through "other"
+			// with the ext as the source of truth.
+			line.Ext = line.Ext.SetOneOf(ExtKeyStatus,
+				"203", // made available (default)
+				"209", // completed
+			)
 		default:
 			line.Ext = line.Ext.Delete(ExtKeyStatus)
 		}
@@ -101,6 +111,9 @@ func prepareStatusWithLine(s *bill.Status, line *bill.StatusLine) {
 		case "213":
 			s.Type = bill.StatusTypeResponse
 			line.Key = bill.StatusLineError
+		case "203", "209":
+			s.Type = bill.StatusTypeResponse
+			line.Key = bill.StatusLineOther
 		}
 		return
 	}
@@ -180,10 +193,18 @@ func billStatusRules() *rules.Set {
 				),
 			),
 		),
-		rules.Field("customer",
-			rules.Assert("07", "status customer is required (BR-FR-CDV-CL-04)",
-				is.Present,
+		// The customer is only a mandatory party on buyer-phase statuses
+		// (204-210): platform-phase CDVs (200/201/202/203/213) may carry
+		// just the seller — e.g. a Déposée only references the supplier.
+		rules.When(
+			is.Func("status is buyer-issued", statusIsBuyerIssued),
+			rules.Field("customer",
+				rules.Assert("07", "status customer is required (BR-FR-CDV-CL-04)",
+					is.Present,
+				),
 			),
+		),
+		rules.Field("customer",
 			rules.Assert("08", "status customer must have an inbox when its role is not WK or DFH (BR-FR-CDV-08)",
 				is.Func("customer has inbox unless WK/DFH", partyHasInboxWhenRequired),
 			),
@@ -224,7 +245,7 @@ func billStatusRules() *rules.Set {
 							bill.StatusLineIssued, bill.StatusLineAcknowledged,
 							bill.StatusLineProcessing, bill.StatusLineAccepted,
 							bill.StatusLineQuerying, bill.StatusLineRejected,
-							bill.StatusLineError,
+							bill.StatusLineError, bill.StatusLineOther,
 						),
 					),
 				),
@@ -343,9 +364,14 @@ func billStatusRules() *rules.Set {
 					rules.Field("key",
 						rules.Assert("23", "status line key must be consistent with status type 'response'",
 							is.In(
+								// "issued" is a valid response key: 201
+								// (Émise par la plateforme) maps to
+								// (response, issued).
+								bill.StatusLineIssued,
 								bill.StatusLineAcknowledged, bill.StatusLineProcessing,
 								bill.StatusLineAccepted, bill.StatusLineQuerying,
 								bill.StatusLineRejected, bill.StatusLineError,
+								bill.StatusLineOther,
 							),
 						),
 					),
@@ -367,6 +393,26 @@ func billStatusRules() *rules.Set {
 			),
 		),
 	)
+}
+
+// statusIsBuyerIssued reports whether the status's process code is one
+// declared by the buyer (204-210) — used to scope the customer-presence
+// requirement, since platform-phase CDVs identify only the seller.
+func statusIsBuyerIssued(v any) bool {
+	st, ok := v.(*bill.Status)
+	if !ok || st == nil {
+		return false
+	}
+	for _, line := range st.Lines {
+		if line == nil {
+			continue
+		}
+		switch line.Ext.Get(ExtKeyStatus) {
+		case "204", "205", "206", "207", "208", "209", "210":
+			return true
+		}
+	}
+	return false
 }
 
 // lineHasStatusCode gates a rules.When on the line's CDAR
