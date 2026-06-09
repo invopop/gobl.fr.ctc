@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/tax"
 )
@@ -18,10 +19,10 @@ func addonContext() rules.WithContext {
 }
 
 // runNormalize invokes the addon's registered normalizer on the given
-// object, matching what tax.Normalize would do during Calculate.
+// object, matching what norm.Normalize would do during Calculate.
 func runNormalize(t *testing.T, doc any) {
 	t.Helper()
-	tax.Normalize([]tax.Normalizer{tax.AddonForKey(V1).Normalizer}, doc)
+	norm.Normalize(doc, tax.AddonContext(V1))
 }
 
 // quiet linter — keep iso import alive for fixtures defined in

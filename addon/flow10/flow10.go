@@ -5,10 +5,9 @@
 package flow10
 
 import (
-	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/i18n"
-	"github.com/invopop/gobl/org"
+	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/pkg/here"
 	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/rules/is"
@@ -35,6 +34,12 @@ func init() {
 		billInvoiceRules(),
 		billPaymentRules(),
 		orgPartyRules(),
+	)
+	norm.RegisterWithGuard(is.InContext(tax.AddonIn(V1)),
+		norm.For(normalizeInvoice),
+		norm.For(normalizeParty),
+		norm.For(normalizeIdentity),
+		norm.For(normalizeTaxCombo),
 	)
 }
 
@@ -71,19 +76,5 @@ func newV1Addon() *tax.AddonDef {
 		},
 		Extensions: extensions,
 		Scenarios:  scenarios,
-		Normalizer: normalize,
-	}
-}
-
-func normalize(doc any) {
-	switch obj := doc.(type) {
-	case *bill.Invoice:
-		normalizeInvoice(obj)
-	case *org.Party:
-		normalizeParty(obj)
-	case *org.Identity:
-		normalizeIdentity(obj)
-	case *tax.Combo:
-		normalizeTaxCombo(obj)
 	}
 }

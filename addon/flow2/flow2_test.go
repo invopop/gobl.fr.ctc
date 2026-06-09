@@ -3,13 +3,14 @@ package flow2
 import (
 	"testing"
 
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/addons/eu/en16931"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
+	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/pay"
@@ -152,6 +153,6 @@ func TestInvoiceMissingBillingModeFails(t *testing.T) {
 func TestNormalizeAddsRequiredNotes(t *testing.T) {
 	inv := testInvoiceB2BStandard(t)
 	inv.Notes = nil
-	tax.Normalize([]tax.Normalizer{tax.AddonForKey(V1).Normalizer}, inv)
+	norm.Normalize(inv, tax.AddonContext(V1))
 	assert.GreaterOrEqual(t, len(inv.Notes), 3)
 }
