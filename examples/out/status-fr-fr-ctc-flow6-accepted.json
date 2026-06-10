@@ -4,8 +4,10 @@
 		"uuid": "8a51fd30-2a27-11ee-be56-0242ac120002",
 		"dig": {
 			"alg": "sha256",
-			"val": "42442eff4b3811e278f350800d90fb84247d609d4fc7158d44bbed363852e997"
-		}
+			"val": "fbe4e53914067213031559a1d0001db89c5f3840f85f892c78e714d000f8afa7"
+		},
+		"from": "iso6523-actorid-upis::0225:200000008_PEP",
+		"to": "iso6523-actorid-upis::0225:732829320_PEP"
 	},
 	"doc": {
 		"$schema": "https://gobl.org/draft-0/bill/status",
@@ -25,6 +27,11 @@
 					"ext": {
 						"iso-scheme-id": "0002"
 					}
+				}
+			],
+			"endpoints": [
+				{
+					"uri": "iso6523-actorid-upis::0225:732829320_PEP"
 				}
 			],
 			"inboxes": [
@@ -47,6 +54,11 @@
 					"ext": {
 						"iso-scheme-id": "0002"
 					}
+				}
+			],
+			"endpoints": [
+				{
+					"uri": "iso6523-actorid-upis::0225:200000008_PEP"
 				}
 			],
 			"inboxes": [
