@@ -450,12 +450,11 @@ func lineHasStatusCode(code cbc.Code) rules.Test {
 // (fr-ctc-flow6-condition) defaults are populated when missing,
 // while an explicit caller pick within the bucket is preserved.
 //
-// The Reason carries one fr-ctc-flow6-condition value (CDAR cardinality
-// 0..1 per SpecifiedDocumentStatus). For multiple kinds of
-// characteristic on the same status line — e.g. DIV + DVA — add
-// multiple Reasons. The bill.Condition entries on each Reason are
-// reserved for Peppol cac:Condition-style business-rule codes
-// describing the affected field and value.
+// The Reason carries one fr-ctc-flow6-condition value classifying its
+// dominant characteristic kind. The full field-level corrections —
+// e.g. a DIV alongside a sibling DVA describing the same field — ride
+// the Reason's bill.Fault entries (fault code = characteristic
+// TypeCode, message = data name and value, paths = XML location).
 func normalizeReason(r *bill.Reason) {
 	if r == nil {
 		return
