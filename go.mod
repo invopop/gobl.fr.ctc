@@ -3,7 +3,7 @@ module github.com/invopop/gobl.fr.ctc
 go 1.24.0
 
 require (
-	github.com/invopop/gobl v0.403.1-0.20260609131918-abf22fe63a79
+	github.com/invopop/gobl v0.500.0
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -27,5 +27,3 @@ require (
 	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/invopop/gobl => ../gobl
