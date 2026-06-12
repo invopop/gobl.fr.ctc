@@ -4,10 +4,9 @@
 package flow6
 
 import (
-	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/i18n"
-	"github.com/invopop/gobl/org"
+	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/pkg/here"
 	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/rules/is"
@@ -36,6 +35,14 @@ func init() {
 		billReasonRules(),
 		billActionRules(),
 		orgPartyRules(),
+	)
+	norm.RegisterWithGuard(is.InContext(tax.AddonIn(V1)),
+		norm.For(normalizeStatus),
+		norm.For(normalizePayment),
+		norm.For(normalizeReason),
+		norm.For(normalizeAction),
+		norm.For(normalizeParty),
+		norm.For(normalizeIdentity),
 	)
 }
 
@@ -72,23 +79,5 @@ func newV1Addon() *tax.AddonDef {
 			},
 		},
 		Extensions: extensions,
-		Normalizer: normalize,
-	}
-}
-
-func normalize(doc any) {
-	switch obj := doc.(type) {
-	case *bill.Status:
-		normalizeStatus(obj)
-	case *bill.Payment:
-		normalizePayment(obj)
-	case *bill.Reason:
-		normalizeReason(obj)
-	case *bill.Action:
-		normalizeAction(obj)
-	case *org.Party:
-		normalizeParty(obj)
-	case *org.Identity:
-		normalizeIdentity(obj)
 	}
 }

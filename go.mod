@@ -3,7 +3,7 @@ module github.com/invopop/gobl.fr.ctc
 go 1.24.0
 
 require (
-	github.com/invopop/gobl v0.403.1-0.20260603150027-941c5b0b21dc
+	github.com/invopop/gobl v0.403.1-0.20260609131918-abf22fe63a79
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -19,10 +19,11 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/invopop/yaml v0.3.1 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/magefile/mage v1.15.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
+	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

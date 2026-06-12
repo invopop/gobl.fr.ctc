@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/currency"

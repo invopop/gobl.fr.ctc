@@ -3,11 +3,12 @@ package flow10
 import (
 	"testing"
 
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
+	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/pay"
@@ -19,10 +20,10 @@ import (
 )
 
 // runNormalize invokes the addon's registered normalizer on the given
-// object, matching what tax.Normalize would do during Calculate.
+// object, matching what norm.Normalize would do during Calculate.
 func runNormalize(t *testing.T, doc any) {
 	t.Helper()
-	tax.Normalize([]tax.Normalizer{tax.AddonForKey(V1).Normalizer}, doc)
+	norm.Normalize(doc, tax.AddonContext(V1))
 }
 
 // frPartyWithSIREN returns a French supplier party with a SIREN

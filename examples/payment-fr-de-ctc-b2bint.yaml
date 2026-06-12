@@ -1,6 +1,6 @@
 $schema: "https://gobl.org/draft-0/bill/payment"
 $addons:
-  - "fr-ctc-v1"
+  - "fr-ctc-flow10-v1"
 uuid: "1f4d3e8a-9b6c-4d2e-8e7f-7a3c4d5e6f01"
 type: "receipt"
 currency: "EUR"
