@@ -30,6 +30,10 @@ const (
 	// inboxSchemeSIREN is the scheme code for SIREN-based addresses
 	// (ISO/IEC 6523).
 	inboxSchemeSIREN cbc.Code = "0225"
+
+	// peppolEndpointScheme is the URI scheme used for Peppol participant
+	// identifier endpoints (same convention as the en16931 addon).
+	peppolEndpointScheme = "iso6523-actorid-upis"
 )
 
 // sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
@@ -70,6 +74,7 @@ func normalizeParty(party *org.Party) {
 		normalizeIdentity(id)
 	}
 	normalizeInboxes(party)
+	normalizeEndpoints(party)
 }
 
 // normalizeIdentity tags SIREN/SIRET identities with the ISO scheme
@@ -110,6 +115,29 @@ func normalizeInboxes(party *org.Party) {
 	}
 	if !hasPeppol && sirenInbox != nil {
 		sirenInbox.Key = org.InboxKeyPeppol
+	}
+}
+
+// normalizeEndpoints copies the peppol-keyed inbox into an
+// iso6523-actorid-upis endpoint when the party has none, so the
+// envelope can derive its Head.From / Head.To routing URIs from the
+// lifecycle document's parties.
+func normalizeEndpoints(party *org.Party) {
+	if party.Endpoint(peppolEndpointScheme) != nil {
+		return
+	}
+	for _, in := range party.Inboxes {
+		if in == nil || in.Key != org.InboxKeyPeppol {
+			continue
+		}
+		if in.Scheme == cbc.CodeEmpty || in.Code == cbc.CodeEmpty {
+			continue
+		}
+		party.Endpoints = append(party.Endpoints, &org.Endpoint{
+			Label: in.Label,
+			URI:   cbc.URI(peppolEndpointScheme + "::" + in.Scheme.String() + ":" + in.Code.String()),
+		})
+		return
 	}
 }
 
