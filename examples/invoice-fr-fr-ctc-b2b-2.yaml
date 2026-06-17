@@ -42,7 +42,7 @@ customer:
       code: "356000000"
   name: "Client Example SAS"
   endpoints:
-    - code: "peppol:0225:356000000"
+    - uri: "iso6523-actorid-upis::0225:356000000"
   inboxes:
     - scheme: "0225"
       code: "356000000"

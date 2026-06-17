@@ -120,6 +120,43 @@ func TestStatusKeyFilledFromStatusCodeExt(t *testing.T) {
 	assert.Equal(t, bill.StatusTypeResponse, st.Type)
 }
 
+func TestStatus209IsSupplierSideUpdate(t *testing.T) {
+	// 209 (Complétée) — the supplier completing a suspended invoice —
+	// rides (update, other) so the envelope's From/To auto-derivation
+	// points From at the supplier; 203 keeps (response, other).
+	t.Run("ext 209 derives (update, other)", func(t *testing.T) {
+		st := testStatus(t)
+		st.Type = ""
+		st.Lines[0].Key = ""
+		st.Lines[0].Ext = st.Lines[0].Ext.Set(ExtKeyStatus, "209")
+		runNormalize(t, st)
+		require.NoError(t, rules.Validate(st))
+		assert.Equal(t, bill.StatusTypeUpdate, st.Type)
+		assert.Equal(t, bill.StatusLineOther, st.Lines[0].Key)
+	})
+
+	t.Run("(update, other) derives ext 209", func(t *testing.T) {
+		st := testStatus(t)
+		st.Type = bill.StatusTypeUpdate
+		st.Lines[0].Key = bill.StatusLineOther
+		st.Lines[0].Ext = tax.Extensions{}
+		runNormalize(t, st)
+		require.NoError(t, rules.Validate(st))
+		assert.Equal(t, cbc.Code("209"), st.Lines[0].Ext.Get(ExtKeyStatus))
+	})
+
+	t.Run("ext 203 keeps (response, other)", func(t *testing.T) {
+		st := testStatus(t)
+		st.Type = ""
+		st.Lines[0].Key = ""
+		st.Lines[0].Ext = st.Lines[0].Ext.Set(ExtKeyStatus, "203")
+		runNormalize(t, st)
+		require.NoError(t, rules.Validate(st))
+		assert.Equal(t, bill.StatusTypeResponse, st.Type)
+		assert.Equal(t, bill.StatusLineOther, st.Lines[0].Key)
+	})
+}
+
 func TestStatusTypeMismatchRejected(t *testing.T) {
 	st := testStatus(t)
 	runNormalize(t, st)

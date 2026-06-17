@@ -30,15 +30,13 @@ const (
 
 	// ExtKeyCondition pins the CDAR CharacteristicTypeCode (MDT-207)
 	// on a bill.Reason attached to a Flow 6 rejection / dispute /
-	// partially-accepted / completed status line. The cardinality
-	// mirrors the spec: one TypeCode per Reason (CDAR's
-	// SpecifiedDocumentStatus). To express multiple kinds of
-	// characteristic on the same status line — e.g. a "DIV" alongside
-	// a sibling "DVA" describing the same field — add multiple
-	// Reasons to bill.StatusLine.Reasons, each with its own
-	// fr-ctc-flow6-condition value. The accompanying bill.Condition
-	// entries on the Reason carry the business-rule codes (Peppol
-	// cac:Condition style) plus the affected paths / values.
+	// partially-accepted / completed status line, classifying the
+	// reason's dominant characteristic kind. The full field-level
+	// correction payload (one SpecifiedDocumentCharacteristic each)
+	// rides the Reason's bill.Fault entries: the fault code carries
+	// the MDT-207 TypeCode (e.g. a "DIV" fault alongside a sibling
+	// "DVA" describing the same field), the message the data name and
+	// value, and the paths the XML location of the affected field.
 	ExtKeyCondition cbc.Key = "fr-ctc-flow6-condition"
 )
 
@@ -306,12 +304,11 @@ var extensions = []*cbc.Definition{
 				    MAJ (field-level corrections), MAP / MAPTTC /
 				    MNA / MNATTC (partial-approval / rejection
 				    amounts), ESC / RAB / REM (discount markers).
-				    Each Reason carries 0..1 condition (CDAR
-				    cardinality); to convey multiple characteristics
-				    for the same status line, add multiple Reasons.
-				    bill.Condition entries on each Reason are reserved
-				    for Peppol cac:Condition-style business-rule
-				    codes describing the affected field and value.
+				    Each Reason carries 0..1 condition classifying its
+				    dominant characteristic kind; the full field-level
+				    corrections ride the Reason's bill.Fault entries
+				    (fault code = characteristic TypeCode, message =
+				    data name and value, paths = XML location).
 				  - On bill.Payment.Ext: MEN (Encaissé), MPA (Payé),
 				    RAP (Reste à payer). The normalizer defaults the
 				    value from bill.Payment.Type (receipt → MEN,
