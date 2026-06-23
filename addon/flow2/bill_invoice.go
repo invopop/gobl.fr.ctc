@@ -364,7 +364,46 @@ func billInvoiceRules() *rules.Set {
 				is.Func("at most one LISIBLE", attachmentsAtMostOneLISIBLE),
 			),
 		),
+		rules.Assert("42", "invoice VAT category code must be valid for France — S, E, AE, K, G, O, Z; L (IGIC) and M (IPSI) are not relevant in France (BR-FR-15)",
+			is.Func("FR VAT category codes", invoiceVATCategoriesInFRSet),
+		),
 	)
+}
+
+// allowedFRVATCategories is the UNTDID 5305 (BT-118/BT-151) subset valid
+// for French invoices. L (IGIC, Canary Islands) and M (IPSI, Ceuta /
+// Melilla) are Spanish-territory categories and are explicitly not
+// relevant in France (BR-FR-15); EN 16931 permits them, so flow2 must
+// reject them itself.
+var allowedFRVATCategories = []cbc.Code{"S", "E", "AE", "K", "G", "O", "Z"}
+
+// invoiceVATCategoriesInFRSet passes when every line tax combo carrying a
+// UNTDID tax-category extension uses a France-valid code. Combos without
+// the extension (non-VAT) are ignored; the breakdown totals derive from
+// the lines, so checking the lines is sufficient.
+func invoiceVATCategoriesInFRSet(v any) bool {
+	inv, ok := v.(*bill.Invoice)
+	if !ok || inv == nil {
+		return true
+	}
+	for _, l := range inv.Lines {
+		if l == nil {
+			continue
+		}
+		for _, combo := range l.Taxes {
+			if combo == nil {
+				continue
+			}
+			cat := combo.Ext.Get(untdid.ExtKeyTaxCategory)
+			if cat == "" {
+				continue
+			}
+			if !slices.Contains(allowedFRVATCategories, cat) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // -- Rule-level guards ----------------------------------------------------

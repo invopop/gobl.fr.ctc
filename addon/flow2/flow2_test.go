@@ -132,6 +132,26 @@ func TestInvoiceB2BHappyPath(t *testing.T) {
 	require.NoError(t, rules.Validate(inv))
 }
 
+// The standard VAT rate normalizes to category S, which is valid in France.
+func TestInvoiceAcceptsFRVATCategory(t *testing.T) {
+	inv := testInvoiceB2BStandard(t)
+	require.NoError(t, inv.Calculate())
+	assert.Equal(t, cbc.Code("S"), inv.Lines[0].Taxes[0].Ext.Get(untdid.ExtKeyTaxCategory))
+	require.NoError(t, rules.Validate(inv))
+}
+
+// L (IGIC) and M (IPSI) are Spanish-territory categories that EN 16931
+// permits but France rejects (BR-FR-15); flow2 must catch them.
+func TestInvoiceRejectsSpanishVATCategories(t *testing.T) {
+	for _, code := range []cbc.Code{"L", "M"} {
+		inv := testInvoiceB2BStandard(t)
+		require.NoError(t, inv.Calculate())
+		inv.Lines[0].Taxes[0].Ext = inv.Lines[0].Taxes[0].Ext.Set(untdid.ExtKeyTaxCategory, code)
+		err := rules.Validate(inv)
+		assert.ErrorContains(t, err, "not relevant in France", "code %s", code)
+	}
+}
+
 func TestInvoiceCodeFormatRejectsBadChars(t *testing.T) {
 	inv := testInvoiceB2BStandard(t)
 	inv.Code = "INVALID CODE WITH SPACE"
