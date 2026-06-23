@@ -35,7 +35,8 @@ func init() {
 		rules.GOBL.Add(Namespace),
 		is.InContext(tax.AddonIn(V1)),
 		billInvoiceRules(),
-		b2gInvoiceRules(),
+		// extendedInvoiceRules() — wired here once the EXTENDED-CTC-FR
+		// deltas land (see extended.go); B2G lives on the flow2-b2g branch.
 		orgPartyRules(),
 		orgIdentityRules(),
 		orgInboxRules(),
