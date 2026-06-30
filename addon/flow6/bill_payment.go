@@ -58,7 +58,7 @@ func billPaymentRules() *rules.Set {
 				is.In(bill.PaymentTypeAdvice, bill.PaymentTypeReceipt),
 			),
 		),
-		rules.Assert("17", "payment code (or series) is required as the CDV document identifier (ram:ID; BR-FR-CDV-03, MDT-4)",
+		rules.Assert("17", "payment must carry a document identifier: set code or series (the CDV ram:ID; BR-FR-CDV-03, MDT-4)",
 			is.Func("code or series present", paymentHasDocumentID),
 		),
 		rules.Field("supplier",
