@@ -67,6 +67,25 @@ func TestPaymentReceiptHappyPath(t *testing.T) {
 	require.NoError(t, rules.Validate(pmt))
 }
 
+// BR-FR-CDV-03 (MDT-4): a CDV must carry a document identifier, which
+// gobl.cii maps from Code (falling back to Series).
+func TestPaymentRequiresDocumentID(t *testing.T) {
+	t.Run("missing code and series is rejected", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Code = ""
+		pmt.Series = ""
+		runNormalize(t, pmt)
+		assert.ErrorContains(t, rules.Validate(pmt), "document identifier")
+	})
+	t.Run("series alone satisfies the identifier", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Code = ""
+		pmt.Series = "PMT-2026"
+		runNormalize(t, pmt)
+		require.NoError(t, rules.Validate(pmt))
+	})
+}
+
 func TestPaymentReceiptSetsCDARStatusCode212(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	runNormalize(t, pmt)

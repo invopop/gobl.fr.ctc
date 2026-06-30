@@ -195,7 +195,7 @@ func billStatusRules() *rules.Set {
 				tax.ExtensionsHasCodes(ExtKeyStatus, statusProcessCodes...),
 			),
 		),
-		rules.Assert("25", "status code (or series) is required as the CDV document identifier (ram:ID; BR-FR-CDV-03, MDT-4)",
+		rules.Assert("25", "status must carry a document identifier: set code or series (the CDV ram:ID; BR-FR-CDV-03, MDT-4)",
 			is.Func("code or series present", statusHasDocumentID),
 		),
 		rules.Field("supplier",
