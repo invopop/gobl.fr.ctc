@@ -40,12 +40,26 @@ func normalizePayment(pmt *bill.Payment) {
 	}
 }
 
+// paymentHasDocumentID enforces BR-FR-CDV-03 (MDT-4): every CDV must carry a
+// document identifier. The CII conversion maps bill.Payment.Code to the CDAR
+// ExchangedDocument/ram:ID, falling back to Series, so at least one must be set.
+func paymentHasDocumentID(v any) bool {
+	p, ok := v.(*bill.Payment)
+	if !ok || p == nil {
+		return true
+	}
+	return p.Code != "" || p.Series != ""
+}
+
 func billPaymentRules() *rules.Set {
 	return rules.For(new(bill.Payment),
 		rules.Field("type",
 			rules.Assert("01", "payment type must be 'advice' (CDAR 211) or 'receipt' (CDAR 212); 'request' is not a Flow 6 CDV event",
 				is.In(bill.PaymentTypeAdvice, bill.PaymentTypeReceipt),
 			),
+		),
+		rules.Assert("17", "payment code (or series) is required as the CDV document identifier (ram:ID; BR-FR-CDV-03, MDT-4)",
+			is.Func("code or series present", paymentHasDocumentID),
 		),
 		rules.Field("supplier",
 			rules.Assert("02", "payment supplier is required (BR-FR-CDV-13)",

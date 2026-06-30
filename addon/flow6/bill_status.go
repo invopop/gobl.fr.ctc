@@ -172,6 +172,17 @@ func partyHasInboxWhenRequired(v any) bool {
 	return false
 }
 
+// statusHasDocumentID enforces BR-FR-CDV-03 (MDT-4): every CDV must carry a
+// document identifier. The CII conversion maps bill.Status.Code to the CDAR
+// ExchangedDocument/ram:ID, falling back to Series, so at least one must be set.
+func statusHasDocumentID(v any) bool {
+	s, ok := v.(*bill.Status)
+	if !ok || s == nil {
+		return true
+	}
+	return s.Code != "" || s.Series != ""
+}
+
 func billStatusRules() *rules.Set {
 	return rules.For(new(bill.Status),
 		rules.Field("type",
@@ -183,6 +194,9 @@ func billStatusRules() *rules.Set {
 			rules.Assert("02", "status ext fr-ctc-flow6-status must be a Status-applicable ProcessConditionCode (200-210 or 213); codes 211, 212 belong on bill.Payment",
 				tax.ExtensionsHasCodes(ExtKeyStatus, statusProcessCodes...),
 			),
+		),
+		rules.Assert("25", "status code (or series) is required as the CDV document identifier (ram:ID; BR-FR-CDV-03, MDT-4)",
+			is.Func("code or series present", statusHasDocumentID),
 		),
 		rules.Field("supplier",
 			rules.Assert("03", "status supplier is required (BR-FR-CDV-13)",
