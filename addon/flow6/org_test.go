@@ -52,6 +52,33 @@ func TestNormalizeParty(t *testing.T) {
 	})
 }
 
+func TestNormalizeEndpoints(t *testing.T) {
+	t.Run("derives an iso6523 endpoint from the peppol inbox", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{{Key: org.InboxKeyPeppol, Scheme: "0225", Code: "356000000"}}}
+		normalizeParty(p)
+		assert.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:356000000"), p.Endpoints[0].URI)
+	})
+	t.Run("keeps an existing iso6523 endpoint", func(t *testing.T) {
+		p := &org.Party{
+			Endpoints: []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:111"}},
+			Inboxes:   []*org.Inbox{{Key: org.InboxKeyPeppol, Scheme: "0225", Code: "356000000"}},
+		}
+		normalizeParty(p)
+		assert.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:111"), p.Endpoints[0].URI)
+	})
+	t.Run("ignores nil, non-peppol, and code-less inboxes", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			nil,
+			{Scheme: "0088", Code: "X"}, // not peppol-keyed
+			{Key: org.InboxKeyPeppol, Scheme: "0225"}, // missing code
+		}}
+		normalizeParty(p)
+		assert.Empty(t, p.Endpoints)
+	})
+}
+
 func TestNormalizeInboxes(t *testing.T) {
 	assert.NotPanics(t, func() { normalizeInboxes(nil) })
 	assert.NotPanics(t, func() { normalizeInboxes(&org.Party{}) })

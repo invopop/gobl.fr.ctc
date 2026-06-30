@@ -185,7 +185,7 @@ func billStatusRules() *rules.Set {
 			),
 		),
 		rules.Field("code",
-			rules.Assert("25", "status code is required as the CDV document identifier (ram:ID; BR-FR-CDV-03, MDT-4)",
+			rules.Assert("26", "status code is required as the CDV document identifier (ram:ID; BR-FR-CDV-03, MDT-4)",
 				is.Present,
 			),
 		),
