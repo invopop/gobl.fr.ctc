@@ -80,6 +80,25 @@ func TestStatusHappyPath(t *testing.T) {
 	assert.Equal(t, bill.StatusTypeResponse, st.Type)
 }
 
+// BR-FR-CDV-03 (MDT-4): a CDV must carry a document identifier, which
+// gobl.cii maps from Code (falling back to Series).
+func TestStatusRequiresDocumentID(t *testing.T) {
+	t.Run("missing code and series is rejected", func(t *testing.T) {
+		st := testStatus(t)
+		st.Code = ""
+		st.Series = ""
+		runNormalize(t, st)
+		assert.ErrorContains(t, rules.Validate(st), "document identifier")
+	})
+	t.Run("series alone satisfies the identifier", func(t *testing.T) {
+		st := testStatus(t)
+		st.Code = ""
+		st.Series = "CDV-2026"
+		runNormalize(t, st)
+		require.NoError(t, rules.Validate(st))
+	})
+}
+
 func TestStatusRejectsSTCIdentityScheme(t *testing.T) {
 	st := testStatus(t)
 	// Add an STC (0231) identity on the supplier — admissible on a
