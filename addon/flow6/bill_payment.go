@@ -121,8 +121,16 @@ func billPaymentRules() *rules.Set {
 					),
 				),
 			),
-			rules.Assert("18", "payment line must carry a VAT tax breakdown (MDT-224 — Encaissée, BR-FR-CDV-14); the rate may be exempt",
-				is.Func("line has VAT tax breakdown", paymentLineHasVATTax),
+		),
+		// MDT-224 is mandatory only for a 212 Encaissée (BR-FR-CDV-14): the
+		// cashed amount must be split by VAT rate. A 211 advice carries the
+		// amount alone, so the VAT breakdown is required for receipts only.
+		rules.When(
+			bill.PaymentTypeIn(bill.PaymentTypeReceipt),
+			rules.Field("lines",
+				rules.Assert("18", "receipt (212 Encaissée) payment line must carry a VAT tax breakdown (MDT-224, BR-FR-CDV-14); the rate may be exempt",
+					is.Func("line has VAT tax breakdown", paymentLineHasVATTax),
+				),
 			),
 		),
 		rules.Field("ext",

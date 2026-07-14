@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/tax"
@@ -28,3 +29,17 @@ func runNormalize(t *testing.T, doc any) {
 // quiet linter — keep iso import alive for fixtures defined in
 // bill_status_test.go.
 var _ = iso.ExtKeySchemeID
+
+func TestIsSelfBilledDocType(t *testing.T) {
+	selfBilled := []cbc.Code{"389", "261"}
+	for _, c := range selfBilled {
+		if !IsSelfBilledDocType(c) {
+			t.Errorf("expected %s to be self-billed", c)
+		}
+	}
+	for _, c := range []cbc.Code{"380", "381", "", "393"} {
+		if IsSelfBilledDocType(c) {
+			t.Errorf("expected %s NOT to be self-billed", c)
+		}
+	}
+}
