@@ -39,6 +39,10 @@ func normalizeStatusLine(s *bill.Status, line *bill.StatusLine) {
 	// If the line already has an extension, this will set the key.
 	prepareStatusWithLine(s, line)
 
+	// Soft migration: promote a legacy raw doc-type code on Doc.Type into
+	// the untdid-document-type extension (the form validation checks).
+	migrateDocRefType(line.Doc)
+
 	switch s.Type {
 	case bill.StatusTypeUpdate, bill.StatusTypeSystem:
 		// Supplier-side declarations (and system events).
@@ -246,6 +250,9 @@ func billStatusRules() *rules.Set {
 						rules.Assert("14", "status line doc issue_date is required (BR-FR-CDV-11)",
 							is.Present,
 						),
+					),
+					rules.Assert("25", "status line doc must carry the untdid-document-type extension (MDT-91) with a valid invoice type code",
+						is.Func("valid untdid-document-type", docRefHasValidType),
 					),
 				),
 				rules.Field("key",

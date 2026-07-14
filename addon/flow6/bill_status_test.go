@@ -6,6 +6,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/rules"
@@ -61,6 +62,7 @@ func testStatus(t *testing.T) *bill.Status {
 				Key:  bill.StatusLineAccepted,
 				Date: &issued,
 				Doc: &org.DocumentRef{
+					Ext:       tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyDocumentType: "380"}),
 					Code:      "INV-2026-001",
 					IssueDate: &issued,
 				},

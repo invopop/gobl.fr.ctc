@@ -38,6 +38,11 @@ func normalizePayment(pmt *bill.Payment) {
 			ConditionAmountReceived, ConditionAmountPaid, ConditionAmountRemaining,
 		)
 	}
+	for _, line := range pmt.Lines {
+		if line != nil {
+			migrateDocRefType(line.Document)
+		}
+	}
 }
 
 func billPaymentRules() *rules.Set {
@@ -111,7 +116,13 @@ func billPaymentRules() *rules.Set {
 							is.Present,
 						),
 					),
+					rules.Assert("17", "payment line document must carry the untdid-document-type extension (MDT-91) with a valid invoice type code",
+						is.Func("valid untdid-document-type", docRefHasValidType),
+					),
 				),
+			),
+			rules.Assert("18", "payment line must carry a VAT tax breakdown (MDT-224 — Encaissée, BR-FR-CDV-14); the rate may be exempt",
+				is.Func("line has VAT tax breakdown", paymentLineHasVATTax),
 			),
 		),
 		rules.Field("ext",
