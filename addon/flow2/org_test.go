@@ -92,6 +92,57 @@ func TestNormalizeParty(t *testing.T) {
 		normalizeParty(p)
 		assert.Equal(t, cbc.Key(""), p.Inboxes[1].Key)
 	})
+
+	t.Run("SIREN always gets legal scope even when another identity has it", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
+			{Key: identityKeyPrivateID, Code: "ABC123", Scope: org.IdentityScopeLegal},
+		}}
+		normalizeParty(p)
+		var siren *org.Identity
+		for _, id := range p.Identities {
+			if id.Type == fr.IdentityTypeSIREN {
+				siren = id
+			}
+		}
+		require.NotNil(t, siren)
+		assert.Equal(t, org.IdentityScopeLegal, siren.Scope)
+	})
+}
+
+func TestIdentitiesLegalScopeOnlySIREN(t *testing.T) {
+	assert.NoError(t, identitiesLegalScopeOnlySIREN("wrong-type"))
+	assert.NoError(t, identitiesLegalScopeOnlySIREN([]*org.Identity{}))
+
+	t.Run("legal SIREN allowed", func(t *testing.T) {
+		assert.NoError(t, identitiesLegalScopeOnlySIREN([]*org.Identity{sirenIdentity("732829320")}))
+	})
+	t.Run("non-legal other identity allowed", func(t *testing.T) {
+		ids := []*org.Identity{
+			sirenIdentity("732829320"),
+			{Key: identityKeyPrivateID, Code: "ABC123", Scope: org.IdentityScopeTax},
+		}
+		assert.NoError(t, identitiesLegalScopeOnlySIREN(ids))
+	})
+	t.Run("legal scope on non-SIREN errors", func(t *testing.T) {
+		ids := []*org.Identity{
+			{Key: identityKeyPrivateID, Code: "ABC123", Scope: org.IdentityScopeLegal},
+		}
+		err := identitiesLegalScopeOnlySIREN(ids)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "only the SIREN identity")
+	})
+}
+
+func TestIsSIRENIdentity(t *testing.T) {
+	assert.False(t, isSIRENIdentity(nil))
+	assert.False(t, isSIRENIdentity(&org.Identity{Code: "1"}))
+	// matched by type
+	assert.True(t, isSIRENIdentity(&org.Identity{Type: fr.IdentityTypeSIREN, Code: "1"}))
+	// matched by ISO scheme ID
+	assert.True(t, isSIRENIdentity(&org.Identity{
+		Code: "1", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN}),
+	}))
 }
 
 func TestSirenFromFrenchTaxID(t *testing.T) {
