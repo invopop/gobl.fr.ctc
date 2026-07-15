@@ -74,14 +74,21 @@ func normalizePartyFromTaxID(party *org.Party) {
 	}
 	country := l10n.Code(party.TaxID.Country)
 	code := string(party.TaxID.Code)
-	if code == "" {
+	// Derivation keys off the TaxID country, not the code: HORS_UE is
+	// built from country + name and needs no code at all, and many
+	// parties carry a country without a tax number. Schemes that do
+	// need the code guard for it individually below.
+	if country == "" {
 		return
 	}
 	switch {
 	case country == l10n.FR:
 		ensureIdentity(party, fr.IdentityTypeSIREN, cbc.Code(sirenFromFrenchTaxID(code, party)), identitySchemeIDSIREN)
 	case isEUNonFrance(country):
-		ensureIdentity(party, "", cbc.Code(country.String()+code), identitySchemeIDEUVAT)
+		// EU VAT is the country code + VAT number, so the code is required.
+		if code != "" {
+			ensureIdentity(party, "", cbc.Code(country.String()+code), identitySchemeIDEUVAT)
+		}
 	case country == l10n.NC:
 		ensureIdentity(party, "", cbc.Code(code), identitySchemeIDRIDET)
 	case country == l10n.PF:

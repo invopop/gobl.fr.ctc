@@ -114,6 +114,29 @@ func TestNormalizeParty(t *testing.T) {
 		normalizeParty(p)
 		assert.Empty(t, p.Identities)
 	})
+
+	t.Run("non-EU tax ID without a code still derives HORS_UE from name", func(t *testing.T) {
+		p := &org.Party{
+			Name:  "Global Trading",
+			TaxID: &tax.Identity{Country: "US"},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, cbc.Code(identitySchemeIDNonEU), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, cbc.Code("USGLOBALTRADING"), p.Identities[0].Code)
+	})
+
+	t.Run("EU non-France tax ID without a code is a no-op", func(t *testing.T) {
+		p := &org.Party{Name: "Muster GmbH", TaxID: &tax.Identity{Country: "DE"}}
+		normalizeParty(p)
+		assert.Empty(t, p.Identities)
+	})
+
+	t.Run("tax ID without a country is a no-op", func(t *testing.T) {
+		p := &org.Party{Name: "No Country Co", TaxID: &tax.Identity{Code: "123"}}
+		normalizeParty(p)
+		assert.Empty(t, p.Identities)
+	})
 }
 
 func TestNonEUIdentityCode(t *testing.T) {
