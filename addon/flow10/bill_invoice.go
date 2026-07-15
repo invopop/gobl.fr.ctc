@@ -68,10 +68,10 @@ func normalizeInvoice(inv *bill.Invoice) {
 	normalizeBillingMode(inv)
 }
 
-// invoiceIsB2CDoc reports whether the invoice is a B2C transaction —
-// Flow 10 distinguishes B2C from B2B by the absence of a Customer party.
+// invoiceIsB2CDoc is true when there is no customer, or the customer has no
+// legal identity (a private individual).
 func invoiceIsB2CDoc(inv *bill.Invoice) bool {
-	return inv != nil && inv.Customer == nil
+	return inv != nil && !partyHasAllowedLegalScheme(inv.Customer)
 }
 
 // normalizeBillingMode picks a sensible default for the billing-mode
@@ -214,20 +214,15 @@ func billInvoiceRules() *rules.Set {
 
 // -- Rule-level guards ----------------------------------------------------
 
-// invoiceIsB2C returns a Test that passes when the invoice has no
-// customer party (B2C transaction).
 func invoiceIsB2C() rules.Test {
-	return is.Func("invoice is B2C (no customer)", func(v any) bool {
+	return is.Func("invoice is B2C (no legal customer)", func(v any) bool {
 		inv, ok := v.(*bill.Invoice)
 		return ok && invoiceIsB2CDoc(inv)
 	})
 }
 
-// invoiceIsB2B returns a Test that passes when the invoice has a
-// customer party. Within Flow 10's scope these are cross-border B2B
-// invoices (domestic B2B clearance is Flow 2's territory).
 func invoiceIsB2B() rules.Test {
-	return is.Func("invoice is B2B (has customer)", func(v any) bool {
+	return is.Func("invoice is B2B (legal customer)", func(v any) bool {
 		inv, ok := v.(*bill.Invoice)
 		return ok && !invoiceIsB2CDoc(inv)
 	})

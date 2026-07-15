@@ -60,8 +60,14 @@ func normalizeParty(party *org.Party) {
 }
 
 // normalizePartyFromTaxID derives a legal identity from the party's
-// TaxID when no matching identity is present. French TaxID → SIREN
-// identity; other-EU TaxID → EU-VAT identity.
+// TaxID when no matching identity is present. The identity scheme is
+// chosen from the TaxID country:
+//   - France           → SIREN (0002)
+//   - other EU          → EU-VAT (0223), country code + VAT number
+//   - New Caledonia     → RIDET (0228)
+//   - French Polynesia  → TAHITI (0229)
+//   - any other country → HORS_UE (0227), country code + first 16
+//     characters of the party name (incl. Wallis & Futuna)
 func normalizePartyFromTaxID(party *org.Party) {
 	if party.TaxID == nil {
 		return
@@ -76,7 +82,33 @@ func normalizePartyFromTaxID(party *org.Party) {
 		ensureIdentity(party, fr.IdentityTypeSIREN, cbc.Code(sirenFromFrenchTaxID(code, party)), identitySchemeIDSIREN)
 	case isEUNonFrance(country):
 		ensureIdentity(party, "", cbc.Code(country.String()+code), identitySchemeIDEUVAT)
+	case country == l10n.NC:
+		ensureIdentity(party, "", cbc.Code(code), identitySchemeIDRIDET)
+	case country == l10n.PF:
+		ensureIdentity(party, "", cbc.Code(code), identitySchemeIDTAHITI)
+	default:
+		if id := nonEUIdentityCode(country, party.Name); id != "" {
+			ensureIdentity(party, "", cbc.Code(id), identitySchemeIDNonEU)
+		}
 	}
+}
+
+// nonEUIdentityCode builds the 18-character HORS_UE (0227) identifier:
+// the 2-letter ISO country code followed by up to the first 16
+// alphanumeric characters of the party name. Returns an empty string
+// (so no identity is created) when the country or name is missing.
+func nonEUIdentityCode(country l10n.Code, name string) string {
+	if country == "" {
+		return ""
+	}
+	clean := cbc.NormalizeAlphanumericalCode(cbc.Code(name)).String()
+	if clean == "" {
+		return ""
+	}
+	if len(clean) > 16 {
+		clean = clean[:16]
+	}
+	return country.String() + clean
 }
 
 // sirenFromFrenchTaxID extracts the 9-digit SIREN from a French TaxID.
@@ -261,6 +293,9 @@ func orgPartyRules() *rules.Set {
 			rules.Assert("01", "party identities must not duplicate iso-scheme-id values (BR-FR-CO-10)",
 				is.Func("unique iso-scheme-id", identitiesSchemesUnique),
 			),
+			rules.Assert("03", "only one identity may have the legal scope",
+				is.Func("single legal-scope identity", identitiesSingleLegalScope),
+			),
 			rules.Each(
 				rules.Field("ext",
 					rules.Assert("02", "party identity ext iso-scheme-id is required (BR-FR-CO-10)",
@@ -270,6 +305,70 @@ func orgPartyRules() *rules.Set {
 			),
 		),
 	)
+}
+
+// orgIdentityRules validates the code of the France-specific identity
+// schemes against the lengths and format required by the CTC spec (G1.73).
+func orgIdentityRules() *rules.Set {
+	return rules.For(new(org.Identity),
+		// 0227 HORS_UE: up to 18 uppercase alphanumeric characters
+		// (2-letter country code + up to 16 name characters).
+		rules.When(
+			is.Func("scheme 0227", identitySchemeIs(identitySchemeIDNonEU)),
+			rules.Field("code",
+				rules.Assert("01", "HORS_UE (0227) identity must be no more than 18 characters (G1.73)",
+					is.Length(0, 18),
+				),
+				rules.Assert("02", "HORS_UE (0227) identity must be uppercase alphanumeric (G1.73)",
+					is.Matches(`^[A-Z0-9]+$`),
+				),
+			),
+		),
+		// 0228 RIDET: 9 or 10 characters.
+		rules.When(
+			is.Func("scheme 0228", identitySchemeIs(identitySchemeIDRIDET)),
+			rules.Field("code",
+				rules.Assert("03", "RIDET (0228) identity must be 9 or 10 characters (G1.73)",
+					is.Length(9, 10),
+				),
+			),
+		),
+		// 0229 TAHITI: 9 characters.
+		rules.When(
+			is.Func("scheme 0229", identitySchemeIs(identitySchemeIDTAHITI)),
+			rules.Field("code",
+				rules.Assert("04", "TAHITI (0229) identity must be 9 characters (G1.73)",
+					is.Length(9, 9),
+				),
+			),
+		),
+	)
+}
+
+// identitySchemeIs returns a test that passes when the identity carries the
+// given ISO 6523 scheme ID in its extensions.
+func identitySchemeIs(scheme string) func(any) bool {
+	return func(val any) bool {
+		id, ok := val.(*org.Identity)
+		return ok && id != nil && !id.Ext.IsZero() &&
+			id.Ext.Get(iso.ExtKeySchemeID).String() == scheme
+	}
+}
+
+// identitiesSingleLegalScope reports whether at most one identity carries
+// the legal scope.
+func identitiesSingleLegalScope(val any) bool {
+	identities, ok := val.([]*org.Identity)
+	if !ok {
+		return true
+	}
+	legal := 0
+	for _, id := range identities {
+		if id != nil && id.Scope.Has(org.IdentityScopeLegal) {
+			legal++
+		}
+	}
+	return legal <= 1
 }
 
 // identitiesSchemesUnique reports whether the slice contains at most

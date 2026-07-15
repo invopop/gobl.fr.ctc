@@ -1,12 +1,14 @@
 package flow10
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/regimes/fr"
+	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,6 +69,66 @@ func TestNormalizeParty(t *testing.T) {
 		assert.Equal(t, cbc.Code("732829320"), siren.Code)
 		assert.Equal(t, org.IdentityScopeLegal, siren.Scope)
 	})
+
+	t.Run("New Caledonia tax ID derives RIDET identity", func(t *testing.T) {
+		p := &org.Party{TaxID: &tax.Identity{Country: "NC", Code: "1234567"}}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, cbc.Code(identitySchemeIDRIDET), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, cbc.Code("1234567"), p.Identities[0].Code)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+	})
+
+	t.Run("French Polynesia tax ID derives TAHITI identity", func(t *testing.T) {
+		p := &org.Party{TaxID: &tax.Identity{Country: "PF", Code: "123456789"}}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, cbc.Code(identitySchemeIDTAHITI), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, cbc.Code("123456789"), p.Identities[0].Code)
+	})
+
+	t.Run("non-EU tax ID derives HORS_UE identity from name", func(t *testing.T) {
+		p := &org.Party{
+			Name:  "Global Trading",
+			TaxID: &tax.Identity{Country: "US", Code: "TAX-123"},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, cbc.Code(identitySchemeIDNonEU), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, cbc.Code("USGLOBALTRADING"), p.Identities[0].Code)
+	})
+
+	t.Run("Wallis & Futuna tax ID is treated as HORS_UE", func(t *testing.T) {
+		p := &org.Party{
+			Name:  "Island Co",
+			TaxID: &tax.Identity{Country: "WF", Code: "X"},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, cbc.Code(identitySchemeIDNonEU), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, cbc.Code("WFISLANDCO"), p.Identities[0].Code)
+	})
+
+	t.Run("non-EU tax ID without a name is a no-op", func(t *testing.T) {
+		p := &org.Party{TaxID: &tax.Identity{Country: "US", Code: "TAX-123"}}
+		normalizeParty(p)
+		assert.Empty(t, p.Identities)
+	})
+}
+
+func TestNonEUIdentityCode(t *testing.T) {
+	// missing country or name → empty (no identity built)
+	assert.Equal(t, "", nonEUIdentityCode("", "Some Name"))
+	assert.Equal(t, "", nonEUIdentityCode("US", ""))
+	assert.Equal(t, "", nonEUIdentityCode("US", "!!! ---"))
+	// country code + cleaned, uppercased name
+	assert.Equal(t, "USGLOBALTRADING", nonEUIdentityCode("US", "Global Trading"))
+	// uppercased alphanumeric: digits kept, spaces/punctuation dropped
+	assert.Equal(t, "USABC123DEF", nonEUIdentityCode("US", "abc 123-def!"))
+	// name truncated to 16 characters (18 total with country code)
+	got := nonEUIdentityCode("US", "AbcdefghijklmnopqrsTuv")
+	assert.Equal(t, "USABCDEFGHIJKLMNOP", got)
+	assert.Len(t, got, 18)
 }
 
 func TestSirenFromFrenchTaxID(t *testing.T) {
@@ -157,6 +219,72 @@ func TestIdentitiesSchemesUnique(t *testing.T) {
 	assert.True(t, identitiesSchemesUnique(unique))
 	dup := []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1"), legalIdentity(identitySchemeIDSIREN, "2")}
 	assert.False(t, identitiesSchemesUnique(dup))
+}
+
+func TestIdentitiesSingleLegalScope(t *testing.T) {
+	assert.True(t, identitiesSingleLegalScope("wrong-type"))
+	assert.True(t, identitiesSingleLegalScope([]*org.Identity{}))
+	// nil entries and non-legal identities are ignored
+	assert.True(t, identitiesSingleLegalScope([]*org.Identity{nil, {Code: "x"}}))
+	// exactly one legal identity is fine
+	assert.True(t, identitiesSingleLegalScope([]*org.Identity{
+		legalIdentity(identitySchemeIDSIREN, "1"),
+		{Code: "2", Scope: org.IdentityScopeTax},
+	}))
+	// two legal identities are rejected
+	assert.False(t, identitiesSingleLegalScope([]*org.Identity{
+		legalIdentity(identitySchemeIDSIREN, "1"),
+		legalIdentity(identitySchemeIDEUVAT, "2"),
+	}))
+}
+
+func TestIdentitySchemeIs(t *testing.T) {
+	fn := identitySchemeIs(identitySchemeIDNonEU)
+	assert.False(t, fn("wrong-type"))
+	assert.False(t, fn((*org.Identity)(nil)))
+	assert.False(t, fn(&org.Identity{Code: "x"}))
+	assert.True(t, fn(&org.Identity{
+		Code: "x", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDNonEU}),
+	}))
+}
+
+func TestOrgIdentityValidate(t *testing.T) {
+	ctx := tax.AddonContext(V1)
+	ident := func(scheme, code string) *org.Identity {
+		return &org.Identity{
+			Code: cbc.Code(code),
+			Ext:  tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: cbc.Code(scheme)}),
+		}
+	}
+
+	t.Run("valid HORS_UE", func(t *testing.T) {
+		assert.NoError(t, rules.Validate(ident(identitySchemeIDNonEU, "USGLOBALTRADING"), ctx))
+	})
+	t.Run("HORS_UE too long", func(t *testing.T) {
+		err := rules.Validate(ident(identitySchemeIDNonEU, strings.Repeat("A", 19)), ctx)
+		assert.ErrorContains(t, err, "18 characters")
+	})
+	t.Run("HORS_UE not uppercase alphanumeric", func(t *testing.T) {
+		err := rules.Validate(ident(identitySchemeIDNonEU, "us-abc"), ctx)
+		assert.ErrorContains(t, err, "uppercase alphanumeric")
+	})
+
+	t.Run("valid RIDET (9 and 10)", func(t *testing.T) {
+		assert.NoError(t, rules.Validate(ident(identitySchemeIDRIDET, "123456789"), ctx))
+		assert.NoError(t, rules.Validate(ident(identitySchemeIDRIDET, "1234567890"), ctx))
+	})
+	t.Run("RIDET wrong length", func(t *testing.T) {
+		err := rules.Validate(ident(identitySchemeIDRIDET, "12345"), ctx)
+		assert.ErrorContains(t, err, "9 or 10 characters")
+	})
+
+	t.Run("valid TAHITI", func(t *testing.T) {
+		assert.NoError(t, rules.Validate(ident(identitySchemeIDTAHITI, "123456789"), ctx))
+	})
+	t.Run("TAHITI wrong length", func(t *testing.T) {
+		err := rules.Validate(ident(identitySchemeIDTAHITI, "12345678"), ctx)
+		assert.ErrorContains(t, err, "9 characters")
+	})
 }
 
 func TestNormalizeIdentityFlow10(t *testing.T) {
