@@ -35,21 +35,6 @@ var referencedInvoiceTypes = []cbc.Code{
 	"381", "261", "396", "502", "503", "262",
 }
 
-// selfBilledDocTypes are the UNTDID 1001 codes for a self-billed referenced
-// invoice — one the buyer (customer) issues in the seller's name. Under
-// self-billing the invoice issuer is the buyer, not the supplier, which
-// changes who fills the CDV's referenced-invoice issuer slot (MDT-129).
-var selfBilledDocTypes = []cbc.Code{
-	"389", // Self-billed invoice
-	"261", // Self billed credit note
-}
-
-// IsSelfBilledDocType reports whether the given UNTDID document type code
-// denotes a self-billed referenced invoice (buyer-issued).
-func IsSelfBilledDocType(code cbc.Code) bool {
-	return slices.Contains(selfBilledDocTypes, code)
-}
-
 // docRefHasValidType reports whether a referenced document carries the
 // untdid-document-type extension (MDT-91) set to a valid invoice type code.
 // Presence is required — tax.ExtensionsHasCodes only constrains the value
