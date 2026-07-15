@@ -179,22 +179,15 @@ func normalizeInboxes(party *org.Party) {
 
 // -- Helpers --------------------------------------------------------------
 
-// isSIRENIdentity reports whether the identity is a French SIREN, matched
-// either by its regime type or by the ISO scheme ID (0002).
-func isSIRENIdentity(id *org.Identity) bool {
-	if id == nil {
-		return false
-	}
-	return id.Type == fr.IdentityTypeSIREN ||
-		(!id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN)
-}
-
+// getPartySIREN returns the code of the party's SIREN identity (ISO
+// scheme 0002), or "" if none is present. Identities are normalized to
+// carry the scheme before validation runs.
 func getPartySIREN(party *org.Party) string {
 	if party == nil {
 		return ""
 	}
 	for _, id := range party.Identities {
-		if isSIRENIdentity(id) {
+		if id != nil && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
 			return string(id.Code)
 		}
 	}
@@ -215,19 +208,29 @@ func isPartyIdentitySTC(party *org.Party) bool {
 	return false
 }
 
-func identitiesHasLegalSIREN(val any) bool {
+// legalIdentity returns the identity carrying the legal scope, or nil if
+// none is present. en16931 enforces at most one legal-scope identity per
+// party (BT-30/BT-47), so the first match is authoritative.
+func legalIdentity(identities []*org.Identity) *org.Identity {
+	for _, id := range identities {
+		if id != nil && id.Scope.Has(org.IdentityScopeLegal) {
+			return id
+		}
+	}
+	return nil
+}
+
+// identitiesLegalIsSIREN reports whether the party's legal identity is
+// present and carries the SIREN ISO scheme (0002). France's legal
+// identifier is the SIREN, so the single legal-scope identity guaranteed
+// by en16931 must be the SIREN.
+func identitiesLegalIsSIREN(val any) bool {
 	identities, ok := val.([]*org.Identity)
 	if !ok {
 		return true
 	}
-	for _, id := range identities {
-		if id != nil && !id.Ext.IsZero() {
-			if code := id.Ext.Get(iso.ExtKeySchemeID); code == identitySchemeIDSIREN && id.Scope.Has(org.IdentityScopeLegal) {
-				return true
-			}
-		}
-	}
-	return false
+	id := legalIdentity(identities)
+	return id != nil && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN
 }
 
 func partyHasSIRENInbox(val any) bool {
@@ -257,9 +260,6 @@ func orgPartyRules() *rules.Set {
 			),
 			rules.Assert("02", "identity scheme format invalid (BR-FR-CO-10)",
 				is.FuncError("valid scheme format", identitiesSchemeFormatValid),
-			),
-			rules.Assert("04", "only the SIREN identity may hold the legal scope",
-				is.FuncError("legal scope only on SIREN", identitiesLegalScopeOnlySIREN),
 			),
 		),
 		rules.Field("inboxes",
@@ -376,24 +376,6 @@ func identitiesSchemeFormatValid(val any) error {
 			}
 		}
 		schemes[schemeID] = true
-	}
-	return nil
-}
-
-// identitiesLegalScopeOnlySIREN enforces that only the SIREN identity may
-// carry the legal scope. Any other identity flagged as legal is rejected.
-func identitiesLegalScopeOnlySIREN(val any) error {
-	identities, ok := val.([]*org.Identity)
-	if !ok || len(identities) == 0 {
-		return nil
-	}
-	for _, id := range identities {
-		if id == nil || !id.Scope.Has(org.IdentityScopeLegal) {
-			continue
-		}
-		if !isSIRENIdentity(id) {
-			return errors.New("only the SIREN identity may have the legal scope")
-		}
 	}
 	return nil
 }
