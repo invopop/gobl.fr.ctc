@@ -9,8 +9,10 @@ import (
 	"github.com/invopop/gobl/tax"
 )
 
-// normalizePayment sets the status code and default party roles. An
-// advice comes from the payer (BY → SE), a receipt from the payee (SE → BY).
+// normalizePayment sets the status code and default party roles. The
+// supplier is always the seller (SE) and the customer the buyer (BY);
+// direction is derived from the payment type at generation, not by
+// flipping roles here.
 func normalizePayment(pmt *bill.Payment) {
 	if pmt == nil {
 		return
@@ -18,8 +20,8 @@ func normalizePayment(pmt *bill.Payment) {
 	switch pmt.Type {
 	case bill.PaymentTypeAdvice:
 		pmt.Ext = pmt.Ext.Set(ExtKeyStatus, "211")
-		setPartyRoleDefault(pmt.Customer, RoleSeller)
-		setPartyRoleDefault(pmt.Supplier, RoleBuyer)
+		setPartyRoleDefault(pmt.Supplier, RoleSeller)
+		setPartyRoleDefault(pmt.Customer, RoleBuyer)
 		pmt.Ext = pmt.Ext.SetOneOf(ExtKeyCondition,
 			ConditionAmountPaid, ConditionAmountReceived, ConditionAmountRemaining,
 		)

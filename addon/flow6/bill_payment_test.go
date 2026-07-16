@@ -137,14 +137,16 @@ func TestPaymentReceiptDefaultsSupplierRoleSeller(t *testing.T) {
 	assert.Equal(t, RoleBuyer, pmt.Customer.Ext.Get(ExtKeyRole))
 }
 
-func TestPaymentAdviceFlipsRoles(t *testing.T) {
+func TestPaymentAdviceKeepsSellerBuyerRoles(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	pmt.Type = bill.PaymentTypeAdvice
 	runNormalize(t, pmt)
-	// Advice = payer-issued: customer (payee) becomes SE, supplier
-	// (payer in the payment-doc sense) becomes BY.
-	assert.Equal(t, RoleSeller, pmt.Customer.Ext.Get(ExtKeyRole))
-	assert.Equal(t, RoleBuyer, pmt.Supplier.Ext.Get(ExtKeyRole))
+	// The role code names the party, not the issuer: the supplier is the
+	// seller (SE) and the customer the buyer (BY), same as a receipt. An
+	// advice being payer-issued is reflected at generation time by making
+	// the buyer the CDAR issuer (cdar_payment.go), not by flipping roles.
+	assert.Equal(t, RoleSeller, pmt.Supplier.Ext.Get(ExtKeyRole))
+	assert.Equal(t, RoleBuyer, pmt.Customer.Ext.Get(ExtKeyRole))
 }
 
 func TestPaymentRejectsRequestType(t *testing.T) {
