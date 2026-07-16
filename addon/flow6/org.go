@@ -40,7 +40,7 @@ const (
 // shared by SIREN-scope inboxes and private-id identity codes.
 var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
 
-// allowedFlow6IdentitySchemes is the ICD 6523 subset CDAR accepts on
+// allowedFlow6IdentitySchemes is the ICD 6523 subset accepted on
 // Flow 6 (CDV lifecycle) party identities. STC (0231 — assujetti
 // unique) is intentionally absent: it is a Flow 2 invoice concept and
 // must not appear on a CDV.

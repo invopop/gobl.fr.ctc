@@ -1,11 +1,11 @@
 # A Flow 6 payment receipt between two French parties. The fr-ctc-flow6-v1
 # meta-addon inspects the document, sees both parties are French and
 # the type is `receipt`, and routes it to fr-ctc-flow6-v1 — which
-# normalises the CDAR ProcessConditionCode to "212" (Encaissée) and
+# normalises the lifecycle status code to "212" (Encaissée) and
 # defaults the party roles (Supplier → SE, Customer → BY).
 #
 # A `type: advice` document follows the same shape and resolves to
-# CDAR 211 (Paiement transmis) with the roles flipped.
+# status code 211 (Paiement transmis) with the roles flipped.
 $schema: "https://gobl.org/draft-0/bill/payment"
 $addons:
   - "fr-ctc-flow6-v1"

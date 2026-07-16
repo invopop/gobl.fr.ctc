@@ -178,7 +178,7 @@ func billStatusRules() *rules.Set {
 			),
 		),
 		rules.Field("ext",
-			rules.Assert("02", "status ext fr-ctc-flow6-status must be a Status-applicable ProcessConditionCode (200-210 or 213); codes 211, 212 belong on bill.Payment",
+			rules.Assert("02", "status ext fr-ctc-flow6-status must be a Status-applicable status code (200-210 or 213); codes 211, 212 belong on bill.Payment",
 				tax.ExtensionsHasCodes(ExtKeyStatus, statusProcessCodes...),
 			),
 		),
@@ -266,8 +266,8 @@ func billStatusRules() *rules.Set {
 						),
 					),
 				),
-				// Each Reason's CDAR ReasonCode must be in the allow-list
-				// for the line's ProcessConditionCode (the
+				// Each Reason's reason code must be in the allow-list
+				// for the line's lifecycle status code (the
 				// line.Ext[ExtKeyStatus] value derived by
 				// normalizeStatusLine).
 				rules.When(
@@ -428,10 +428,10 @@ func statusIsBusinessIssued(v any) bool {
 	return false
 }
 
-// lineHasStatusCode gates a rules.When on the line's CDAR
-// ProcessConditionCode (line.Ext[ExtKeyStatus] — set by
+// lineHasStatusCode gates a rules.When on the line's lifecycle
+// status code (line.Ext[ExtKeyStatus] — set by
 // normalizeStatusLine from the (Status.Type, line.Key) pair). Used to
-// branch BR-FR-CDV-CL-09's per-process-code reason allow-lists.
+// branch BR-FR-CDV-CL-09's per-status-code reason allow-lists.
 func lineHasStatusCode(code cbc.Code) rules.Test {
 	return is.Func(fmt.Sprintf("line status code %s", code), func(v any) bool {
 		line, ok := v.(*bill.StatusLine)
@@ -442,30 +442,30 @@ func lineHasStatusCode(code cbc.Code) rules.Test {
 // -- bill.Reason --------------------------------------------------------
 
 // normalizeReason maps between bill.Reason.Key (Peppol-aligned
-// rejection bucket) and the CDAR extensions on the Reason. Following
+// rejection bucket) and the Flow 6 extensions on the Reason. Following
 // addons/es/verifactu/tax.go's normalizeTaxCombo pattern: a reverse
 // step via prepareReasonKey recovers Key from a previously-set
-// ReasonCode extension, then a forward switch chains SetOneOf calls
-// so the CDAR ReasonCode (fr-ctc-flow6-reason) and CharacteristicType
+// reason-code extension, then a forward switch chains SetOneOf calls
+// so the reason code (fr-ctc-flow6-reason) and condition code
 // (fr-ctc-flow6-condition) defaults are populated when missing,
 // while an explicit caller pick within the bucket is preserved.
 //
 // The Reason carries one fr-ctc-flow6-condition value classifying its
 // dominant characteristic kind. The full field-level corrections —
 // e.g. a DIV alongside a sibling DVA describing the same field — ride
-// the Reason's bill.Fault entries (fault code = characteristic
-// TypeCode, message = data name and value, paths = XML location).
+// the Reason's bill.Fault entries (fault code = condition code,
+// message = data name and value, paths = field location).
 func normalizeReason(r *bill.Reason) {
 	if r == nil {
 		return
 	}
 
-	// Reverse step: fill Reason.Key from the CDAR ReasonCode ext
+	// Reverse step: fill Reason.Key from the reason-code ext
 	// when only the ext is set (round-tripping a parsed CDV).
 	prepareReasonKey(r)
 
 	// Forward step: per bucket, SetOneOf defaults each ext to the
-	// first listed CDAR code and preserves any caller-set value that
+	// first listed code and preserves any caller-set value that
 	// already matches one of the bucket's other allowed codes.
 	switch r.Key {
 	case bill.ReasonKeyFinanceTerms:
@@ -563,7 +563,7 @@ func normalizeReason(r *bill.Reason) {
 }
 
 // normalizeAction maps between bill.Action.Key (Peppol-aligned) and
-// the CDAR RequestedActionCode (MDT-121) extension. Mirrors
+// the requested-action extension. Mirrors
 // normalizeReason: a reverse step via prepareActionKey recovers Key
 // from a previously-set ext, then a forward switch chains SetOneOf
 // calls to default the ext when missing while preserving any
@@ -591,7 +591,7 @@ func normalizeAction(a *bill.Action) {
 	}
 }
 
-// prepareActionKey reverse-maps the CDAR RequestedActionCode
+// prepareActionKey reverse-maps the requested-action
 // extension to its bill.Action.Key when the caller has only set the
 // ext (e.g. when round-tripping a parsed CDV).
 func prepareActionKey(a *bill.Action) {
@@ -622,7 +622,7 @@ func prepareActionKey(a *bill.Action) {
 func billActionRules() *rules.Set {
 	return rules.For(new(bill.Action),
 		rules.Field("ext",
-			rules.Assert("01", "action ext fr-ctc-flow6-action must be a known CDAR RequestedActionCode (MDT-121)",
+			rules.Assert("01", "action ext fr-ctc-flow6-action must be a known Flow 6 action code",
 				tax.ExtensionHasValidCode(ExtKeyAction),
 			),
 		),
@@ -632,17 +632,17 @@ func billActionRules() *rules.Set {
 func billReasonRules() *rules.Set {
 	return rules.For(new(bill.Reason),
 		rules.Field("ext",
-			rules.Assert("01", "reason ext fr-ctc-flow6-reason must be a known CDAR ReasonCode",
+			rules.Assert("01", "reason ext fr-ctc-flow6-reason must be a known Flow 6 reason code",
 				tax.ExtensionHasValidCode(ExtKeyReason),
 			),
-			rules.Assert("02", "reason ext fr-ctc-flow6-condition must be a Status-applicable CharacteristicTypeCode (CBB, DIV, DVA, MAJ, MAP, MAPTTC, MNA, MNATTC, ESC, RAB, REM); MEN, MPA, RAP belong on bill.Payment",
+			rules.Assert("02", "reason ext fr-ctc-flow6-condition must be a Status-applicable condition code (CBB, DIV, DVA, MAJ, MAP, MAPTTC, MNA, MNATTC, ESC, RAB, REM); MEN, MPA, RAP belong on bill.Payment",
 				tax.ExtensionsHasCodes(ExtKeyCondition, statusConditionCodes...),
 			),
 		),
 	)
 }
 
-// prepareReasonKey reverse-maps the CDAR ReasonCode extension to its
+// prepareReasonKey reverse-maps the reason-code extension to its
 // bill.Reason.Key bucket when the caller has only set the ext (e.g.
 // when round-tripping a parsed CDV).
 func prepareReasonKey(r *bill.Reason) {
