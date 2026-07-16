@@ -12,8 +12,13 @@ import (
 // normalizePayment surfaces the CDAR ProcessConditionCode for the
 // payment on the fr-ctc-flow6-status extension and defaults the roles
 // on the payment's parties — mirrors what normalizeStatus does for
-// bill.Status. Advice payments are issued by the payer (BY → SE);
-// receipt payments by the payee (SE → BY).
+// bill.Status. The role code names the party, not who issues the CDV:
+// the supplier is always the seller (SE) and the customer always the
+// buyer (BY), for both advice and receipt. Direction (an advice is
+// payer-issued, so the buyer is the CDAR issuer; a receipt is
+// payee-issued, so the seller is) is derived from the payment type at
+// generation time (gobl core's Head.From/To via Payment.FromEndpoint,
+// and gobl.cii cdar_payment.go) — NOT by flipping the role codes here.
 func normalizePayment(pmt *bill.Payment) {
 	if pmt == nil {
 		return
@@ -21,8 +26,8 @@ func normalizePayment(pmt *bill.Payment) {
 	switch pmt.Type {
 	case bill.PaymentTypeAdvice:
 		pmt.Ext = pmt.Ext.Set(ExtKeyStatus, "211")
-		setPartyRoleDefault(pmt.Customer, RoleSeller)
-		setPartyRoleDefault(pmt.Supplier, RoleBuyer)
+		setPartyRoleDefault(pmt.Supplier, RoleSeller)
+		setPartyRoleDefault(pmt.Customer, RoleBuyer)
 		// Default characteristic for an advice (211 Paiement transmis)
 		// is "amount paid" (MPA). Callers can override to MEN or RAP.
 		pmt.Ext = pmt.Ext.SetOneOf(ExtKeyCondition,
