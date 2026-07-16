@@ -121,7 +121,7 @@ func TestIdentitySchemeIsPrivate(t *testing.T) {
 }
 
 // TestPrepareStatusWithLineFromCode covers the reverse mapping from a
-// pre-set CDAR ProcessConditionCode to the (Status.Type, line.Key) pair,
+// pre-set lifecycle status code to the (Status.Type, line.Key) pair,
 // and the forward derivation of Type from a line.Key when no code is set.
 func TestPrepareStatusWithLineFromCode(t *testing.T) {
 	type want struct {

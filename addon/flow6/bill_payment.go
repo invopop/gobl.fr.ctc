@@ -43,7 +43,7 @@ func normalizePayment(pmt *bill.Payment) {
 func billPaymentRules() *rules.Set {
 	return rules.For(new(bill.Payment),
 		rules.Field("type",
-			rules.Assert("01", "payment type must be 'advice' (CDAR 211) or 'receipt' (CDAR 212); 'request' is not a Flow 6 CDV event",
+			rules.Assert("01", "payment type must be 'advice' (status code 211) or 'receipt' (status code 212); 'request' is not a Flow 6 CDV event",
 				is.In(bill.PaymentTypeAdvice, bill.PaymentTypeReceipt),
 			),
 		),
@@ -131,17 +131,21 @@ func billPaymentRules() *rules.Set {
 			),
 		),
 		rules.Field("ext",
-			rules.Assert("13", "payment ext fr-ctc-flow6-status must be a Payment-applicable ProcessConditionCode (211 advice or 212 receipt); codes 200-210, 213 belong on bill.Status",
+			rules.Assert("13", "payment ext fr-ctc-flow6-status must be a Payment-applicable status code (211 advice or 212 receipt); codes 200-210, 213 belong on bill.Status",
 				tax.ExtensionsHasCodes(ExtKeyStatus, paymentProcessCodes...),
 			),
-			rules.Assert("14", "payment ext fr-ctc-flow6-condition must be a Payment-applicable CharacteristicTypeCode (MEN, MPA, RAP); status-only codes (CBB, DIV, DVA, MAJ, MAP, MAPTTC, MNA, MNATTC, ESC, RAB, REM) belong on a bill.Reason under bill.Status",
+			rules.Assert("14", "payment ext fr-ctc-flow6-condition must be a Payment-applicable condition code (MEN, MPA, RAP); status-only codes (CBB, DIV, DVA, MAJ, MAP, MAPTTC, MNA, MNATTC, ESC, RAB, REM) belong on a bill.Reason under bill.Status",
 				tax.ExtensionsHasCodes(ExtKeyCondition, paymentConditionCodes...),
 			),
 		),
+		// Cross-field consistency: the lifecycle status code on
+		// ext must match the payment type. The normalizer sets it
+		// unconditionally, so this only fires when Validate runs
+		// against data built without Calculate.
 		rules.When(
 			bill.PaymentTypeIn(bill.PaymentTypeAdvice),
 			rules.Field("ext",
-				rules.Assert("15", "payment ext fr-ctc-flow6-status for an advice payment must be ProcessConditionCode 211 (Paiement transmis)",
+				rules.Assert("15", "payment ext fr-ctc-flow6-status for an advice payment must be status code 211 (Paiement transmis)",
 					tax.ExtensionsHasCodes(ExtKeyStatus, "211"),
 				),
 			),
@@ -149,7 +153,7 @@ func billPaymentRules() *rules.Set {
 		rules.When(
 			bill.PaymentTypeIn(bill.PaymentTypeReceipt),
 			rules.Field("ext",
-				rules.Assert("16", "payment ext fr-ctc-flow6-status for a receipt payment must be ProcessConditionCode 212 (Encaissée)",
+				rules.Assert("16", "payment ext fr-ctc-flow6-status for a receipt payment must be status code 212 (Encaissée)",
 					tax.ExtensionsHasCodes(ExtKeyStatus, "212"),
 				),
 			),
