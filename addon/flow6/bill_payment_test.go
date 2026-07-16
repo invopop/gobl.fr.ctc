@@ -262,3 +262,54 @@ func TestPaymentDoesNotMigrateNonCodeType(t *testing.T) {
 		"semantic key must not be promoted")
 	assert.ErrorContains(t, rules.Validate(pmt), "untdid-document-type")
 }
+
+// --- MDT-224: a payment receipt must carry a VAT breakdown ---------------
+
+func TestPaymentReceiptRequiresVATBreakdown(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Lines[0].Tax = nil
+	runNormalize(t, pmt)
+	assert.ErrorContains(t, rules.Validate(pmt), "VAT")
+}
+
+// A VAT category with no rate entries does not satisfy MDT-224: the rule
+// requires the breakdown to be present, even though an exempt rate is fine.
+func TestPaymentReceiptRejectsVATCategoryWithoutRates(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Lines[0].Tax = &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT}}}
+	runNormalize(t, pmt)
+	assert.ErrorContains(t, rules.Validate(pmt), "VAT")
+}
+
+// An advice payment (211) is not subject to the receipt-only VAT-rate rule.
+func TestPaymentAdviceDoesNotRequireVATBreakdown(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Type = bill.PaymentTypeAdvice
+	pmt.Lines[0].Tax = nil
+	runNormalize(t, pmt)
+	assert.NoError(t, rules.Validate(pmt))
+}
+
+// paymentLineHasVATTax unit coverage, including the exempt-rate case
+// ("the rate may be exempt") and the empty-Rates rejection.
+func TestPaymentLineHasVATTax(t *testing.T) {
+	assert.False(t, paymentLineHasVATTax("wrong-type"))
+	assert.False(t, paymentLineHasVATTax([]*bill.PaymentLine{}))
+	assert.False(t, paymentLineHasVATTax([]*bill.PaymentLine{{}}))
+	// VAT category but no rate breakdown → false
+	assert.False(t, paymentLineHasVATTax([]*bill.PaymentLine{{
+		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT}}},
+	}}))
+	// non-VAT category with rates → false
+	assert.False(t, paymentLineHasVATTax([]*bill.PaymentLine{{
+		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: "GST", Rates: []*tax.RateTotal{{}}}}},
+	}}))
+	// VAT with an exempt rate (nil Percent) → true
+	assert.True(t, paymentLineHasVATTax([]*bill.PaymentLine{{
+		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT, Rates: []*tax.RateTotal{{}}}}},
+	}}))
+	// VAT with a standard rate → true
+	assert.True(t, paymentLineHasVATTax([]*bill.PaymentLine{{
+		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT, Rates: []*tax.RateTotal{{Percent: num.NewPercentage(20, 2)}}}}},
+	}}))
+}
