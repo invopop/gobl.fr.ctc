@@ -23,8 +23,6 @@ func normalizePayment(pmt *bill.Payment) {
 		pmt.Ext = pmt.Ext.Set(ExtKeyStatus, "211")
 		setPartyRoleDefault(pmt.Customer, RoleSeller)
 		setPartyRoleDefault(pmt.Supplier, RoleBuyer)
-		// Default characteristic for an advice (211 Paiement transmis)
-		// is "amount paid" (MPA). Callers can override to MEN or RAP.
 		pmt.Ext = pmt.Ext.SetOneOf(ExtKeyCondition,
 			ConditionAmountPaid, ConditionAmountReceived, ConditionAmountRemaining,
 		)
@@ -32,8 +30,6 @@ func normalizePayment(pmt *bill.Payment) {
 		pmt.Ext = pmt.Ext.Set(ExtKeyStatus, "212")
 		setPartyRoleDefault(pmt.Supplier, RoleSeller)
 		setPartyRoleDefault(pmt.Customer, RoleBuyer)
-		// Default characteristic for a receipt (212 Encaissée) is
-		// "amount received" (MEN). Callers can override to MPA or RAP.
 		pmt.Ext = pmt.Ext.SetOneOf(ExtKeyCondition,
 			ConditionAmountReceived, ConditionAmountPaid, ConditionAmountRemaining,
 		)
@@ -138,10 +134,6 @@ func billPaymentRules() *rules.Set {
 				tax.ExtensionsHasCodes(ExtKeyCondition, paymentConditionCodes...),
 			),
 		),
-		// Cross-field consistency: the CDAR ProcessConditionCode on
-		// ext must match the payment type. The normalizer sets it
-		// unconditionally, so this only fires when Validate runs
-		// against data built without Calculate.
 		rules.When(
 			bill.PaymentTypeIn(bill.PaymentTypeAdvice),
 			rules.Field("ext",
@@ -170,8 +162,7 @@ func paymentHasExactlyOneLine(v any) bool {
 }
 
 // paymentLineHasVATTax reports whether the single payment line carries a tax
-// total with a VAT category (MDT-224). The rate may be exempt — the rule
-// requires the VAT breakdown to be present, not a particular percentage.
+// total with a VAT category.
 func paymentLineHasVATTax(v any) bool {
 	lines, ok := v.([]*bill.PaymentLine)
 	if !ok || len(lines) != 1 || lines[0] == nil {

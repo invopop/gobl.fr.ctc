@@ -17,7 +17,6 @@ func normalizeStatus(st *bill.Status) {
 		return
 	}
 
-	// Ensure the supplier and customer parties carry the expected CDV role when missing.
 	if st.Supplier != nil {
 		st.Supplier.Ext = st.Supplier.Ext.SetIfEmpty(ExtKeyRole, RoleSeller)
 	}
@@ -26,7 +25,6 @@ func normalizeStatus(st *bill.Status) {
 	}
 
 	for _, line := range st.Lines {
-		// There should only be one line
 		normalizeStatusLine(st, line)
 	}
 }
