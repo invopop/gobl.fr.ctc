@@ -18,18 +18,11 @@ import (
 
 // Inbox / identity scheme constants used across Flow 2.
 const (
-	// inboxSchemeSIREN is the scheme code for SIREN-based addresses
-	// (ISO/IEC 6523).
-	inboxSchemeSIREN cbc.Code = "0225"
-	// identitySchemeIDSIREN is the ISO scheme ID for SIREN identities.
-	identitySchemeIDSIREN = "0002"
-	// identitySchemeIDSIRET is the ISO scheme ID for SIRET identities.
-	identitySchemeIDSIRET = "0009"
-	// identitySchemeIDPrivate is the ISO scheme ID for identities
-	// requiring alphanumeric format (CTC-specific 0224 private ID).
-	identitySchemeIDPrivate = "0224"
-	// identityKeyPrivateID is the key for private ID identities.
-	identityKeyPrivateID cbc.Key = "private-id"
+	inboxSchemeSIREN        cbc.Code = "0225"
+	identitySchemeIDSIREN   cbc.Code = "0002"
+	identitySchemeIDSIRET   cbc.Code = "0009"
+	identitySchemeIDPrivate cbc.Code = "0224"
+	identityKeyPrivateID    cbc.Key  = "private-id"
 )
 
 // sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
@@ -87,7 +80,7 @@ func ensureSIRENIdentity(party *org.Party, code cbc.Code) {
 		return
 	}
 	for _, id := range party.Identities {
-		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID).String() == identitySchemeIDSIREN {
+		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
 			return
 		}
 	}
@@ -95,7 +88,7 @@ func ensureSIRENIdentity(party *org.Party, code cbc.Code) {
 		Type: fr.IdentityTypeSIREN,
 		Code: code,
 		Ext: tax.ExtensionsOf(cbc.CodeMap{
-			iso.ExtKeySchemeID: cbc.Code(identitySchemeIDSIREN),
+			iso.ExtKeySchemeID: identitySchemeIDSIREN,
 		}),
 		Scope: org.IdentityScopeLegal,
 	})
@@ -209,8 +202,7 @@ func isPartyIdentitySTC(party *org.Party) bool {
 }
 
 // legalIdentity returns the identity carrying the legal scope, or nil if
-// none is present. en16931 enforces at most one legal-scope identity per
-// party (BT-30/BT-47), so the first match is authoritative.
+// none is present.
 func legalIdentity(identities []*org.Identity) *org.Identity {
 	for _, id := range identities {
 		if id != nil && id.Scope.Has(org.IdentityScopeLegal) {
@@ -221,9 +213,7 @@ func legalIdentity(identities []*org.Identity) *org.Identity {
 }
 
 // identitiesLegalIsSIREN reports whether the party's legal identity is
-// present and carries the SIREN ISO scheme (0002). France's legal
-// identifier is the SIREN, so the single legal-scope identity guaranteed
-// by en16931 must be the SIREN.
+// present and carries the SIREN ISO scheme (0002).
 func identitiesLegalIsSIREN(val any) bool {
 	identities, ok := val.([]*org.Identity)
 	if !ok {

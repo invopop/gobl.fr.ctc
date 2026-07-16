@@ -73,7 +73,7 @@ func TestNormalizeParty(t *testing.T) {
 			{Key: identityKeyPrivateID, Code: "ABC123"},
 		}}
 		normalizeParty(p)
-		assert.Equal(t, cbc.Code(identitySchemeIDPrivate), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, identitySchemeIDPrivate, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
 	})
 
 	t.Run("flags SIREN-scope inbox as peppol", func(t *testing.T) {
