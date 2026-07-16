@@ -60,7 +60,7 @@ func TestPaymentReceiptHappyPath(t *testing.T) {
 	require.NoError(t, rules.Validate(pmt))
 }
 
-func TestPaymentReceiptSetsCDARStatusCode212(t *testing.T) {
+func TestPaymentReceiptSetsStatusCode212(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	runNormalize(t, pmt)
 	assert.Equal(t, cbc.Code("212"), pmt.Ext.Get(ExtKeyStatus))
@@ -107,7 +107,7 @@ func TestPaymentRejectsStatusOnlyConditionCodes(t *testing.T) {
 	}
 }
 
-// Status-only ProcessConditionCodes are rejected on a Payment.
+// Status-only lifecycle status codes are rejected on a Payment.
 func TestPaymentRejectsStatusProcessCodes(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	runNormalize(t, pmt)
@@ -116,7 +116,7 @@ func TestPaymentRejectsStatusProcessCodes(t *testing.T) {
 	assert.ErrorContains(t, err, "Payment-applicable")
 }
 
-func TestPaymentAdviceSetsCDARStatusCode211(t *testing.T) {
+func TestPaymentAdviceSetsStatusCode211(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	pmt.Type = bill.PaymentTypeAdvice
 	runNormalize(t, pmt)
@@ -220,7 +220,7 @@ func TestPaymentStatusCodeMismatchRejected(t *testing.T) {
 	runNormalize(t, pmt)
 	pmt.Ext = pmt.Ext.Set(ExtKeyStatus, "211") // wrong code for receipt
 	err := rules.Validate(pmt)
-	assert.ErrorContains(t, err, "ProcessConditionCode")
+	assert.ErrorContains(t, err, "status code 212")
 }
 
 // Document the assumption that the payment-line currency is not

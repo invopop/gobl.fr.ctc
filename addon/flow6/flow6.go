@@ -56,14 +56,14 @@ func newV1Addon() *tax.AddonDef {
 		Description: i18n.String{
 			i18n.EN: here.Doc(`
 				Support for Flow 6 ("Cycle de Vie") lifecycle status
-				messages of the French CTC reform. Carries the CDAR
-				ProcessConditionCode on bill.Status documents exchanged
+				messages of the French CTC reform. Carries the
+				lifecycle status code on bill.Status documents exchanged
 				between registered dematerialisation platforms (PDPs)
 				and the Portail Public de Facturation (PPF).
 			`),
 			i18n.FR: here.Doc(`
 				Support du Flux 6 (« Cycle de Vie ») de la réforme
-				française CTC. Porte le ProcessConditionCode CDAR sur
+				française CTC. Porte le code statut du cycle de vie sur
 				les documents bill.Status échangés entre les plateformes
 				de dématérialisation agréées (PDP) et le Portail Public
 				de Facturation (PPF).

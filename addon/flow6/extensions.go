@@ -9,39 +9,39 @@ import (
 
 // Flow 6 extension keys.
 const (
-	// ExtKeyRole carries the CDAR RoleCode for a party (UNCL 3035
+	// ExtKeyRole carries the role code for a party (UNCL 3035
 	// subset) on a Flow 6 bill.Status message.
 	ExtKeyRole cbc.Key = "fr-ctc-flow6-role"
 
-	// ExtKeyReason pins the exact CDAR ReasonCode for a bill.Reason
+	// ExtKeyReason pins the exact reason code for a bill.Reason
 	// on a Flow 6 message.
 	ExtKeyReason cbc.Key = "fr-ctc-flow6-reason"
 
-	// ExtKeyStatus surfaces the CDAR ProcessConditionCode (MDT-9)
-	// on a Flow 6 bill.Status. Determined from the Status Line's Key.
+	// ExtKeyStatus surfaces the lifecycle status code on a Flow 6
+	// bill.Status. Determined from the Status Line's Key.
 	ExtKeyStatus cbc.Key = "fr-ctc-flow6-status"
 
-	// ExtKeyAction pins the CDAR RequestedActionCode (MDT-121) on a
+	// ExtKeyAction pins the requested-action code on a
 	// bill.Action under a bill.Status. The normalizer fills it from
 	// bill.Action.Key (using the actionTable round-trip mapping);
 	// callers can override or set the ext directly on round-trip
 	// from a parsed CDV.
 	ExtKeyAction cbc.Key = "fr-ctc-flow6-action"
 
-	// ExtKeyCondition pins the CDAR CharacteristicTypeCode (MDT-207)
-	// on a bill.Reason attached to a Flow 6 rejection / dispute /
+	// ExtKeyCondition pins the condition code on a bill.Reason
+	// attached to a Flow 6 rejection / dispute /
 	// partially-accepted / completed status line, classifying the
 	// reason's dominant characteristic kind. The full field-level
-	// correction payload (one SpecifiedDocumentCharacteristic each)
-	// rides the Reason's bill.Fault entries: the fault code carries
-	// the MDT-207 TypeCode (e.g. a "DIV" fault alongside a sibling
-	// "DVA" describing the same field), the message the data name and
-	// value, and the paths the XML location of the affected field.
+	// correction payload rides the Reason's bill.Fault entries:
+	// the fault code carries the condition code (e.g. a "DIV"
+	// fault alongside a sibling "DVA" describing the same field),
+	// the message the data name and value, and the paths the
+	// location of the affected field.
 	ExtKeyCondition cbc.Key = "fr-ctc-flow6-condition"
 )
 
-// CDAR CharacteristicTypeCode values (MDT-207) — the controlled
-// vocabulary for fr-ctc-flow6-condition on a bill.Reason.
+// Condition code values — the controlled vocabulary for
+// fr-ctc-flow6-condition on a bill.Reason.
 const (
 	// -- Field-level correction markers --------------------------------
 
@@ -91,7 +91,7 @@ const (
 	ConditionAmountRemaining cbc.Code = "RAP"
 )
 
-// statusProcessCodes lists the ProcessConditionCodes (MDT-9) valid on
+// statusProcessCodes lists the lifecycle status codes valid on
 // bill.Status.Ext[fr-ctc-flow6-status]. Payment-related codes 211 /
 // 212 live on bill.Payment — see paymentProcessCodes.
 var statusProcessCodes = []cbc.Code{
@@ -99,14 +99,14 @@ var statusProcessCodes = []cbc.Code{
 	"206", "207", "208", "209", "210", "213",
 }
 
-// paymentProcessCodes lists the ProcessConditionCodes (MDT-9) valid on
+// paymentProcessCodes lists the lifecycle status codes valid on
 // bill.Payment.Ext[fr-ctc-flow6-status]. The normalizer derives the
 // value from bill.Payment.Type: advice → 211, receipt → 212.
 var paymentProcessCodes = []cbc.Code{
 	"211", "212",
 }
 
-// statusConditionCodes lists the CharacteristicTypeCodes (MDT-207)
+// statusConditionCodes lists the condition codes
 // valid on bill.Reason.Ext[fr-ctc-flow6-condition] under bill.Status.
 // MEN / MPA / RAP live on bill.Payment — see paymentConditionCodes.
 var statusConditionCodes = []cbc.Code{
@@ -117,7 +117,7 @@ var statusConditionCodes = []cbc.Code{
 	ConditionDiscount, ConditionRebate, ConditionReduction,
 }
 
-// paymentConditionCodes lists the CharacteristicTypeCodes (MDT-207)
+// paymentConditionCodes lists the condition codes
 // valid on bill.Payment.Ext[fr-ctc-flow6-condition]. The normalizer
 // defaults the value from bill.Payment.Type: receipt → MEN, advice →
 // MPA. Partial payments can override to RAP.
@@ -127,8 +127,8 @@ var paymentConditionCodes = []cbc.Code{
 	ConditionAmountRemaining, // RAP
 }
 
-// Flow 6 party role codes — UNCL 3035 subset repurposed by CDAR
-// (MDT-158).
+// Flow 6 party role codes — UNCL 3035 subset repurposed by the
+// French CTC specification.
 const (
 	RoleBuyer       cbc.Code = "BY"  // Acheteur (Buyer)
 	RoleBuyerAgent  cbc.Code = "AB"  // Agent d'acheteur (Buyer's agent)
@@ -152,11 +152,11 @@ var extensions = []*cbc.Definition{
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
-				UNCL 3035 role code carried as the CDAR RoleCode (MDT-158)
-				on each populated party of any Flow 6 lifecycle message
+				UNCL 3035 role code identifying the function of each
+				populated party of any Flow 6 lifecycle message
 				— set on Supplier / Customer of both bill.Status and
 				bill.Payment. Labels follow the French CTC
-				specification, which assigns CDAR-specific meanings to
+				specification, which assigns its own meanings to
 				WK (dematerialisation platform / operator) and DFH
 				(Portail Public de Facturation). The normalizer fills
 				the obvious defaults (Supplier → SE, Customer → BY)
@@ -180,14 +180,14 @@ var extensions = []*cbc.Definition{
 	{
 		Key: ExtKeyReason,
 		Name: i18n.String{
-			i18n.EN: "CDAR Reason Code",
-			i18n.FR: "Code motif CDAR",
+			i18n.EN: "Reason Code",
+			i18n.FR: "Code motif",
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
-				Exact CDAR ReasonCode pinned on a bill.Reason under a
+				Exact reason code pinned on a bill.Reason under a
 				bill.Status — Status-only (bill.Payment has no
-				Reasons). The CDAR ReasonCode dimension is 1:N with
+				Reasons). The reason code dimension is 1:N with
 				bill.Reason.Key: this extension lets the caller pick
 				the precise code within a bucket. The normalizer
 				derives a default from Reason.Key (see
@@ -248,13 +248,13 @@ var extensions = []*cbc.Definition{
 	{
 		Key: ExtKeyStatus,
 		Name: i18n.String{
-			i18n.EN: "CDAR Process Condition Code",
-			i18n.FR: "Code condition processus CDAR",
+			i18n.EN: "Lifecycle Status Code",
+			i18n.FR: "Code statut du cycle de vie",
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
-				CDAR ProcessConditionCode (MDT-9) identifying the
-				lifecycle event reported by the Flow 6 message.
+				Status code identifying the lifecycle event reported
+				by the Flow 6 message.
 				Unified vocabulary; the rules narrow the allow-list
 				per document type:
 
@@ -296,7 +296,8 @@ var extensions = []*cbc.Definition{
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
-				CDAR CharacteristicTypeCode (MDT-207). Unified
+				Condition code qualifying what a reason or payment
+				amount refers to. Unified
 				vocabulary; the rules narrow the allow-list per
 				document type:
 
@@ -307,8 +308,8 @@ var extensions = []*cbc.Definition{
 				    Each Reason carries 0..1 condition classifying its
 				    dominant characteristic kind; the full field-level
 				    corrections ride the Reason's bill.Fault entries
-				    (fault code = characteristic TypeCode, message =
-				    data name and value, paths = XML location).
+				    (fault code = condition code, message =
+				    data name and value, paths = field location).
 				  - On bill.Payment.Ext: MEN (Encaissé), MPA (Payé),
 				    RAP (Reste à payer). The normalizer defaults the
 				    value from bill.Payment.Type (receipt → MEN,
@@ -341,7 +342,7 @@ var extensions = []*cbc.Definition{
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
-				CDAR RequestedActionCode (MDT-121) carried on a
+				Action code carried on a
 				bill.Action under a bill.Status line. Tells the issuer
 				what to do next with the referenced invoice — reissue
 				it, send a credit note, provide more information, etc.
