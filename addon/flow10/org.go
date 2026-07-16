@@ -16,26 +16,15 @@ import (
 
 // Identity scheme constants used by Flow 10 reporting.
 const (
-	// identitySchemeIDSIREN is the ISO scheme ID for SIREN identities.
-	identitySchemeIDSIREN = "0002"
-	// identitySchemeIDSIRET is the ISO scheme ID for SIRET identities.
-	identitySchemeIDSIRET = "0009"
-	// identitySchemeIDEUVAT is the ISO scheme ID for EU (non-French)
-	// intra-community VAT.
-	identitySchemeIDEUVAT = "0223"
-	// identitySchemeIDNonEU is the ISO scheme ID for non-EU party
-	// identifiers.
-	identitySchemeIDNonEU = "0227"
-	// identitySchemeIDRIDET is the ISO scheme ID for New Caledonia
-	// RIDET.
-	identitySchemeIDRIDET = "0228"
-	// identitySchemeIDTAHITI is the ISO scheme ID for French Polynesia
-	// TAHITI.
+	identitySchemeIDSIREN  = "0002"
+	identitySchemeIDSIRET  = "0009"
+	identitySchemeIDEUVAT  = "0223"
+	identitySchemeIDNonEU  = "0227"
+	identitySchemeIDRIDET  = "0228"
 	identitySchemeIDTAHITI = "0229"
 )
 
-// allowedPartySchemeIDs lists the scheme IDs permitted for the legal
-// identity of a Flow 10 B2B party (supplier or customer), per G2.19.
+// allowedPartySchemeIDs lists the scheme IDs permitted for a legal identity
 var allowedPartySchemeIDs = []string{
 	identitySchemeIDSIREN,
 	identitySchemeIDEUVAT,
@@ -44,8 +33,7 @@ var allowedPartySchemeIDs = []string{
 	identitySchemeIDTAHITI,
 }
 
-// schemeIDsRequiringVAT are the scheme IDs for which party.TaxID must
-// also be present (G2.33): SIREN (French) and EU non-French VAT.
+// schemeIDsRequiringVAT are the scheme IDs for which party.TaxID must also be present.
 var schemeIDsRequiringVAT = []string{
 	identitySchemeIDSIREN,
 	identitySchemeIDEUVAT,
@@ -61,23 +49,13 @@ func normalizeParty(party *org.Party) {
 
 // normalizePartyFromTaxID derives a legal identity from the party's
 // TaxID when no matching identity is present. The identity scheme is
-// chosen from the TaxID country:
-//   - France           → SIREN (0002)
-//   - other EU          → EU-VAT (0223), country code + VAT number
-//   - New Caledonia     → RIDET (0228)
-//   - French Polynesia  → TAHITI (0229)
-//   - any other country → HORS_UE (0227), country code + first 16
-//     characters of the party name (incl. Wallis & Futuna)
+// chosen from the TaxID country.
 func normalizePartyFromTaxID(party *org.Party) {
 	if party.TaxID == nil {
 		return
 	}
 	country := l10n.Code(party.TaxID.Country)
 	code := string(party.TaxID.Code)
-	// Derivation keys off the TaxID country, not the code: HORS_UE is
-	// built from country + name and needs no code at all, and many
-	// parties carry a country without a tax number. Schemes that do
-	// need the code guard for it individually below.
 	if country == "" {
 		return
 	}
@@ -85,7 +63,6 @@ func normalizePartyFromTaxID(party *org.Party) {
 	case country == l10n.FR:
 		ensureIdentity(party, fr.IdentityTypeSIREN, cbc.Code(sirenFromFrenchTaxID(code, party)), identitySchemeIDSIREN)
 	case isEUNonFrance(country):
-		// EU VAT is the country code + VAT number, so the code is required.
 		if code != "" {
 			ensureIdentity(party, "", cbc.Code(country.String()+code), identitySchemeIDEUVAT)
 		}
@@ -314,12 +291,8 @@ func orgPartyRules() *rules.Set {
 	)
 }
 
-// orgIdentityRules validates the code of the France-specific identity
-// schemes against the lengths and format required by the CTC spec (G1.73).
 func orgIdentityRules() *rules.Set {
 	return rules.For(new(org.Identity),
-		// 0227 HORS_UE: up to 18 uppercase alphanumeric characters
-		// (2-letter country code + up to 16 name characters).
 		rules.When(
 			is.Func("scheme 0227", identitySchemeIs(identitySchemeIDNonEU)),
 			rules.Field("code",
@@ -331,7 +304,6 @@ func orgIdentityRules() *rules.Set {
 				),
 			),
 		),
-		// 0228 RIDET: 9 or 10 characters.
 		rules.When(
 			is.Func("scheme 0228", identitySchemeIs(identitySchemeIDRIDET)),
 			rules.Field("code",
@@ -340,7 +312,6 @@ func orgIdentityRules() *rules.Set {
 				),
 			),
 		),
-		// 0229 TAHITI: 9 characters.
 		rules.When(
 			is.Func("scheme 0229", identitySchemeIs(identitySchemeIDTAHITI)),
 			rules.Field("code",
@@ -352,8 +323,6 @@ func orgIdentityRules() *rules.Set {
 	)
 }
 
-// identitySchemeIs returns a test that passes when the identity carries the
-// given ISO 6523 scheme ID in its extensions.
 func identitySchemeIs(scheme string) func(any) bool {
 	return func(val any) bool {
 		id, ok := val.(*org.Identity)
@@ -378,9 +347,6 @@ func identitiesSingleLegalScope(val any) bool {
 	return legal <= 1
 }
 
-// identitiesSchemesUnique reports whether the slice contains at most
-// one identity per iso-scheme-id value. Empty extensions are ignored
-// (the per-identity rule covers them).
 func identitiesSchemesUnique(val any) bool {
 	identities, ok := val.([]*org.Identity)
 	if !ok || len(identities) == 0 {
