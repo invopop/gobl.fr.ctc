@@ -168,3 +168,23 @@ func paymentHasExactlyOneLine(v any) bool {
 	}
 	return len(lines) == 1
 }
+
+// paymentLineHasVATTax reports whether the single payment line carries a tax
+// total with a VAT category (MDT-224). The rate may be exempt — the rule
+// requires the VAT breakdown to be present, not a particular percentage.
+func paymentLineHasVATTax(v any) bool {
+	lines, ok := v.([]*bill.PaymentLine)
+	if !ok || len(lines) != 1 || lines[0] == nil {
+		return false
+	}
+	t := lines[0].Tax
+	if t == nil {
+		return false
+	}
+	for _, cat := range t.Categories {
+		if cat != nil && cat.Code == tax.CategoryVAT {
+			return true
+		}
+	}
+	return false
+}
