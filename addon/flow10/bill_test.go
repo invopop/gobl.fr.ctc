@@ -8,6 +8,7 @@ import (
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/num"
+	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,6 +65,31 @@ func TestNormalizeInvoiceDispatch(t *testing.T) {
 		assert.Equal(t, B2CCategoryNotTaxable, inv.Tax.Ext.Get(ExtKeyB2CCategory))
 		assert.Empty(t, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
 	})
+
+	t.Run("customer without legal identity is B2C", func(t *testing.T) {
+		inv := &bill.Invoice{Customer: &org.Party{Name: "Jean Dupont"}}
+		normalizeInvoice(inv)
+		assert.Equal(t, B2CCategoryNotTaxable, inv.Tax.Ext.Get(ExtKeyB2CCategory))
+		assert.Empty(t, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+	})
+
+	t.Run("customer with legal identity is B2B", func(t *testing.T) {
+		inv := &bill.Invoice{Customer: &org.Party{
+			Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "732829320")},
+		}}
+		normalizeInvoice(inv)
+		assert.Empty(t, inv.Tax.Ext.Get(ExtKeyB2CCategory))
+		assert.NotEmpty(t, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+	})
+}
+
+func TestInvoiceIsB2CDoc(t *testing.T) {
+	assert.False(t, invoiceIsB2CDoc(nil))
+	assert.True(t, invoiceIsB2CDoc(&bill.Invoice{}))
+	assert.True(t, invoiceIsB2CDoc(&bill.Invoice{Customer: &org.Party{Name: "Jean Dupont"}}))
+	assert.False(t, invoiceIsB2CDoc(&bill.Invoice{Customer: &org.Party{
+		Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "732829320")},
+	}}))
 }
 
 func TestInvoiceVATPercentsAllowed(t *testing.T) {
