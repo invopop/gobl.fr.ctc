@@ -9,11 +9,8 @@ import (
 	"github.com/invopop/gobl/tax"
 )
 
-// normalizePayment surfaces the CDAR ProcessConditionCode for the
-// payment on the fr-ctc-flow6-status extension and defaults the roles
-// on the payment's parties — mirrors what normalizeStatus does for
-// bill.Status. Advice payments are issued by the payer (BY → SE);
-// receipt payments by the payee (SE → BY).
+// normalizePayment sets the status code and default party roles. An
+// advice comes from the payer (BY → SE), a receipt from the payee (SE → BY).
 func normalizePayment(pmt *bill.Payment) {
 	if pmt == nil {
 		return
@@ -161,10 +158,8 @@ func paymentHasExactlyOneLine(v any) bool {
 	return len(lines) == 1
 }
 
-// paymentLineHasVATTax reports whether the single payment line carries a tax
-// total with a VAT category that has at least one rate entry (MDT-224). The
-// rate may be exempt (an exempt RateTotal has a nil Percent) — the rule
-// requires the VAT breakdown to be present, not a particular percentage.
+// paymentLineHasVATTax reports whether the single line has a VAT breakdown.
+// The rate may be exempt (nil percent); only its presence matters.
 func paymentLineHasVATTax(v any) bool {
 	lines, ok := v.([]*bill.PaymentLine)
 	if !ok || len(lines) != 1 || lines[0] == nil {

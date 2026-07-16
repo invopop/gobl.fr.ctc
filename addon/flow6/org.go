@@ -277,10 +277,8 @@ func inboxCodeValid(val any) bool {
 	return sirenInboxFormatRegex.MatchString(code)
 }
 
-// migrateDocRefType is a soft migration: when a referenced document carries a
-// raw UNTDID document type code on the legacy Type key (the old convention)
-// and not yet on the untdid-document-type extension, it promotes the code into
-// the extension — the canonical representation validation checks.
+// migrateDocRefType moves a legacy type code from Type onto the
+// untdid-document-type extension, where the rules expect it.
 func migrateDocRefType(dr *org.DocumentRef) {
 	if dr == nil || !dr.Ext.Get(untdid.ExtKeyDocumentType).IsEmpty() {
 		return

@@ -202,11 +202,8 @@ func billStatusRules() *rules.Set {
 				),
 			),
 		),
-		// The customer is only a mandatory party on business-phase
-		// statuses (204-210, buyer-declared except 209 which the
-		// supplier declares towards the customer): platform-phase CDVs
-		// (200/201/202/203/213) may carry just the seller — e.g. a
-		// Déposée only references the supplier.
+		// The customer is only required on business-phase statuses
+		// (204-210); platform-phase ones may carry just the seller.
 		rules.When(
 			is.Func("status is business-issued", statusIsBusinessIssued),
 			rules.Field("customer",
@@ -446,20 +443,9 @@ func lineHasStatusCode(code cbc.Code) rules.Test {
 
 // -- bill.Reason --------------------------------------------------------
 
-// normalizeReason maps between bill.Reason.Key (Peppol-aligned
-// rejection bucket) and the CDAR extensions on the Reason. Following
-// addons/es/verifactu/tax.go's normalizeTaxCombo pattern: a reverse
-// step via prepareReasonKey recovers Key from a previously-set
-// ReasonCode extension, then a forward switch chains SetOneOf calls
-// so the CDAR ReasonCode (fr-ctc-flow6-reason) and CharacteristicType
-// (fr-ctc-flow6-condition) defaults are populated when missing,
-// while an explicit caller pick within the bucket is preserved.
-//
-// The Reason carries one fr-ctc-flow6-condition value classifying its
-// dominant characteristic kind. The full field-level corrections —
-// e.g. a DIV alongside a sibling DVA describing the same field — ride
-// the Reason's bill.Fault entries (fault code = characteristic
-// TypeCode, message = data name and value, paths = XML location).
+// normalizeReason fills the CDAR reason and condition extensions from the
+// reason's bucket key, keeping any value the caller already set. Field-level
+// corrections travel on the reason's bill.Fault entries.
 func normalizeReason(r *bill.Reason) {
 	if r == nil {
 		return
@@ -567,12 +553,8 @@ func normalizeReason(r *bill.Reason) {
 	}
 }
 
-// normalizeAction maps between bill.Action.Key (Peppol-aligned) and
-// the CDAR RequestedActionCode (MDT-121) extension. Mirrors
-// normalizeReason: a reverse step via prepareActionKey recovers Key
-// from a previously-set ext, then a forward switch chains SetOneOf
-// calls to default the ext when missing while preserving any
-// caller-set value.
+// normalizeAction fills the CDAR action-code extension from the action's
+// key, keeping any value the caller already set.
 func normalizeAction(a *bill.Action) {
 	if a == nil {
 		return
