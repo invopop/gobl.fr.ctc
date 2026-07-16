@@ -71,11 +71,11 @@ func TestNormalizeParty(t *testing.T) {
 	})
 
 	t.Run("New Caledonia tax ID derives RIDET identity", func(t *testing.T) {
-		p := &org.Party{TaxID: &tax.Identity{Country: "NC", Code: "1234567"}}
+		p := &org.Party{TaxID: &tax.Identity{Country: "NC", Code: "123456789"}}
 		normalizeParty(p)
 		require.Len(t, p.Identities, 1)
 		assert.Equal(t, cbc.Code(identitySchemeIDRIDET), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
-		assert.Equal(t, cbc.Code("1234567"), p.Identities[0].Code)
+		assert.Equal(t, cbc.Code("123456789"), p.Identities[0].Code)
 		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
 	})
 
