@@ -132,6 +132,26 @@ func TestInvoiceB2BHappyPath(t *testing.T) {
 	require.NoError(t, rules.Validate(inv))
 }
 
+// A French invoice whose parties carry only the canonical endpoint (no
+// legacy inbox) — e.g. one parsed from UBL/CII — must still satisfy the
+// inbox rules (BR-FR-13/21/22). Normalization back-fills the Peppol inbox
+// from the endpoint, so validation passes.
+func TestInvoiceB2BEndpointOnlyParties(t *testing.T) {
+	inv := testInvoiceB2BStandard(t)
+	for _, p := range []*org.Party{inv.Supplier, inv.Customer} {
+		siren := p.Inboxes[0].Code.String()
+		p.Inboxes = nil
+		p.Endpoints = []*org.Endpoint{
+			{URI: cbc.URI("iso6523-actorid-upis::0225:" + siren)},
+		}
+	}
+	require.NoError(t, inv.Calculate())
+	require.NoError(t, rules.Validate(inv))
+	// The inbox is back-filled from the endpoint during normalization.
+	require.Len(t, inv.Supplier.Inboxes, 1)
+	assert.Equal(t, cbc.Code("356000000"), inv.Supplier.Inboxes[0].Code)
+}
+
 func TestInvoiceCodeFormatRejectsBadChars(t *testing.T) {
 	inv := testInvoiceB2BStandard(t)
 	inv.Code = "INVALID CODE WITH SPACE"

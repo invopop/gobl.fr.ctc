@@ -25,6 +25,10 @@ const (
 	identityKeyPrivateID    cbc.Key  = "private-id"
 )
 
+// peppolEndpointScheme is the URI scheme GOBL uses for Peppol participant
+// identifier endpoints (e.g. "iso6523-actorid-upis::0225:356000000").
+const peppolEndpointScheme = "iso6523-actorid-upis"
+
 // sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
 // shared by SIREN-scope inboxes and private-id identity codes.
 var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
@@ -35,7 +39,44 @@ func normalizeParty(party *org.Party) {
 	}
 	normalizePartyFromTaxID(party)
 	normalizeIdentities(party)
+	ensureInboxFromEndpoint(party)
 	normalizeInboxes(party)
+}
+
+// ensureInboxFromEndpoint back-fills a party's Peppol inbox from its
+// `iso6523-actorid-upis::<scheme>:<code>` endpoint when the party carries
+// that endpoint (the canonical electronic-address model) but no inbox. It
+// is the inverse of the eu/en16931 addon's inbox→endpoint migration and
+// keeps the Flow 2 inbox rules (BR-FR-13/21/22) satisfied for parties
+// expressed only with endpoints — e.g. invoices parsed from UBL/CII.
+func ensureInboxFromEndpoint(party *org.Party) {
+	if party == nil || len(party.Inboxes) > 0 {
+		return
+	}
+	ep := party.Endpoint(peppolEndpointScheme)
+	if ep == nil {
+		return
+	}
+	scheme, code, ok := splitPeppolEndpoint(ep.URI.Opaque())
+	if !ok {
+		return
+	}
+	party.Inboxes = []*org.Inbox{{
+		Key:    org.InboxKeyPeppol,
+		Scheme: cbc.Code(scheme),
+		Code:   cbc.Code(code),
+	}}
+}
+
+// splitPeppolEndpoint splits the opaque part of an
+// "iso6523-actorid-upis::<scheme>:<code>" URI (which URL parsing exposes
+// as ":<scheme>:<code>") into its scheme and code components.
+func splitPeppolEndpoint(opaque string) (scheme, code string, ok bool) {
+	parts := strings.SplitN(strings.TrimPrefix(opaque, ":"), ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 // normalizePartyFromTaxID derives a legal identity from the party's
