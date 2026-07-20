@@ -73,7 +73,7 @@ func TestNormalizeParty(t *testing.T) {
 			{Key: identityKeyPrivateID, Code: "ABC123"},
 		}}
 		normalizeParty(p)
-		assert.Equal(t, cbc.Code(identitySchemeIDPrivate), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, identitySchemeIDPrivate, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
 	})
 
 	t.Run("flags SIREN-scope inbox as peppol", func(t *testing.T) {
@@ -91,6 +91,22 @@ func TestNormalizeParty(t *testing.T) {
 		}}
 		normalizeParty(p)
 		assert.Equal(t, cbc.Key(""), p.Inboxes[1].Key)
+	})
+
+	t.Run("SIREN always gets legal scope even when another identity has it", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
+			{Key: identityKeyPrivateID, Code: "ABC123", Scope: org.IdentityScopeLegal},
+		}}
+		normalizeParty(p)
+		var siren *org.Identity
+		for _, id := range p.Identities {
+			if id.Type == fr.IdentityTypeSIREN {
+				siren = id
+			}
+		}
+		require.NotNil(t, siren)
+		assert.Equal(t, org.IdentityScopeLegal, siren.Scope)
 	})
 }
 
@@ -150,15 +166,35 @@ func TestIsPartyIdentitySTC(t *testing.T) {
 	assert.True(t, isPartyIdentitySTC(stc))
 }
 
-func TestIdentitiesHasLegalSIREN(t *testing.T) {
-	assert.True(t, identitiesHasLegalSIREN("wrong-type"))
-	assert.False(t, identitiesHasLegalSIREN([]*org.Identity{}))
-	assert.True(t, identitiesHasLegalSIREN([]*org.Identity{sirenIdentity("1")}))
-	// SIREN scheme but not legal scope
+func TestLegalIdentity(t *testing.T) {
+	assert.Nil(t, legalIdentity(nil))
+	assert.Nil(t, legalIdentity([]*org.Identity{nil, {Code: "1"}}))
+	siren := sirenIdentity("732829320")
+	assert.Same(t, siren, legalIdentity([]*org.Identity{{Code: "x"}, siren}))
+}
+
+func TestIdentitiesLegalIsSIREN(t *testing.T) {
+	// non-slice value passes the guard
+	assert.True(t, identitiesLegalIsSIREN("wrong-type"))
+	// no legal identity present
+	assert.False(t, identitiesLegalIsSIREN([]*org.Identity{}))
+	// legal SIREN present
+	assert.True(t, identitiesLegalIsSIREN([]*org.Identity{sirenIdentity("1")}))
+	// SIREN scheme but no legal scope → no legal identity present
 	nonLegal := []*org.Identity{
 		{Code: "1", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN})},
 	}
-	assert.False(t, identitiesHasLegalSIREN(nonLegal))
+	assert.False(t, identitiesLegalIsSIREN(nonLegal))
+	// legal scope on a non-SIREN identity → rejected
+	legalNonSIREN := []*org.Identity{
+		{
+			Key:   identityKeyPrivateID,
+			Code:  "ABC123",
+			Scope: org.IdentityScopeLegal,
+			Ext:   tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate}),
+		},
+	}
+	assert.False(t, identitiesLegalIsSIREN(legalNonSIREN))
 }
 
 func TestPartyHasSIRENInbox(t *testing.T) {

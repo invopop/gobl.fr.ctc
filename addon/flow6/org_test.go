@@ -19,17 +19,17 @@ func TestNormalizeIdentity(t *testing.T) {
 	t.Run("private-id key maps to scheme 0224", func(t *testing.T) {
 		id := &org.Identity{Key: identityKeyPrivateID, Code: "ABC"}
 		normalizeIdentity(id)
-		assert.Equal(t, cbc.Code(identitySchemeIDPrivate), id.Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, identitySchemeIDPrivate, id.Ext.Get(iso.ExtKeySchemeID))
 	})
 	t.Run("SIREN type tagged with 0002", func(t *testing.T) {
 		id := &org.Identity{Type: fr.IdentityTypeSIREN, Code: "1"}
 		normalizeIdentity(id)
-		assert.Equal(t, cbc.Code(identitySchemeIDSIREN), id.Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, identitySchemeIDSIREN, id.Ext.Get(iso.ExtKeySchemeID))
 	})
 	t.Run("SIRET type tagged with 0009", func(t *testing.T) {
 		id := &org.Identity{Type: fr.IdentityTypeSIRET, Code: "1"}
 		normalizeIdentity(id)
-		assert.Equal(t, cbc.Code(identitySchemeIDSIRET), id.Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, identitySchemeIDSIRET, id.Ext.Get(iso.ExtKeySchemeID))
 	})
 	t.Run("existing scheme not overwritten", func(t *testing.T) {
 		id := &org.Identity{Type: fr.IdentityTypeSIREN, Code: "1", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "9999"})}
@@ -47,7 +47,7 @@ func TestNormalizeParty(t *testing.T) {
 			Inboxes:    []*org.Inbox{{Scheme: inboxSchemeSIREN, Code: "1_PEP"}},
 		}
 		normalizeParty(p)
-		assert.Equal(t, cbc.Code(identitySchemeIDSIREN), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, identitySchemeIDSIREN, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
 		assert.Equal(t, org.InboxKeyPeppol, p.Inboxes[0].Key)
 	})
 }

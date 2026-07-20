@@ -18,18 +18,11 @@ import (
 
 // Inbox / identity scheme constants used across Flow 2.
 const (
-	// inboxSchemeSIREN is the scheme code for SIREN-based addresses
-	// (ISO/IEC 6523).
-	inboxSchemeSIREN cbc.Code = "0225"
-	// identitySchemeIDSIREN is the ISO scheme ID for SIREN identities.
-	identitySchemeIDSIREN = "0002"
-	// identitySchemeIDSIRET is the ISO scheme ID for SIRET identities.
-	identitySchemeIDSIRET = "0009"
-	// identitySchemeIDPrivate is the ISO scheme ID for identities
-	// requiring alphanumeric format (CTC-specific 0224 private ID).
-	identitySchemeIDPrivate = "0224"
-	// identityKeyPrivateID is the key for private ID identities.
-	identityKeyPrivateID cbc.Key = "private-id"
+	inboxSchemeSIREN        cbc.Code = "0225"
+	identitySchemeIDSIREN   cbc.Code = "0002"
+	identitySchemeIDSIRET   cbc.Code = "0009"
+	identitySchemeIDPrivate cbc.Code = "0224"
+	identityKeyPrivateID    cbc.Key  = "private-id"
 )
 
 // sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
@@ -87,7 +80,7 @@ func ensureSIRENIdentity(party *org.Party, code cbc.Code) {
 		return
 	}
 	for _, id := range party.Identities {
-		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID).String() == identitySchemeIDSIREN {
+		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
 			return
 		}
 	}
@@ -95,7 +88,7 @@ func ensureSIRENIdentity(party *org.Party, code cbc.Code) {
 		Type: fr.IdentityTypeSIREN,
 		Code: code,
 		Ext: tax.ExtensionsOf(cbc.CodeMap{
-			iso.ExtKeySchemeID: cbc.Code(identitySchemeIDSIREN),
+			iso.ExtKeySchemeID: identitySchemeIDSIREN,
 		}),
 		Scope: org.IdentityScopeLegal,
 	})
@@ -106,7 +99,6 @@ func normalizeIdentities(party *org.Party) {
 		return
 	}
 	var siret, siren *org.Identity
-	hasLegalScope := false
 	for _, id := range party.Identities {
 		if id == nil {
 			continue
@@ -117,9 +109,6 @@ func normalizeIdentities(party *org.Party) {
 		}
 		if id.Type == fr.IdentityTypeSIREN {
 			siren = id
-		}
-		if id.Scope == org.IdentityScopeLegal {
-			hasLegalScope = true
 		}
 	}
 	// BR-FR-09/10: Generate SIREN from SIRET if needed.
@@ -137,7 +126,9 @@ func normalizeIdentities(party *org.Party) {
 			party.Identities = append(party.Identities, siren)
 		}
 	}
-	if siren != nil && !hasLegalScope {
+	// The SIREN is France's legal identifier: it must always carry the
+	// legal scope (any other legal-scoped identity is rejected in the rules).
+	if siren != nil {
 		siren.Scope = org.IdentityScopeLegal
 	}
 }
@@ -181,13 +172,15 @@ func normalizeInboxes(party *org.Party) {
 
 // -- Helpers --------------------------------------------------------------
 
+// getPartySIREN returns the code of the party's SIREN identity (ISO
+// scheme 0002), or "" if none is present. Identities are normalized to
+// carry the scheme before validation runs.
 func getPartySIREN(party *org.Party) string {
 	if party == nil {
 		return ""
 	}
 	for _, id := range party.Identities {
-		if id != nil && (id.Type == fr.IdentityTypeSIREN ||
-			(!id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN)) {
+		if id != nil && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
 			return string(id.Code)
 		}
 	}
@@ -208,19 +201,26 @@ func isPartyIdentitySTC(party *org.Party) bool {
 	return false
 }
 
-func identitiesHasLegalSIREN(val any) bool {
+// legalIdentity returns the identity carrying the legal scope, or nil if
+// none is present.
+func legalIdentity(identities []*org.Identity) *org.Identity {
+	for _, id := range identities {
+		if id != nil && id.Scope.Has(org.IdentityScopeLegal) {
+			return id
+		}
+	}
+	return nil
+}
+
+// identitiesLegalIsSIREN reports whether the party's legal identity is
+// present and carries the SIREN ISO scheme (0002).
+func identitiesLegalIsSIREN(val any) bool {
 	identities, ok := val.([]*org.Identity)
 	if !ok {
 		return true
 	}
-	for _, id := range identities {
-		if id != nil && !id.Ext.IsZero() {
-			if code := id.Ext.Get(iso.ExtKeySchemeID); code == identitySchemeIDSIREN && id.Scope.Has(org.IdentityScopeLegal) {
-				return true
-			}
-		}
-	}
-	return false
+	id := legalIdentity(identities)
+	return id != nil && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN
 }
 
 func partyHasSIRENInbox(val any) bool {
