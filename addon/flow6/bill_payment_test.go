@@ -6,6 +6,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/num"
@@ -46,7 +47,13 @@ func testPaymentReceipt(t *testing.T) *bill.Payment {
 		Methods:   []*pay.Record{{Key: pay.MeansKeyCreditTransfer}},
 		Lines: []*bill.PaymentLine{{
 			Amount: num.MakeAmount(120000, 2),
+			Tax: &tax.Total{Categories: []*tax.CategoryTotal{{
+				Code:   tax.CategoryVAT,
+				Amount: num.MakeAmount(20000, 2),
+				Rates:  []*tax.RateTotal{{Base: num.MakeAmount(100000, 2), Percent: num.NewPercentage(20, 2), Amount: num.MakeAmount(20000, 2)}},
+			}}},
 			Document: &org.DocumentRef{
+				Ext:       tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyDocumentType: "380"}),
 				Code:      "2026-00042",
 				IssueDate: cal.NewDate(2026, 4, 15),
 			},
@@ -231,4 +238,80 @@ func TestPaymentStatusCodeMismatchRejected(t *testing.T) {
 func TestPaymentTotalCurrencyEUR(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	assert.Equal(t, currency.Code("EUR"), pmt.Currency)
+}
+
+func TestPaymentMigratesLegacyDocTypeCode(t *testing.T) {
+	// Legacy form: raw UNTDID code on Doc.Type, no untdid-document-type ext.
+	pmt := testPaymentReceipt(t)
+	pmt.Lines[0].Document.Ext = tax.Extensions{}
+	pmt.Lines[0].Document.Type = "380"
+	runNormalize(t, pmt)
+	assert.Equal(t, cbc.Code("380"), pmt.Lines[0].Document.Ext.Get(untdid.ExtKeyDocumentType),
+		"raw Type code should be promoted to the extension")
+	assert.Equal(t, cbc.Key("380"), pmt.Lines[0].Document.Type,
+		"Type must NOT be cleared after promotion")
+	assert.NoError(t, rules.Validate(pmt))
+}
+
+func TestPaymentDoesNotMigrateNonCodeType(t *testing.T) {
+	// A semantic key (not a UNTDID code) must not be promoted; validation
+	// then fails, steering the caller to set the extension explicitly.
+	pmt := testPaymentReceipt(t)
+	pmt.Lines[0].Document.Ext = tax.Extensions{}
+	pmt.Lines[0].Document.Type = "standard"
+	runNormalize(t, pmt)
+	assert.True(t, pmt.Lines[0].Document.Ext.Get(untdid.ExtKeyDocumentType).IsEmpty(),
+		"semantic key must not be promoted")
+	assert.ErrorContains(t, rules.Validate(pmt), "untdid-document-type")
+}
+
+// --- MDT-224: a payment receipt must carry a VAT breakdown ---------------
+
+func TestPaymentReceiptRequiresVATBreakdown(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Lines[0].Tax = nil
+	runNormalize(t, pmt)
+	assert.ErrorContains(t, rules.Validate(pmt), "VAT")
+}
+
+// A VAT category with no rate entries does not satisfy MDT-224: the rule
+// requires the breakdown to be present, even though an exempt rate is fine.
+func TestPaymentReceiptRejectsVATCategoryWithoutRates(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Lines[0].Tax = &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT}}}
+	runNormalize(t, pmt)
+	assert.ErrorContains(t, rules.Validate(pmt), "VAT")
+}
+
+// An advice payment (211) is not subject to the receipt-only VAT-rate rule.
+func TestPaymentAdviceDoesNotRequireVATBreakdown(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Type = bill.PaymentTypeAdvice
+	pmt.Lines[0].Tax = nil
+	runNormalize(t, pmt)
+	assert.NoError(t, rules.Validate(pmt))
+}
+
+// paymentLineHasVATTax unit coverage, including the exempt-rate case
+// ("the rate may be exempt") and the empty-Rates rejection.
+func TestPaymentLineHasVATTax(t *testing.T) {
+	assert.False(t, paymentLineHasVATTax("wrong-type"))
+	assert.False(t, paymentLineHasVATTax([]*bill.PaymentLine{}))
+	assert.False(t, paymentLineHasVATTax([]*bill.PaymentLine{{}}))
+	// VAT category but no rate breakdown → false
+	assert.False(t, paymentLineHasVATTax([]*bill.PaymentLine{{
+		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT}}},
+	}}))
+	// non-VAT category with rates → false
+	assert.False(t, paymentLineHasVATTax([]*bill.PaymentLine{{
+		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: "GST", Rates: []*tax.RateTotal{{}}}}},
+	}}))
+	// VAT with an exempt rate (nil Percent) → true
+	assert.True(t, paymentLineHasVATTax([]*bill.PaymentLine{{
+		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT, Rates: []*tax.RateTotal{{}}}}},
+	}}))
+	// VAT with a standard rate → true
+	assert.True(t, paymentLineHasVATTax([]*bill.PaymentLine{{
+		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT, Rates: []*tax.RateTotal{{Percent: num.NewPercentage(20, 2)}}}}},
+	}}))
 }

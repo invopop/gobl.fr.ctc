@@ -6,6 +6,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/rules"
@@ -61,6 +62,7 @@ func testStatus(t *testing.T) *bill.Status {
 				Key:  bill.StatusLineAccepted,
 				Date: &issued,
 				Doc: &org.DocumentRef{
+					Ext:       tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyDocumentType: "380"}),
 					Code:      "INV-2026-001",
 					IssueDate: &issued,
 				},
@@ -219,6 +221,18 @@ func TestStatusLineDocIssueDateRequired(t *testing.T) {
 	runNormalize(t, st)
 	err := rules.Validate(st)
 	assert.ErrorContains(t, err, "status line doc issue_date is required")
+}
+
+// MDT-91: the referenced doc must carry the untdid-document-type extension
+// with a valid invoice type code. Clearing both the ext and the legacy Type
+// (so nothing is migrated) must fail validation.
+func TestStatusLineDocTypeRequired(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Doc.Ext = tax.Extensions{}
+	st.Lines[0].Doc.Type = ""
+	runNormalize(t, st)
+	err := rules.Validate(st)
+	assert.ErrorContains(t, err, "untdid-document-type")
 }
 
 // --- BR-FR-CDV-15: reason required on rejection-like statuses -----------

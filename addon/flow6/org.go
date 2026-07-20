@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/regimes/fr"
@@ -16,24 +17,12 @@ import (
 
 // Identity scheme constants used by Flow 6.
 const (
-	// identitySchemeIDSIREN is the ISO scheme ID for SIREN identities.
-	identitySchemeIDSIREN = "0002"
-	// identitySchemeIDSIRET is the ISO scheme ID for SIRET identities.
-	identitySchemeIDSIRET = "0009"
-	// identitySchemeIDPrivate is the ISO scheme ID for identities
-	// requiring alphanumeric format (CTC-specific 0224 private ID).
-	identitySchemeIDPrivate = "0224"
-
-	// identityKeyPrivateID is the key for private ID identities.
-	identityKeyPrivateID cbc.Key = "private-id"
-
-	// inboxSchemeSIREN is the scheme code for SIREN-based addresses
-	// (ISO/IEC 6523).
-	inboxSchemeSIREN cbc.Code = "0225"
-
-	// peppolEndpointScheme is the URI scheme used for Peppol participant
-	// identifier endpoints (same convention as the en16931 addon).
-	peppolEndpointScheme = "iso6523-actorid-upis"
+	identitySchemeIDSIREN   cbc.Code = "0002"
+	identitySchemeIDSIRET   cbc.Code = "0009"
+	identitySchemeIDPrivate cbc.Code = "0224"
+	identityKeyPrivateID    cbc.Key  = "private-id"
+	inboxSchemeSIREN        cbc.Code = "0225"
+	peppolEndpointScheme    cbc.Code = "iso6523-actorid-upis"
 )
 
 // sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
@@ -63,9 +52,6 @@ var allowedRoleCodes = []cbc.Code{
 	RoleFactor, RolePayee, RolePayer, RoleIssuer, RoleInvoicee,
 }
 
-// normalizeParty handles the per-party normalisation Flow 6 requires:
-// identity scheme tagging (SIREN/SIRET → 0002/0009) and Peppol-key
-// flag on SIREN-scoped inbox.
 func normalizeParty(party *org.Party) {
 	if party == nil {
 		return
@@ -123,7 +109,7 @@ func normalizeInboxes(party *org.Party) {
 // envelope can derive its Head.From / Head.To routing URIs from the
 // lifecycle document's parties.
 func normalizeEndpoints(party *org.Party) {
-	if party.Endpoint(peppolEndpointScheme) != nil {
+	if party.Endpoint(peppolEndpointScheme.String()) != nil {
 		return
 	}
 	for _, in := range party.Inboxes {
@@ -135,7 +121,7 @@ func normalizeEndpoints(party *org.Party) {
 		}
 		party.Endpoints = append(party.Endpoints, &org.Endpoint{
 			Label: in.Label,
-			URI:   cbc.URI(peppolEndpointScheme + "::" + in.Scheme.String() + ":" + in.Code.String()),
+			URI:   cbc.URI(peppolEndpointScheme + "::" + in.Scheme + ":" + in.Code),
 		})
 		return
 	}
@@ -251,8 +237,7 @@ func identitiesSchemesUnique(val any) bool {
 }
 
 // identitySchemeIsPrivate reports whether the identity carries the
-// private-id (0224) iso-scheme-id extension. Used to gate the
-// 0224-specific length/format rules.
+// private-id (0224) iso-scheme-id extension.
 func identitySchemeIsPrivate(val any) bool {
 	id, ok := val.(*org.Identity)
 	return ok && id != nil && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDPrivate
@@ -274,4 +259,41 @@ func inboxCodeValid(val any) bool {
 		return false
 	}
 	return sirenInboxFormatRegex.MatchString(code)
+}
+
+// migrateDocRefType moves a legacy type code from Type onto the
+// untdid-document-type extension, where the rules expect it.
+func migrateDocRefType(dr *org.DocumentRef) {
+	if dr == nil || !dr.Ext.Get(untdid.ExtKeyDocumentType).IsEmpty() {
+		return
+	}
+	if code := cbc.Code(dr.Type); slices.Contains(referencedInvoiceTypes, code) {
+		dr.Ext = dr.Ext.Set(untdid.ExtKeyDocumentType, code)
+	}
+}
+
+// referencedInvoiceTypes are the UNTDID 1001 document type codes that can be used.
+var referencedInvoiceTypes = []cbc.Code{
+	"380", "389", "393", "501", "386", "500",
+	"384", "471", "472", "473",
+	"381", "261", "396", "502", "503", "262",
+}
+
+// docRefHasValidType reports whether a referenced document carries the
+// untdid-document-type extension set to a valid invoice type code.
+func docRefHasValidType(v any) bool {
+	dr, ok := v.(*org.DocumentRef)
+	if !ok || dr == nil {
+		return false
+	}
+	dt := dr.Ext.Get(untdid.ExtKeyDocumentType)
+	if dt == "" {
+		return false
+	}
+	for _, c := range referencedInvoiceTypes {
+		if dt == c {
+			return true
+		}
+	}
+	return false
 }

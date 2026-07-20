@@ -4,7 +4,7 @@
 		"uuid": "8a51fd30-2a27-11ee-be56-0242ac120002",
 		"dig": {
 			"alg": "sha256",
-			"val": "1f185fe3542fadea99e9de387ac2e2703d411935950acc9ea0a8f3fef2e42a65"
+			"val": "756ff114921dda8964c8132cfc6bc52a47919d253ba1abd9655322950febd0d1"
 		}
 	},
 	"doc": {
@@ -57,9 +57,28 @@
 				"i": 1,
 				"document": {
 					"issue_date": "2026-04-15",
-					"code": "2026-00042"
+					"code": "2026-00042",
+					"ext": {
+						"untdid-document-type": "380"
+					}
 				},
-				"amount": "1200.00"
+				"amount": "1200.00",
+				"tax": {
+					"categories": [
+						{
+							"code": "VAT",
+							"rates": [
+								{
+									"base": "1000.00",
+									"percent": "20%",
+									"amount": "200.00"
+								}
+							],
+							"amount": "200.00"
+						}
+					],
+					"sum": "200.00"
+				}
 			}
 		],
 		"methods": [

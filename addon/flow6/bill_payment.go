@@ -9,16 +9,10 @@ import (
 	"github.com/invopop/gobl/tax"
 )
 
-// normalizePayment surfaces the CDAR ProcessConditionCode for the
-// payment on the fr-ctc-flow6-status extension and defaults the roles
-// on the payment's parties — mirrors what normalizeStatus does for
-// bill.Status. The role code names the party, not who issues the CDV:
-// the supplier is always the seller (SE) and the customer always the
-// buyer (BY), for both advice and receipt. Direction (an advice is
-// payer-issued, so the buyer is the CDAR issuer; a receipt is
-// payee-issued, so the seller is) is derived from the payment type at
-// generation time (gobl core's Head.From/To via Payment.FromEndpoint,
-// and gobl.cii cdar_payment.go) — NOT by flipping the role codes here.
+// normalizePayment sets the status code and default party roles. The
+// supplier is always the seller (SE) and the customer the buyer (BY);
+// direction is derived from the payment type at generation, not by
+// flipping roles here.
 func normalizePayment(pmt *bill.Payment) {
 	if pmt == nil {
 		return
@@ -28,8 +22,6 @@ func normalizePayment(pmt *bill.Payment) {
 		pmt.Ext = pmt.Ext.Set(ExtKeyStatus, "211")
 		setPartyRoleDefault(pmt.Supplier, RoleSeller)
 		setPartyRoleDefault(pmt.Customer, RoleBuyer)
-		// Default characteristic for an advice (211 Paiement transmis)
-		// is "amount paid" (MPA). Callers can override to MEN or RAP.
 		pmt.Ext = pmt.Ext.SetOneOf(ExtKeyCondition,
 			ConditionAmountPaid, ConditionAmountReceived, ConditionAmountRemaining,
 		)
@@ -37,11 +29,14 @@ func normalizePayment(pmt *bill.Payment) {
 		pmt.Ext = pmt.Ext.Set(ExtKeyStatus, "212")
 		setPartyRoleDefault(pmt.Supplier, RoleSeller)
 		setPartyRoleDefault(pmt.Customer, RoleBuyer)
-		// Default characteristic for a receipt (212 Encaissée) is
-		// "amount received" (MEN). Callers can override to MPA or RAP.
 		pmt.Ext = pmt.Ext.SetOneOf(ExtKeyCondition,
 			ConditionAmountReceived, ConditionAmountPaid, ConditionAmountRemaining,
 		)
+	}
+	for _, line := range pmt.Lines {
+		if line != nil {
+			migrateDocRefType(line.Document)
+		}
 	}
 }
 
@@ -116,6 +111,17 @@ func billPaymentRules() *rules.Set {
 							is.Present,
 						),
 					),
+					rules.Assert("17", "payment line document must carry the untdid-document-type extension (MDT-91) with a valid invoice type code",
+						is.Func("valid untdid-document-type", docRefHasValidType),
+					),
+				),
+			),
+		),
+		rules.When(
+			bill.PaymentTypeIn(bill.PaymentTypeReceipt),
+			rules.Field("lines",
+				rules.Assert("18", "a payment receipt must show the applicable VAT rate; the rate may be exempt",
+					is.Func("line has VAT tax breakdown", paymentLineHasVATTax),
 				),
 			),
 		),
@@ -127,10 +133,6 @@ func billPaymentRules() *rules.Set {
 				tax.ExtensionsHasCodes(ExtKeyCondition, paymentConditionCodes...),
 			),
 		),
-		// Cross-field consistency: the CDAR ProcessConditionCode on
-		// ext must match the payment type. The normalizer sets it
-		// unconditionally, so this only fires when Validate runs
-		// against data built without Calculate.
 		rules.When(
 			bill.PaymentTypeIn(bill.PaymentTypeAdvice),
 			rules.Field("ext",
@@ -156,4 +158,23 @@ func paymentHasExactlyOneLine(v any) bool {
 		return false
 	}
 	return len(lines) == 1
+}
+
+// paymentLineHasVATTax reports whether the single line has a VAT breakdown.
+// The rate may be exempt (nil percent); only its presence matters.
+func paymentLineHasVATTax(v any) bool {
+	lines, ok := v.([]*bill.PaymentLine)
+	if !ok || len(lines) != 1 || lines[0] == nil {
+		return false
+	}
+	t := lines[0].Tax
+	if t == nil {
+		return false
+	}
+	for _, cat := range t.Categories {
+		if cat != nil && cat.Code == tax.CategoryVAT {
+			return len(cat.Rates) > 0
+		}
+	}
+	return false
 }
