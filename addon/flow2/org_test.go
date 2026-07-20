@@ -93,6 +93,35 @@ func TestNormalizeParty(t *testing.T) {
 		assert.Equal(t, cbc.Key(""), p.Inboxes[1].Key)
 	})
 
+	t.Run("back-fills a peppol inbox from the endpoint when none is present", func(t *testing.T) {
+		p := &org.Party{Endpoints: []*org.Endpoint{
+			{URI: "iso6523-actorid-upis::0225:732829320_PEP"},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Inboxes, 1)
+		assert.Equal(t, org.InboxKeyPeppol, p.Inboxes[0].Key)
+		assert.Equal(t, inboxSchemeSIREN, p.Inboxes[0].Scheme)
+		assert.Equal(t, cbc.Code("732829320_PEP"), p.Inboxes[0].Code)
+	})
+
+	t.Run("does not back-fill when the party already has an inbox", func(t *testing.T) {
+		p := &org.Party{
+			Endpoints: []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:732829320_PEP"}},
+			Inboxes:   []*org.Inbox{{Scheme: inboxSchemeSIREN, Code: "keep-me"}},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Inboxes, 1)
+		assert.Equal(t, cbc.Code("keep-me"), p.Inboxes[0].Code)
+	})
+
+	t.Run("ignores a non-peppol endpoint", func(t *testing.T) {
+		p := &org.Party{Endpoints: []*org.Endpoint{
+			{URI: "mailto:billing@example.com"},
+		}}
+		normalizeParty(p)
+		assert.Empty(t, p.Inboxes)
+	})
+
 	t.Run("SIREN always gets legal scope even when another identity has it", func(t *testing.T) {
 		p := &org.Party{Identities: []*org.Identity{
 			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
