@@ -325,8 +325,7 @@ func TestStatus207RejectsCodeNotInAllowList(t *testing.T) {
 	st := testStatus(t)
 	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "207"})
 	st.Lines[0].Reasons = []*bill.Reason{
-		// JUSTIF_ABS is a known CDAR ReasonCode, but not in the
-		// status-207 allow-list (it belongs to status 208).
+		// Valid CDAR code, but belongs to status 208.
 		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "JUSTIF_ABS"})},
 	}
 	runNormalize(t, st)
@@ -348,8 +347,7 @@ func TestStatus213RejectsCodeNotInAllowList(t *testing.T) {
 	st := testStatus(t)
 	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "213"})
 	st.Lines[0].Reasons = []*bill.Reason{
-		// QTE_ERR is a known CDAR ReasonCode, but not in the
-		// status-213 allow-list.
+		// Valid CDAR code, but not allowed on 213.
 		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "QTE_ERR"})},
 	}
 	runNormalize(t, st)
