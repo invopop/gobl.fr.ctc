@@ -172,8 +172,6 @@ func TestInvoiceTaxExtInGuards(t *testing.T) {
 	assert.True(t, notIn.Check(&bill.Invoice{}))
 }
 
-// --- BR-FR-08: BT-23 billing mode is a closed list (v1.4 codes) ---------
-
 func TestBillingModeAcceptsV14Codes(t *testing.T) {
 	codes := []cbc.Code{
 		dgfip.BillingModeS3, dgfip.BillingModeB8, dgfip.BillingModeS8,
