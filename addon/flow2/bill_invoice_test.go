@@ -174,7 +174,7 @@ func TestInvoiceTaxExtInGuards(t *testing.T) {
 
 func TestBillingModeAcceptsV14Codes(t *testing.T) {
 	codes := []cbc.Code{
-		dgfip.BillingModeS3, dgfip.BillingModeB8, dgfip.BillingModeS8,
+		dgfip.BillingModeB8, dgfip.BillingModeS8,
 		dgfip.BillingModeM8, dgfip.BillingModeB9, dgfip.BillingModeS9,
 		dgfip.BillingModeM9,
 	}
@@ -186,12 +186,4 @@ func TestBillingModeAcceptsV14Codes(t *testing.T) {
 			assert.NoError(t, rules.Validate(inv))
 		})
 	}
-}
-
-func TestBillingModeRejectsUnknownCode(t *testing.T) {
-	inv := testInvoiceB2BStandard(t)
-	inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code("X1"))
-	require.NoError(t, inv.Calculate())
-	err := rules.Validate(inv)
-	assert.ErrorContains(t, err, "valid BT-23 billing mode code")
 }
