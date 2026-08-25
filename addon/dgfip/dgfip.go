@@ -19,9 +19,9 @@ const ExtKeyBillingMode cbc.Key = "fr-ctc-billing-mode"
 
 // Billing mode codes. The prefix denotes invoice nature (B = goods, S =
 // services, M = mixed); the numeric suffix encodes the payment context
-// (1 = deposit, 2 = already paid, 3 = subcontracting with direct payment
-// (B2G only), 4 = final after down payment, 5 = subcontractor,
-// 6 = co-contractor, 7 = e-reporting, 8 = multi-vendor, 9 = bi-directional).
+// (1 = deposit, 2 = already paid, 4 = final after down payment,
+// 5 = subcontractor, 6 = co-contractor, 7 = e-reporting,
+// 8 = multi-vendor, 9 = bi-directional).
 const (
 	BillingModeB1 cbc.Code = "B1"
 	BillingModeB2 cbc.Code = "B2"
@@ -31,7 +31,6 @@ const (
 	BillingModeB9 cbc.Code = "B9"
 	BillingModeS1 cbc.Code = "S1"
 	BillingModeS2 cbc.Code = "S2"
-	BillingModeS3 cbc.Code = "S3"
 	BillingModeS4 cbc.Code = "S4"
 	BillingModeS5 cbc.Code = "S5"
 	BillingModeS6 cbc.Code = "S6"
@@ -67,8 +66,7 @@ var ExtBillingMode = &cbc.Definition{
 			  to each other)
 
 			The numeric suffix indicates the payment type (1=deposit,
-			2=already paid, 3=subcontracting with direct payment (B2G
-			only), 4=final after down payment, 5=subcontractor,
+			2=already paid, 4=final after down payment, 5=subcontractor,
 			6=co-contractor, 7=e-reporting, 8=multi-vendor,
 			9=bi-directional).
 		`),
@@ -84,8 +82,7 @@ var ExtBillingMode = &cbc.Definition{
 			  l'un de l'autre)
 
 			Le suffixe numérique indique le type de paiement (1=dépôt,
-			2=déjà payée, 3=sous-traitance avec paiement direct (B2G
-			uniquement), 4=définitive après acompte, 5=sous-traitant,
+			2=déjà payée, 4=définitive après acompte, 5=sous-traitant,
 			6=cotraitant, 7=e-reporting, 8=multi-vendeurs,
 			9=bidirectionnelle).
 		`),
@@ -99,7 +96,6 @@ var ExtBillingMode = &cbc.Definition{
 		{Code: BillingModeB9, Name: i18n.String{i18n.EN: "Goods - Bi-directional invoice", i18n.FR: "Biens - Facture bidirectionnelle de biens"}},
 		{Code: BillingModeS1, Name: i18n.String{i18n.EN: "Services - Standard invoice", i18n.FR: "Services - Facture de dépôt"}},
 		{Code: BillingModeS2, Name: i18n.String{i18n.EN: "Services - Already paid invoice", i18n.FR: "Services - Facture déjà payée"}},
-		{Code: BillingModeS3, Name: i18n.String{i18n.EN: "Services - Subcontracting payment request with direct payment (B2G only, restriction unenforceable)", i18n.FR: "Services - Demande de paiement de sous-traitance avec paiement direct (uniquement B2G, restriction non vérifiable)"}},
 		{Code: BillingModeS4, Name: i18n.String{i18n.EN: "Services - Final invoice (after down payment)", i18n.FR: "Services - Facture définitive (après acompte)"}},
 		{Code: BillingModeS5, Name: i18n.String{i18n.EN: "Services - Subcontractor invoice", i18n.FR: "Services - Facture de sous-traitance"}},
 		{Code: BillingModeS6, Name: i18n.String{i18n.EN: "Services - Co-contractor invoice", i18n.FR: "Services - Facture de cotraitance"}},
