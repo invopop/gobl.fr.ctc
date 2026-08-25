@@ -165,6 +165,9 @@ func billInvoiceRules() *rules.Set {
 					rules.Assert("09", "invoice tax ext fr-ctc-billing-mode is required (G1.02)",
 						tax.ExtensionsRequire(dgfip.ExtKeyBillingMode),
 					),
+					rules.Assert("19", "invoice tax ext fr-ctc-billing-mode must be a valid BT-23 billing mode code (BR-FR-08)",
+						tax.ExtensionHasValidCode(dgfip.ExtKeyBillingMode),
+					),
 				),
 			),
 			rules.When(
