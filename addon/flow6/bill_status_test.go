@@ -309,6 +309,54 @@ func TestStatusAcceptedDoesNotRequireReason(t *testing.T) {
 	require.NoError(t, rules.Validate(st))
 }
 
+// --- BR-FR-CDV-CL-09: DEST_INC on statuses 207 and 213 -------------------
+
+func TestStatus207AcceptsDestIncReason(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "207"})
+	st.Lines[0].Reasons = []*bill.Reason{
+		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "DEST_INC"})},
+	}
+	runNormalize(t, st)
+	assert.NoError(t, rules.Validate(st))
+}
+
+func TestStatus207RejectsCodeNotInAllowList(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "207"})
+	st.Lines[0].Reasons = []*bill.Reason{
+		// JUSTIF_ABS is a known CDAR ReasonCode, but not in the
+		// status-207 allow-list (it belongs to status 208).
+		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "JUSTIF_ABS"})},
+	}
+	runNormalize(t, st)
+	err := rules.Validate(st)
+	assert.ErrorContains(t, err, "status code 207")
+}
+
+func TestStatus213AcceptsDestIncReason(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "213"})
+	st.Lines[0].Reasons = []*bill.Reason{
+		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "DEST_INC"})},
+	}
+	runNormalize(t, st)
+	assert.NoError(t, rules.Validate(st))
+}
+
+func TestStatus213RejectsCodeNotInAllowList(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "213"})
+	st.Lines[0].Reasons = []*bill.Reason{
+		// QTE_ERR is a known CDAR ReasonCode, but not in the
+		// status-213 allow-list.
+		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "QTE_ERR"})},
+	}
+	runNormalize(t, st)
+	err := rules.Validate(st)
+	assert.ErrorContains(t, err, "status code 213")
+}
+
 // --- bill.Reason validation + normalization ------------------------------
 
 func TestReasonNormalizerFillsKeyFromExt(t *testing.T) {
