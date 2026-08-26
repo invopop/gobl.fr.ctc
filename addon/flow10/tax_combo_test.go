@@ -131,7 +131,5 @@ func TestPaymentRejectsForeignTaxLine(t *testing.T) {
 func TestPaymentForeignTaxCaughtByPaymentRuleNotCombo(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	pmt.Lines[0].Tax = paymentTaxTotal("GB", tax.CategoryVAT, pct("20%"))
-	faults, ok := rules.Validate(pmt).(rules.Faults)
-	require.True(t, ok)
-	assert.True(t, faults.HasCode("GOBL-FR-CTC-FLOW10-BILL-PAYMENT-09"))
+	assert.True(t, rules.Validate(pmt).HasCode("GOBL-FR-CTC-FLOW10-BILL-PAYMENT-09"))
 }
