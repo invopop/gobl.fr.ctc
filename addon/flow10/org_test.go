@@ -1,6 +1,7 @@
 package flow10
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -136,6 +137,35 @@ func TestNormalizeParty(t *testing.T) {
 		p := &org.Party{Name: "No Country Co", TaxID: &tax.Identity{Code: "123"}}
 		normalizeParty(p)
 		assert.Empty(t, p.Identities)
+	})
+
+	t.Run("non-FR tax ID with an existing SIREN keeps the SIREN, no HORS_UE added", func(t *testing.T) {
+		p := &org.Party{
+			Name:       "Monaco Branch",
+			TaxID:      &tax.Identity{Country: "MC", Code: "12345678900011"},
+			Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "123456789")},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, cbc.Code(identitySchemeIDSIREN), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+	})
+
+	t.Run("normalization is idempotent", func(t *testing.T) {
+		parties := []*org.Party{
+			{TaxID: &tax.Identity{Country: "FR", Code: "732829320"}},
+			{TaxID: &tax.Identity{Country: "DE", Code: "111111125"}},
+			{Name: "Global Trading", TaxID: &tax.Identity{Country: "US", Code: "TAX-123"}},
+			{
+				TaxID:      &tax.Identity{Country: "MC", Code: "12345678900011"},
+				Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "123456789")},
+			},
+		}
+		for _, p := range parties {
+			normalizeParty(p)
+			want := slices.Clone(p.Identities)
+			normalizeParty(p)
+			assert.Equal(t, want, p.Identities)
+		}
 	})
 }
 
@@ -307,6 +337,37 @@ func TestOrgIdentityValidate(t *testing.T) {
 	t.Run("TAHITI wrong length", func(t *testing.T) {
 		err := rules.Validate(ident(identitySchemeIDTAHITI, "12345678"), ctx)
 		assert.ErrorContains(t, err, "9 characters")
+	})
+}
+
+func TestOrgPartyValidate(t *testing.T) {
+	ctx := tax.AddonContext(V1)
+
+	t.Run("SIREN with a VAT number passes", func(t *testing.T) {
+		p := &org.Party{
+			Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1")},
+			TaxID:      &tax.Identity{Country: "FR", Code: "44732829320"},
+		}
+		assert.NoError(t, rules.Validate(p, ctx))
+	})
+	t.Run("SIREN without a TaxID fails", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1")}}
+		assert.ErrorContains(t, rules.Validate(p, ctx), "VAT number")
+	})
+	t.Run("SIREN with an empty TaxID code fails", func(t *testing.T) {
+		p := &org.Party{
+			Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1")},
+			TaxID:      &tax.Identity{Country: "FR"},
+		}
+		assert.ErrorContains(t, rules.Validate(p, ctx), "VAT number")
+	})
+	t.Run("EU VAT without a VAT number fails", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{legalIdentity(identitySchemeIDEUVAT, "DE111111125")}}
+		assert.ErrorContains(t, rules.Validate(p, ctx), "VAT number")
+	})
+	t.Run("HORS_UE without a VAT number is unaffected", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{legalIdentity(identitySchemeIDNonEU, "USGLOBALTRADING")}}
+		assert.NoError(t, rules.Validate(p, ctx))
 	})
 }
 
