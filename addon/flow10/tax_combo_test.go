@@ -3,6 +3,7 @@ package flow10
 import (
 	"testing"
 
+	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/l10n"
 	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/rules"
@@ -85,13 +86,52 @@ func TestInvoiceRejectsForeignTaxCombo(t *testing.T) {
 	})
 }
 
-// PaymentLine.Tax is a computed tax.Total/tax.RateTotal, not a tax.Combo, so the combo rule can't see it.
-func TestPaymentValidationUnaffectedByTaxComboRules(t *testing.T) {
-	pmt := testPaymentReceipt(t)
-	pmt.Lines[0].Tax = &tax.Total{Categories: []*tax.CategoryTotal{
-		{Code: tax.CategoryVAT, Rates: []*tax.RateTotal{
-			{Country: "GB", Percent: pct("20%"), Base: num.MakeAmount(10000, 2)},
+func paymentTaxTotal(country l10n.TaxCountryCode, category cbc.Code, percent *num.Percentage) *tax.Total {
+	return &tax.Total{Categories: []*tax.CategoryTotal{
+		{Code: category, Rates: []*tax.RateTotal{
+			{Country: country, Percent: percent, Base: num.MakeAmount(10000, 2)},
 		}},
 	}}
-	require.NoError(t, rules.Validate(pmt))
+}
+
+func TestPaymentRejectsForeignTaxLine(t *testing.T) {
+	t.Run("domestic standard rate passes", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Lines[0].Tax = paymentTaxTotal("", tax.CategoryVAT, pct("20%"))
+		assert.NoError(t, rules.Validate(pmt))
+	})
+
+	t.Run("explicit France passes", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Lines[0].Tax = paymentTaxTotal(l10n.FR.Tax(), tax.CategoryVAT, pct("20%"))
+		assert.NoError(t, rules.Validate(pmt))
+	})
+
+	t.Run("GB VAT rejected", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Lines[0].Tax = paymentTaxTotal("GB", tax.CategoryVAT, pct("20%"))
+		assert.ErrorContains(t, rules.Validate(pmt), "payment tax line category must be VAT")
+	})
+
+	t.Run("CH VAT rejected", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Lines[0].Tax = paymentTaxTotal("CH", tax.CategoryVAT, pct("8.1%"))
+		// 8.1% also trips the existing percent rule (assert 03); check our rule's message specifically.
+		assert.ErrorContains(t, rules.Validate(pmt), "payment tax line category must be VAT")
+	})
+
+	t.Run("non-VAT category rejected", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Lines[0].Tax = paymentTaxTotal("", "IGST", pct("18%"))
+		assert.ErrorContains(t, rules.Validate(pmt), "payment tax line category must be VAT")
+	})
+}
+
+// Confirms the fault comes from the payment rule (assert 09), not the combo rule, which still can't see PaymentLine.Tax.
+func TestPaymentForeignTaxCaughtByPaymentRuleNotCombo(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Lines[0].Tax = paymentTaxTotal("GB", tax.CategoryVAT, pct("20%"))
+	faults, ok := rules.Validate(pmt).(rules.Faults)
+	require.True(t, ok)
+	assert.True(t, faults.HasCode("GOBL-FR-CTC-FLOW10-BILL-PAYMENT-09"))
 }
