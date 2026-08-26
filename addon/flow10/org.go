@@ -277,9 +277,6 @@ func partyHasVATCode(p *org.Party) bool {
 
 func orgPartyRules() *rules.Set {
 	return rules.For(new(org.Party),
-		rules.Assert("04", "party with a SIREN (0002) or EU VAT (0223) identity requires a VAT number",
-			is.Func("party has TaxID when required", partyHasTaxIDWhenRequired),
-		),
 		rules.Field("identities",
 			rules.Assert("01", "party identities must not duplicate iso-scheme-id values (BR-FR-CO-10)",
 				is.Func("unique iso-scheme-id", identitiesSchemesUnique),

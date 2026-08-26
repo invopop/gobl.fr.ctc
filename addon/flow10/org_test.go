@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
@@ -340,34 +341,67 @@ func TestOrgIdentityValidate(t *testing.T) {
 	})
 }
 
+// TestOrgPartyValidate exercises the G2.33 VAT-number requirement through a
+// full invoice, since the check is scoped to the supplier and customer roles
+// rather than applied to every org.Party in the document.
 func TestOrgPartyValidate(t *testing.T) {
-	ctx := tax.AddonContext(V1)
+	t.Run("supplier and customer both carrying VAT numbers passes", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
+	})
 
-	t.Run("SIREN with a VAT number passes", func(t *testing.T) {
-		p := &org.Party{
-			Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1")},
-			TaxID:      &tax.Identity{Country: "FR", Code: "44732829320"},
+	t.Run("supplier with SIREN and no TaxID fails", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Supplier.TaxID = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "invoice supplier tax_id is required")
+	})
+
+	t.Run("supplier with SIREN and an empty TaxID code fails", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Supplier.TaxID.Code = ""
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "invoice supplier tax_id is required")
+	})
+
+	t.Run("customer with EU VAT and no TaxID fails", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Customer.TaxID = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "invoice customer tax_id is required")
+	})
+
+	t.Run("HORS_UE without a TaxID passes in any position", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Customer.Identities = []*org.Identity{legalIdentity(identitySchemeIDNonEU, "USGLOBALTRADING")}
+		inv.Customer.TaxID = nil
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("ordering.issuer with SIREN and no TaxID passes", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Ordering = &bill.Ordering{
+			Issuer: &org.Party{
+				Name:       "Invoicing Agent SARL",
+				Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "356000001")},
+			},
 		}
-		assert.NoError(t, rules.Validate(p, ctx))
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
 	})
-	t.Run("SIREN without a TaxID fails", func(t *testing.T) {
-		p := &org.Party{Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1")}}
-		assert.ErrorContains(t, rules.Validate(p, ctx), "VAT number")
-	})
-	t.Run("SIREN with an empty TaxID code fails", func(t *testing.T) {
-		p := &org.Party{
-			Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1")},
-			TaxID:      &tax.Identity{Country: "FR"},
+
+	t.Run("payment.payee with SIREN and no TaxID passes", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Payment = &bill.PaymentDetails{
+			Payee: &org.Party{
+				Name:       "Collections Agent SARL",
+				Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "356000002")},
+			},
 		}
-		assert.ErrorContains(t, rules.Validate(p, ctx), "VAT number")
-	})
-	t.Run("EU VAT without a VAT number fails", func(t *testing.T) {
-		p := &org.Party{Identities: []*org.Identity{legalIdentity(identitySchemeIDEUVAT, "DE111111125")}}
-		assert.ErrorContains(t, rules.Validate(p, ctx), "VAT number")
-	})
-	t.Run("HORS_UE without a VAT number is unaffected", func(t *testing.T) {
-		p := &org.Party{Identities: []*org.Identity{legalIdentity(identitySchemeIDNonEU, "USGLOBALTRADING")}}
-		assert.NoError(t, rules.Validate(p, ctx))
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
 	})
 }
 
