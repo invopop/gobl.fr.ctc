@@ -191,6 +191,81 @@ func TestInvoiceB2BVATRateAcceptedInsideWhitelist(t *testing.T) {
 	assert.NoError(t, rules.Validate(inv))
 }
 
+func TestInvoiceB2CChargeVATRateRejectedOutsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2C(t)
+	inv.Charges = []*bill.Charge{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(81, 3)},
+			},
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.ErrorContains(t, rules.Validate(inv), "permitted values")
+}
+
+func TestInvoiceB2CDiscountVATRateRejectedOutsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2C(t)
+	inv.Discounts = []*bill.Discount{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(81, 3)},
+			},
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.ErrorContains(t, rules.Validate(inv), "permitted values")
+}
+
+func TestInvoiceB2BChargeVATRateRejectedOutsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2BCrossBorder(t)
+	inv.Charges = []*bill.Charge{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(81, 3)},
+			},
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.ErrorContains(t, rules.Validate(inv), "permitted values")
+}
+
+func TestInvoiceChargeAndDiscountVATRateAcceptedInsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2C(t)
+	inv.Charges = []*bill.Charge{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(20, 2)},
+			},
+		},
+	}
+	inv.Discounts = []*bill.Discount{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(20, 2)},
+			},
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.NoError(t, rules.Validate(inv))
+}
+
+func TestInvoiceChargeWithoutVATComboUnaffected(t *testing.T) {
+	inv := testInvoiceB2C(t)
+	inv.Charges = []*bill.Charge{
+		{
+			Amount: num.MakeAmount(1000, 2),
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.NoError(t, rules.Validate(inv))
+}
+
 func TestInvoiceB2BMissingSupplierAddressCountryFails(t *testing.T) {
 	inv := testInvoiceB2BCrossBorder(t)
 	inv.Supplier.Addresses[0].Country = ""
