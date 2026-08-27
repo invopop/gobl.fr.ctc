@@ -63,6 +63,7 @@ func normalizeInvoice(inv *bill.Invoice) {
 	normalizeParty(inv.Customer)
 	if invoiceIsB2CDoc(inv) {
 		normalizeB2CCategoryOnInvoice(inv)
+		normalizeB2CCategoryOnLines(inv)
 		return
 	}
 	normalizeBillingMode(inv)
@@ -101,6 +102,45 @@ func normalizeB2CCategoryOnInvoice(inv *bill.Invoice) {
 		inv.Tax = &bill.Tax{}
 	}
 	inv.Tax.Ext = inv.Tax.Ext.Set(ExtKeyB2CCategory, B2CCategoryNotTaxable)
+}
+
+// normalizeB2CCategoryOnLines copies the invoice's transaction category onto
+// every VAT combo that doesn't already carry one, so each line, discount and
+// charge states the category it reports under and the invoice-level value acts
+// as the default. Lines are free to declare their own: a single invoice can
+// then mix goods and services, which e-reporting reports separately (G1.68).
+func normalizeB2CCategoryOnLines(inv *bill.Invoice) {
+	code := inv.Tax.Ext.Get(ExtKeyB2CCategory)
+	if code == "" {
+		return
+	}
+	sets := make([]tax.Set, 0, len(inv.Lines)+len(inv.Discounts)+len(inv.Charges))
+	for _, line := range inv.Lines {
+		if line != nil {
+			sets = append(sets, line.Taxes)
+		}
+	}
+	for _, discount := range inv.Discounts {
+		if discount != nil {
+			sets = append(sets, discount.Taxes)
+		}
+	}
+	for _, charge := range inv.Charges {
+		if charge != nil {
+			sets = append(sets, charge.Taxes)
+		}
+	}
+	for _, set := range sets {
+		for _, combo := range set {
+			if combo == nil || combo.Category != tax.CategoryVAT {
+				continue
+			}
+			if combo.Ext.Get(ExtKeyB2CCategory) != "" {
+				continue
+			}
+			combo.Ext = combo.Ext.Set(ExtKeyB2CCategory, code)
+		}
+	}
 }
 
 // -- Rule set -------------------------------------------------------------
