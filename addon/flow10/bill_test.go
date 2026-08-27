@@ -102,7 +102,7 @@ func TestNormalizeB2CCategoryOnLines(t *testing.T) {
 		}
 		normalizeB2CCategoryOnLines(inv)
 		assert.Empty(t, inv.Discounts[0].Taxes[0].Ext.Get(ExtKeyB2CCategory),
-			"guessing here would move taxable base between categories")
+			"nothing sound to inherit; rule 19 turns this invoice away")
 	})
 
 	t.Run("leaves non-VAT combos alone", func(t *testing.T) {
@@ -125,7 +125,7 @@ func TestNormalizeB2CCategoryOnLines(t *testing.T) {
 	})
 }
 
-func TestInvoiceAdjustmentsDeclareB2CCategory(t *testing.T) {
+func TestInvoiceHasNoAdjustmentsWhenMixed(t *testing.T) {
 	vat := func(ext ...cbc.Code) *tax.Combo {
 		combo := &tax.Combo{Category: tax.CategoryVAT}
 		if len(ext) > 0 {
@@ -144,23 +144,20 @@ func TestInvoiceAdjustmentsDeclareB2CCategory(t *testing.T) {
 		}
 	}
 
-	assert.True(t, invoiceAdjustmentsDeclareB2CCategory(nil))
-	assert.True(t, invoiceAdjustmentsDeclareB2CCategory(mixed(nil, nil)), "no adjustments to name")
-	assert.True(t, invoiceAdjustmentsDeclareB2CCategory(
-		mixed([]*bill.Discount{{Taxes: tax.Set{vat(B2CCategoryGoods)}}}, nil)), "named")
-	assert.False(t, invoiceAdjustmentsDeclareB2CCategory(
-		mixed([]*bill.Discount{{Taxes: tax.Set{vat()}}}, nil)), "unnamed discount")
-	assert.False(t, invoiceAdjustmentsDeclareB2CCategory(
-		mixed(nil, []*bill.Charge{{Taxes: tax.Set{vat()}}})), "unnamed charge")
-	assert.False(t, invoiceAdjustmentsDeclareB2CCategory(
-		mixed([]*bill.Discount{{}}, nil)), "a discount carrying no VAT at all is left out of the report")
+	assert.True(t, invoiceHasNoAdjustmentsWhenMixed(nil))
+	assert.True(t, invoiceHasNoAdjustmentsWhenMixed(mixed(nil, nil)))
+	assert.False(t, invoiceHasNoAdjustmentsWhenMixed(mixed([]*bill.Discount{{}}, nil)),
+		"no way to say which category a document discount belongs to")
+	assert.False(t, invoiceHasNoAdjustmentsWhenMixed(mixed(nil, []*bill.Charge{{}})))
 
-	// One category on the lines: nothing to decide, the invoice value serves.
+	// One category on the lines: a document adjustment is unambiguous and
+	// keeps working as before.
 	single := &bill.Invoice{
 		Lines:     []*bill.Line{{Taxes: tax.Set{vat(B2CCategoryServices)}}},
 		Discounts: []*bill.Discount{{Taxes: tax.Set{vat()}}},
+		Charges:   []*bill.Charge{{Taxes: tax.Set{vat()}}},
 	}
-	assert.True(t, invoiceAdjustmentsDeclareB2CCategory(single))
+	assert.True(t, invoiceHasNoAdjustmentsWhenMixed(single))
 }
 
 func TestNormalizeInvoiceDispatch(t *testing.T) {

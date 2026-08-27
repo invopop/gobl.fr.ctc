@@ -121,9 +121,8 @@ func normalizeB2CCategoryOnLines(inv *bill.Invoice) {
 	}
 
 	// Document-level discounts and charges only inherit when every line
-	// agrees on the category. Once the lines disagree, the invoice value is
-	// just one of several and picking it would silently move taxable base
-	// between categories, so rule 19 asks the issuer to name it instead.
+	// agrees on the category. Once the lines disagree there is nothing sound
+	// to inherit, and rule 19 turns the invoice away rather than guess.
 	if len(lineB2CCategories(inv)) > 1 {
 		return
 	}
@@ -174,12 +173,14 @@ func lineB2CCategories(inv *bill.Invoice) []cbc.Code {
 	return out
 }
 
-// invoiceAdjustmentsDeclareB2CCategory reports whether every document-level
-// discount and charge names the category it belongs to, on an invoice whose
-// lines span more than one. An unnamed one would otherwise be attributed to
-// the invoice's own category, or — carrying no VAT at all — be left out of
-// the reported amounts entirely.
-func invoiceAdjustmentsDeclareB2CCategory(v any) bool {
+// invoiceHasNoAdjustmentsWhenMixed reports whether an invoice whose lines span
+// several transaction categories keeps clear of document-level discounts and
+// charges. There is no way to say which category such an adjustment belongs
+// to: attributing it to the invoice's own category would move taxable base
+// between the categories reported, and one carrying no VAT would drop out of
+// the reported amounts altogether. Applying it to the lines instead leaves
+// nothing to guess.
+func invoiceHasNoAdjustmentsWhenMixed(v any) bool {
 	inv, ok := v.(*bill.Invoice)
 	if !ok || inv == nil {
 		return true
@@ -187,28 +188,7 @@ func invoiceAdjustmentsDeclareB2CCategory(v any) bool {
 	if len(lineB2CCategories(inv)) < 2 {
 		return true
 	}
-	for _, discount := range inv.Discounts {
-		if discount != nil && !declaresB2CCategory(discount.Taxes) {
-			return false
-		}
-	}
-	for _, charge := range inv.Charges {
-		if charge != nil && !declaresB2CCategory(charge.Taxes) {
-			return false
-		}
-	}
-	return true
-}
-
-// declaresB2CCategory reports whether a set carries a VAT combo naming a
-// transaction category.
-func declaresB2CCategory(set tax.Set) bool {
-	for _, combo := range set {
-		if combo != nil && combo.Category == tax.CategoryVAT && combo.Ext.Get(ExtKeyB2CCategory) != "" {
-			return true
-		}
-	}
-	return false
+	return len(inv.Discounts) == 0 && len(inv.Charges) == 0
 }
 
 // -- Rule set -------------------------------------------------------------
@@ -261,8 +241,8 @@ func billInvoiceRules() *rules.Set {
 			rules.Assert("07", "invoice VAT line percent must be one of the Flow 10 permitted values 0%, 0.9%, 1.05%, 1.75%, 2.1%, 5.5%, 7%, 8.5%, 9.2%, 9.6%, 10%, 13%, 19.6%, 20%, 20.6% (G1.24)",
 				is.Func("allowed Flow 10 VAT percents", invoiceVATPercentsAllowed),
 			),
-			rules.Assert("19", "each document-level discount and charge must declare a VAT combo with fr-ctc-flow10-b2c-category when the invoice lines span more than one category (G1.68)",
-				is.Func("document adjustments name their category", invoiceAdjustmentsDeclareB2CCategory),
+			rules.Assert("19", "document-level discounts and charges are not supported when the invoice lines span more than one transaction category (G1.68) — apply them to the lines instead",
+				is.Func("no document adjustments on a multi-category invoice", invoiceHasNoAdjustmentsWhenMixed),
 			),
 		),
 		// Cross-border B2B invoices — Customer present.
