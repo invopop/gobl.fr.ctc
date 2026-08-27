@@ -72,15 +72,37 @@ func TestNormalizeB2CCategoryOnLines(t *testing.T) {
 				{Taxes: tax.Set{vat()}},
 				{Taxes: tax.Set{vat(B2CCategoryGoods)}},
 			},
-			Discounts: []*bill.Discount{{Taxes: tax.Set{vat()}}},
-			Charges:   []*bill.Charge{{Taxes: tax.Set{vat()}}},
 		}
 		normalizeB2CCategoryOnLines(inv)
 		assert.Equal(t, B2CCategoryServices, inv.Lines[0].Taxes[0].Ext.Get(ExtKeyB2CCategory))
 		assert.Equal(t, B2CCategoryGoods, inv.Lines[1].Taxes[0].Ext.Get(ExtKeyB2CCategory),
 			"a line's own category wins over the invoice's")
+	})
+
+	t.Run("one category: document adjustments inherit too", func(t *testing.T) {
+		inv := &bill.Invoice{
+			Tax:       &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: B2CCategoryServices})},
+			Lines:     []*bill.Line{{Taxes: tax.Set{vat()}}},
+			Discounts: []*bill.Discount{{Taxes: tax.Set{vat()}}},
+			Charges:   []*bill.Charge{{Taxes: tax.Set{vat()}}},
+		}
+		normalizeB2CCategoryOnLines(inv)
 		assert.Equal(t, B2CCategoryServices, inv.Discounts[0].Taxes[0].Ext.Get(ExtKeyB2CCategory))
 		assert.Equal(t, B2CCategoryServices, inv.Charges[0].Taxes[0].Ext.Get(ExtKeyB2CCategory))
+	})
+
+	t.Run("several categories: document adjustments are left to the issuer", func(t *testing.T) {
+		inv := &bill.Invoice{
+			Tax: &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: B2CCategoryServices})},
+			Lines: []*bill.Line{
+				{Taxes: tax.Set{vat(B2CCategoryServices)}},
+				{Taxes: tax.Set{vat(B2CCategoryGoods)}},
+			},
+			Discounts: []*bill.Discount{{Taxes: tax.Set{vat()}}},
+		}
+		normalizeB2CCategoryOnLines(inv)
+		assert.Empty(t, inv.Discounts[0].Taxes[0].Ext.Get(ExtKeyB2CCategory),
+			"guessing here would move taxable base between categories")
 	})
 
 	t.Run("leaves non-VAT combos alone", func(t *testing.T) {
@@ -101,6 +123,44 @@ func TestNormalizeB2CCategoryOnLines(t *testing.T) {
 		normalizeInvoice(inv)
 		assert.Equal(t, B2CCategoryGoods, inv.Lines[0].Taxes[0].Ext.Get(ExtKeyB2CCategory))
 	})
+}
+
+func TestInvoiceAdjustmentsDeclareB2CCategory(t *testing.T) {
+	vat := func(ext ...cbc.Code) *tax.Combo {
+		combo := &tax.Combo{Category: tax.CategoryVAT}
+		if len(ext) > 0 {
+			combo.Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: ext[0]})
+		}
+		return combo
+	}
+	mixed := func(discounts []*bill.Discount, charges []*bill.Charge) *bill.Invoice {
+		return &bill.Invoice{
+			Lines: []*bill.Line{
+				{Taxes: tax.Set{vat(B2CCategoryServices)}},
+				{Taxes: tax.Set{vat(B2CCategoryGoods)}},
+			},
+			Discounts: discounts,
+			Charges:   charges,
+		}
+	}
+
+	assert.True(t, invoiceAdjustmentsDeclareB2CCategory(nil))
+	assert.True(t, invoiceAdjustmentsDeclareB2CCategory(mixed(nil, nil)), "no adjustments to name")
+	assert.True(t, invoiceAdjustmentsDeclareB2CCategory(
+		mixed([]*bill.Discount{{Taxes: tax.Set{vat(B2CCategoryGoods)}}}, nil)), "named")
+	assert.False(t, invoiceAdjustmentsDeclareB2CCategory(
+		mixed([]*bill.Discount{{Taxes: tax.Set{vat()}}}, nil)), "unnamed discount")
+	assert.False(t, invoiceAdjustmentsDeclareB2CCategory(
+		mixed(nil, []*bill.Charge{{Taxes: tax.Set{vat()}}})), "unnamed charge")
+	assert.False(t, invoiceAdjustmentsDeclareB2CCategory(
+		mixed([]*bill.Discount{{}}, nil)), "a discount carrying no VAT at all is left out of the report")
+
+	// One category on the lines: nothing to decide, the invoice value serves.
+	single := &bill.Invoice{
+		Lines:     []*bill.Line{{Taxes: tax.Set{vat(B2CCategoryServices)}}},
+		Discounts: []*bill.Discount{{Taxes: tax.Set{vat()}}},
+	}
+	assert.True(t, invoiceAdjustmentsDeclareB2CCategory(single))
 }
 
 func TestNormalizeInvoiceDispatch(t *testing.T) {
