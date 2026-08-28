@@ -169,7 +169,101 @@ func TestInvoiceB2CVATRateRejectedOutsideWhitelist(t *testing.T) {
 	inv.Lines[0].Taxes = tax.Set{
 		{Category: tax.CategoryVAT, Percent: num.NewPercentage(35, 2)},
 	}
-	assert.Error(t, rules.Validate(inv))
+	require.NoError(t, inv.Calculate())
+	assert.ErrorContains(t, rules.Validate(inv), "permitted values")
+}
+
+func TestInvoiceB2BVATRateRejectedOutsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2BCrossBorder(t)
+	inv.Lines[0].Taxes = tax.Set{
+		{Category: tax.CategoryVAT, Percent: num.NewPercentage(81, 3)},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.ErrorContains(t, rules.Validate(inv), "permitted values")
+}
+
+func TestInvoiceB2BVATRateAcceptedInsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2BCrossBorder(t)
+	inv.Lines[0].Taxes = tax.Set{
+		{Category: tax.CategoryVAT, Percent: num.NewPercentage(200, 3)},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.NoError(t, rules.Validate(inv))
+}
+
+func TestInvoiceB2CChargeVATRateRejectedOutsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2C(t)
+	inv.Charges = []*bill.Charge{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(81, 3)},
+			},
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.ErrorContains(t, rules.Validate(inv), "permitted values")
+}
+
+func TestInvoiceB2CDiscountVATRateRejectedOutsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2C(t)
+	inv.Discounts = []*bill.Discount{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(81, 3)},
+			},
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.ErrorContains(t, rules.Validate(inv), "permitted values")
+}
+
+func TestInvoiceB2BChargeVATRateRejectedOutsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2BCrossBorder(t)
+	inv.Charges = []*bill.Charge{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(81, 3)},
+			},
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.ErrorContains(t, rules.Validate(inv), "permitted values")
+}
+
+func TestInvoiceChargeAndDiscountVATRateAcceptedInsideWhitelist(t *testing.T) {
+	inv := testInvoiceB2C(t)
+	inv.Charges = []*bill.Charge{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(20, 2)},
+			},
+		},
+	}
+	inv.Discounts = []*bill.Discount{
+		{
+			Amount: num.MakeAmount(1000, 2),
+			Taxes: tax.Set{
+				{Category: tax.CategoryVAT, Percent: num.NewPercentage(20, 2)},
+			},
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.NoError(t, rules.Validate(inv))
+}
+
+func TestInvoiceChargeWithoutVATComboUnaffected(t *testing.T) {
+	inv := testInvoiceB2C(t)
+	inv.Charges = []*bill.Charge{
+		{
+			Amount: num.MakeAmount(1000, 2),
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	assert.NoError(t, rules.Validate(inv))
 }
 
 func TestInvoiceB2BMissingSupplierAddressCountryFails(t *testing.T) {

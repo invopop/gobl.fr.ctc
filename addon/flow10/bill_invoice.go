@@ -110,6 +110,9 @@ func billInvoiceRules() *rules.Set {
 		rules.Assert("01", "invoice must be in EUR or provide an exchange rate to EUR",
 			currency.CanConvertTo(currency.EUR),
 		),
+		rules.Assert("07", "invoice VAT percent on lines, discounts and charges must be one of the Flow 10 permitted values 0%, 0.9%, 1.05%, 1.75%, 2.1%, 5.5%, 7%, 8.5%, 9.2%, 9.6%, 10%, 13%, 19.6%, 20%, 20.6% (G1.24)",
+			is.Func("allowed Flow 10 VAT percents", invoiceVATPercentsAllowed),
+		),
 		rules.Field("supplier",
 			rules.Field("addresses",
 				rules.Each(
@@ -149,9 +152,6 @@ func billInvoiceRules() *rules.Set {
 				rules.Assert("06", "invoice supplier must have a SIREN identity (ISO/IEC 6523 scheme 0002) on a B2C invoice",
 					is.Func("party has SIREN", partyHasSIREN),
 				),
-			),
-			rules.Assert("07", "invoice VAT line percent must be one of the Flow 10 permitted values 0%, 0.9%, 1.05%, 1.75%, 2.1%, 5.5%, 7%, 8.5%, 9.2%, 9.6%, 10%, 13%, 19.6%, 20%, 20.6% (G1.24)",
-				is.Func("allowed Flow 10 VAT percents", invoiceVATPercentsAllowed),
 			),
 		),
 		// Cross-border B2B invoices — Customer present.
@@ -255,13 +255,37 @@ func invoiceVATPercentsAllowed(v any) bool {
 		if line == nil {
 			continue
 		}
-		for _, combo := range line.Taxes {
-			if combo == nil || combo.Category != tax.CategoryVAT || combo.Percent == nil {
-				continue
-			}
-			if !percentageInList(*combo.Percent, allowedVATPercents) {
-				return false
-			}
+		if !taxSetVATPercentsAllowed(line.Taxes) {
+			return false
+		}
+	}
+	// document-level discounts and charges carry their own VAT combo too.
+	for _, d := range inv.Discounts {
+		if d == nil {
+			continue
+		}
+		if !taxSetVATPercentsAllowed(d.Taxes) {
+			return false
+		}
+	}
+	for _, c := range inv.Charges {
+		if c == nil {
+			continue
+		}
+		if !taxSetVATPercentsAllowed(c.Taxes) {
+			return false
+		}
+	}
+	return true
+}
+
+func taxSetVATPercentsAllowed(taxes tax.Set) bool {
+	for _, combo := range taxes {
+		if combo == nil || combo.Category != tax.CategoryVAT || combo.Percent == nil {
+			continue
+		}
+		if !percentageInList(*combo.Percent, allowedVATPercents) {
+			return false
 		}
 	}
 	return true
