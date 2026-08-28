@@ -59,6 +59,10 @@ func normalizePartyFromTaxID(party *org.Party) {
 	if country == "" {
 		return
 	}
+	// A pre-existing SIREN is authoritative regardless of the tax-ID country.
+	if partyHasSIREN(party) {
+		return
+	}
 	switch {
 	case country == l10n.FR:
 		ensureIdentity(party, fr.IdentityTypeSIREN, cbc.Code(sirenFromFrenchTaxID(code, party)), identitySchemeIDSIREN)

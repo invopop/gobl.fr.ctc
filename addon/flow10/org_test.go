@@ -1,9 +1,11 @@
 package flow10
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
@@ -136,6 +138,35 @@ func TestNormalizeParty(t *testing.T) {
 		p := &org.Party{Name: "No Country Co", TaxID: &tax.Identity{Code: "123"}}
 		normalizeParty(p)
 		assert.Empty(t, p.Identities)
+	})
+
+	t.Run("non-FR tax ID with an existing SIREN keeps the SIREN, no HORS_UE added", func(t *testing.T) {
+		p := &org.Party{
+			Name:       "Monaco Branch",
+			TaxID:      &tax.Identity{Country: "MC", Code: "12345678900011"},
+			Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "123456789")},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, cbc.Code(identitySchemeIDSIREN), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+	})
+
+	t.Run("normalization is idempotent", func(t *testing.T) {
+		parties := []*org.Party{
+			{TaxID: &tax.Identity{Country: "FR", Code: "732829320"}},
+			{TaxID: &tax.Identity{Country: "DE", Code: "111111125"}},
+			{Name: "Global Trading", TaxID: &tax.Identity{Country: "US", Code: "TAX-123"}},
+			{
+				TaxID:      &tax.Identity{Country: "MC", Code: "12345678900011"},
+				Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "123456789")},
+			},
+		}
+		for _, p := range parties {
+			normalizeParty(p)
+			want := slices.Clone(p.Identities)
+			normalizeParty(p)
+			assert.Equal(t, want, p.Identities)
+		}
 	})
 }
 
@@ -307,6 +338,70 @@ func TestOrgIdentityValidate(t *testing.T) {
 	t.Run("TAHITI wrong length", func(t *testing.T) {
 		err := rules.Validate(ident(identitySchemeIDTAHITI, "12345678"), ctx)
 		assert.ErrorContains(t, err, "9 characters")
+	})
+}
+
+// TestOrgPartyValidate exercises the G2.33 VAT-number requirement through a
+// full invoice, since the check is scoped to the supplier and customer roles
+// rather than applied to every org.Party in the document.
+func TestOrgPartyValidate(t *testing.T) {
+	t.Run("supplier and customer both carrying VAT numbers passes", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("supplier with SIREN and no TaxID fails", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Supplier.TaxID = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "invoice supplier tax_id is required")
+	})
+
+	t.Run("supplier with SIREN and an empty TaxID code fails", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Supplier.TaxID.Code = ""
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "invoice supplier tax_id is required")
+	})
+
+	t.Run("customer with EU VAT and no TaxID fails", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Customer.TaxID = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "invoice customer tax_id is required")
+	})
+
+	t.Run("HORS_UE without a TaxID passes in any position", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Customer.Identities = []*org.Identity{legalIdentity(identitySchemeIDNonEU, "USGLOBALTRADING")}
+		inv.Customer.TaxID = nil
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("ordering.issuer with SIREN and no TaxID passes", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Ordering = &bill.Ordering{
+			Issuer: &org.Party{
+				Name:       "Invoicing Agent SARL",
+				Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "356000001")},
+			},
+		}
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("payment.payee with SIREN and no TaxID passes", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Payment = &bill.PaymentDetails{
+			Payee: &org.Party{
+				Name:       "Collections Agent SARL",
+				Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "356000002")},
+			},
+		}
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
 	})
 }
 
