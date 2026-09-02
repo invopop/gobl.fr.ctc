@@ -22,6 +22,7 @@ const (
 	identitySchemeIDSIREN   cbc.Code = "0002"
 	identitySchemeIDSIRET   cbc.Code = "0009"
 	identitySchemeIDPrivate cbc.Code = "0224"
+	identitySchemeIDSTC     cbc.Code = "0231"
 	identityKeyPrivateID    cbc.Key  = "private-id"
 )
 
@@ -234,7 +235,7 @@ func isPartyIdentitySTC(party *org.Party) bool {
 	}
 	for _, id := range party.Identities {
 		if id != nil && !id.Ext.IsZero() {
-			if code := id.Ext.Get(iso.ExtKeySchemeID); code == "0231" {
+			if code := id.Ext.Get(iso.ExtKeySchemeID); code == identitySchemeIDSTC {
 				return true
 			}
 		}
@@ -313,6 +314,14 @@ func orgIdentityRules() *rules.Set {
 				),
 				rules.Assert("02", "must be in a valid format",
 					is.Matches(`^[A-Za-z0-9\-\+_/]+$`),
+				),
+			),
+		),
+		rules.When(
+			is.Func("scheme 0002 or 0231", identitySchemeIsSIRENBased),
+			rules.Field("code",
+				rules.Assert("03", "must be exactly 9 digits (BR-FR-32)",
+					is.Matches(`^\d{9}$`),
 				),
 			),
 		),
@@ -432,6 +441,17 @@ func inboxCodeValid(val any) bool {
 func identitySchemeIs0224(val any) bool {
 	id, ok := val.(*org.Identity)
 	return ok && id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDPrivate
+}
+
+// identitySchemeIsSIRENBased reports whether the identity carries a
+// scheme whose code must be a SIREN.
+func identitySchemeIsSIRENBased(val any) bool {
+	id, ok := val.(*org.Identity)
+	if !ok || id == nil || id.Ext.IsZero() {
+		return false
+	}
+	scheme := id.Ext.Get(iso.ExtKeySchemeID)
+	return scheme == identitySchemeIDSIREN || scheme == identitySchemeIDSTC
 }
 
 func inboxSchemeIs0225(val any) bool {

@@ -218,3 +218,37 @@ func TestInvoiceAttachmentDescription(t *testing.T) {
 		assert.Error(t, rules.Validate(inv))
 	})
 }
+
+func TestIdentitySIRENIsNineDigits(t *testing.T) {
+	stcIdentity := func(code string) *org.Identity {
+		return &org.Identity{
+			Code: cbc.Code(code),
+			Ext:  tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSTC}),
+		}
+	}
+
+	t.Run("rejects a SIRET under scheme 0002", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Supplier.Identities[0].Code = "73282932000074"
+		require.NoError(t, inv.Calculate())
+		err := rules.Validate(inv)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "9 digits")
+	})
+
+	t.Run("rejects a SIRET under scheme 0231", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Customer.Identities = append(inv.Customer.Identities, stcIdentity("73282932000074"))
+		require.NoError(t, inv.Calculate())
+		err := rules.Validate(inv)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "9 digits")
+	})
+
+	t.Run("accepts a SIREN under scheme 0231", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Customer.Identities = append(inv.Customer.Identities, stcIdentity("356000000"))
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+}

@@ -325,6 +325,13 @@ func TestSchemeGuards(t *testing.T) {
 	assert.False(t, identitySchemeIs0224(&org.Identity{}))
 	assert.True(t, identitySchemeIs0224(&org.Identity{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate})}))
 
+	assert.False(t, identitySchemeIsSIRENBased("wrong-type"))
+	assert.False(t, identitySchemeIsSIRENBased((*org.Identity)(nil)))
+	assert.False(t, identitySchemeIsSIRENBased(&org.Identity{}))
+	assert.False(t, identitySchemeIsSIRENBased(&org.Identity{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIRET})}))
+	assert.True(t, identitySchemeIsSIRENBased(&org.Identity{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN})}))
+	assert.True(t, identitySchemeIsSIRENBased(&org.Identity{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSTC})}))
+
 	assert.False(t, inboxSchemeIs0225("wrong-type"))
 	assert.False(t, inboxSchemeIs0225(&org.Inbox{Scheme: "9999"}))
 	assert.True(t, inboxSchemeIs0225(&org.Inbox{Scheme: inboxSchemeSIREN}))
