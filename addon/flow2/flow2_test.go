@@ -252,3 +252,51 @@ func TestIdentitySIRENIsNineDigits(t *testing.T) {
 		require.NoError(t, rules.Validate(inv))
 	})
 }
+
+func TestInvoicePartyDuplicateSIREN(t *testing.T) {
+	// The same SIREN as both the legal identifier (BT-47) and a party
+	// identification (BT-46), alongside the SIRET.
+	inv := testInvoiceB2BStandard(t)
+	inv.Customer.Identities = []*org.Identity{
+		{
+			Type: fr.IdentityTypeSIRET,
+			Code: "73282932000074",
+			Ext:  tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIRET}),
+		},
+		{
+			Type: fr.IdentityTypeSIREN,
+			Code: "732829320",
+			Ext:  tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN}),
+		},
+		{
+			Type:  fr.IdentityTypeSIREN,
+			Code:  "732829320",
+			Scope: org.IdentityScopeLegal,
+			Ext:   tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN}),
+		},
+	}
+	require.NoError(t, inv.Calculate())
+	require.NoError(t, rules.Validate(inv))
+
+	legal := 0
+	for _, id := range inv.Customer.Identities {
+		if id.Scope.Has(org.IdentityScopeLegal) {
+			legal++
+		}
+	}
+	assert.Equal(t, 1, legal, "exactly one identity must carry the legal scope")
+}
+
+func TestInvoicePartyTwoLegalIdentities(t *testing.T) {
+	inv := testInvoiceB2BStandard(t)
+	inv.Customer.Identities = append(inv.Customer.Identities, &org.Identity{
+		Key:   identityKeyPrivateID,
+		Code:  "ABC123",
+		Scope: org.IdentityScopeLegal,
+		Ext:   tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate}),
+	})
+	require.NoError(t, inv.Calculate())
+	err := rules.Validate(inv)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "only one identity may carry the legal scope")
+}

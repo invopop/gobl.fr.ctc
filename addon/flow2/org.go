@@ -122,7 +122,11 @@ func ensureSIRENIdentity(party *org.Party, code cbc.Code) {
 		return
 	}
 	for _, id := range party.Identities {
-		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
+		if id == nil {
+			continue
+		}
+		// The scheme is only set later by normalizeIdentity.
+		if id.Type == fr.IdentityTypeSIREN || id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
 			return
 		}
 	}
@@ -168,11 +172,36 @@ func normalizeIdentities(party *org.Party) {
 			party.Identities = append(party.Identities, siren)
 		}
 	}
-	// The SIREN is France's legal identifier: it must always carry the
-	// legal scope (any other legal-scoped identity is rejected in the rules).
-	if siren != nil {
-		siren.Scope = org.IdentityScopeLegal
+	// A legal scope claimed by a non-SIREN identity is left alone, so that the
+	// rules can reject it.
+	assignSIRENLegalScope(party.Identities)
+}
+
+// assignSIRENLegalScope gives the legal scope to one SIREN, preferring one
+// that already carries it, and clears it from the rest.
+func assignSIRENLegalScope(identities []*org.Identity) {
+	var chosen *org.Identity
+	for _, id := range identities {
+		if id == nil || id.Type != fr.IdentityTypeSIREN {
+			continue
+		}
+		if chosen == nil ||
+			(!chosen.Scope.Has(org.IdentityScopeLegal) && id.Scope.Has(org.IdentityScopeLegal)) {
+			chosen = id
+		}
 	}
+	if chosen == nil {
+		return
+	}
+	for _, id := range identities {
+		if id == nil || id == chosen || id.Type != fr.IdentityTypeSIREN {
+			continue
+		}
+		if id.Scope.Has(org.IdentityScopeLegal) {
+			id.Scope = cbc.KeyEmpty
+		}
+	}
+	chosen.Scope = org.IdentityScopeLegal
 }
 
 func normalizeIdentity(id *org.Identity) {
@@ -254,6 +283,22 @@ func legalIdentity(identities []*org.Identity) *org.Identity {
 	return nil
 }
 
+// identitiesSingleLegalScope reports whether at most one identity carries the
+// legal scope.
+func identitiesSingleLegalScope(val any) bool {
+	identities, ok := val.([]*org.Identity)
+	if !ok {
+		return true
+	}
+	legal := 0
+	for _, id := range identities {
+		if id != nil && id.Scope.Has(org.IdentityScopeLegal) {
+			legal++
+		}
+	}
+	return legal <= 1
+}
+
 // identitiesLegalIsSIREN reports whether the party's legal identity is
 // present and carries the SIREN ISO scheme (0002).
 func identitiesLegalIsSIREN(val any) bool {
@@ -292,6 +337,9 @@ func orgPartyRules() *rules.Set {
 			),
 			rules.Assert("02", "identity scheme format invalid (BR-FR-CO-10)",
 				is.FuncError("valid scheme format", identitiesSchemeFormatValid),
+			),
+			rules.Assert("04", "only one identity may carry the legal scope (BR-FR-10/11)",
+				is.Func("single legal identity", identitiesSingleLegalScope),
 			),
 		),
 		rules.Field("inboxes",
@@ -385,6 +433,9 @@ func identitiesSIRETSIRENCoherent(val any) bool {
 	return true
 }
 
+// identitiesSchemeFormatValid checks the ISO scheme IDs of a party's
+// identities. BR-FR-CO-10 only tests uniqueness over cac:PartyIdentification,
+// so the legal identity (cac:PartyLegalEntity/cbc:CompanyID) is exempt.
 func identitiesSchemeFormatValid(val any) error {
 	identities, ok := val.([]*org.Identity)
 	if !ok || len(identities) == 0 {
@@ -399,13 +450,15 @@ func identitiesSchemeFormatValid(val any) error {
 		if schemeID == cbc.CodeEmpty {
 			return errors.New("all identities must have an ISO scheme ID defined in extensions BR-FR-CO-10")
 		}
-		if schemes[schemeID] {
-			return fmt.Errorf("duplicate identities with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
+		if !id.Scope.Has(org.IdentityScopeLegal) {
+			if schemes[schemeID] {
+				return fmt.Errorf("duplicate identities with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
+			}
+			schemes[schemeID] = true
 		}
 		if schemeID == identitySchemeIDPrivate {
 			code := string(id.Code)
 			if code == "" {
-				schemes[schemeID] = true
 				continue
 			}
 			if len(code) > 100 {
@@ -415,7 +468,6 @@ func identitiesSchemeFormatValid(val any) error {
 				return errors.New("identity with ISO scheme ID 0224 (private-id) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)")
 			}
 		}
-		schemes[schemeID] = true
 	}
 	return nil
 }
