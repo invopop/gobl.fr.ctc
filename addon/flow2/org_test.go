@@ -22,6 +22,13 @@ func sirenIdentity(code string) *org.Identity {
 	}
 }
 
+// unscopedSIREN returns a SIREN identity that is not the party's legal one.
+func unscopedSIREN(code string) *org.Identity {
+	id := sirenIdentity(code)
+	id.Scope = cbc.KeyEmpty
+	return id
+}
+
 func TestNormalizeParty(t *testing.T) {
 	t.Run("nil safe", func(t *testing.T) {
 		assert.NotPanics(t, func() { normalizeParty(nil) })
@@ -130,6 +137,38 @@ func TestNormalizeParty(t *testing.T) {
 		assert.Equal(t, cbc.URI("mailto:billing@example.com"), p.Endpoints[0].URI)
 	})
 
+	t.Run("only the first SIREN keeps the legal scope", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeLegal},
+			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 2)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+		assert.Equal(t, cbc.KeyEmpty, p.Identities[1].Scope)
+	})
+
+	t.Run("legal scope follows the SIREN that already carries it", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeLegal},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, cbc.KeyEmpty, p.Identities[0].Scope)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[1].Scope)
+	})
+
+	t.Run("does not duplicate a SIREN that lacks the ISO scheme", func(t *testing.T) {
+		p := &org.Party{
+			TaxID:      &tax.Identity{Country: "FR", Code: "44732829320"},
+			Identities: []*org.Identity{{Type: fr.IdentityTypeSIREN, Code: "732829320"}},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, identitySchemeIDSIREN, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+	})
+
 	t.Run("SIREN always gets legal scope even when another identity has it", func(t *testing.T) {
 		p := &org.Party{Identities: []*org.Identity{
 			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
@@ -208,6 +247,18 @@ func TestLegalIdentity(t *testing.T) {
 	assert.Nil(t, legalIdentity([]*org.Identity{nil, {Code: "1"}}))
 	siren := sirenIdentity("732829320")
 	assert.Same(t, siren, legalIdentity([]*org.Identity{{Code: "x"}, siren}))
+}
+
+func TestIdentitiesSingleLegalScope(t *testing.T) {
+	assert.True(t, identitiesSingleLegalScope("wrong-type"))
+	assert.True(t, identitiesSingleLegalScope([]*org.Identity{}))
+	assert.True(t, identitiesSingleLegalScope([]*org.Identity{nil, sirenIdentity("1")}))
+	assert.True(t, identitiesSingleLegalScope([]*org.Identity{
+		sirenIdentity("732829320"), unscopedSIREN("732829320"),
+	}))
+	assert.False(t, identitiesSingleLegalScope([]*org.Identity{
+		sirenIdentity("1"), sirenIdentity("2"),
+	}))
 }
 
 func TestIdentitiesLegalIsSIREN(t *testing.T) {
@@ -322,10 +373,14 @@ func TestIdentitiesSchemeFormatValid(t *testing.T) {
 		assert.Contains(t, err.Error(), "ISO scheme ID")
 	})
 	t.Run("duplicate scheme errors", func(t *testing.T) {
-		ids := []*org.Identity{sirenIdentity("1"), sirenIdentity("2")}
+		ids := []*org.Identity{unscopedSIREN("1"), unscopedSIREN("2")}
 		err := identitiesSchemeFormatValid(ids)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "duplicate")
+	})
+	t.Run("legal identity excluded from the uniqueness check", func(t *testing.T) {
+		ids := []*org.Identity{sirenIdentity("732829320"), unscopedSIREN("732829320")}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
 	})
 	t.Run("valid private-id", func(t *testing.T) {
 		ids := []*org.Identity{
