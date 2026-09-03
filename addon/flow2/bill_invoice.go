@@ -163,6 +163,13 @@ func billInvoiceRules() *rules.Set {
 				rules.Assert("05", "invoice preceding must contain exactly one reference for corrective invoices (BR-FR-CO-04)",
 					is.Length(1, 1),
 				),
+				rules.Each(
+					rules.Field("issue_date",
+						rules.Assert("42", "invoice preceding issue_date is required for corrective invoices (BR-FR-CO-04)",
+							is.Present,
+						),
+					),
+				),
 			),
 		),
 		rules.When(
@@ -170,6 +177,13 @@ func billInvoiceRules() *rules.Set {
 			rules.Field("preceding",
 				rules.Assert("06", "invoice preceding must contain at least one reference for credit notes (BR-FR-CO-05)",
 					is.Present,
+				),
+				rules.Each(
+					rules.Field("issue_date",
+						rules.Assert("43", "invoice preceding issue_date is required for credit notes (BR-FR-CO-05)",
+							is.Present,
+						),
+					),
 				),
 			),
 		),
@@ -274,27 +288,20 @@ func billInvoiceRules() *rules.Set {
 			),
 		),
 		rules.When(
-			invoiceTaxExtIn(untdid.ExtKeyDocumentType, "262"),
+			invoiceTaxExtIn(untdid.ExtKeyDocumentType, globalCreditNote),
+			rules.Assert("44", "invoice must declare an invoicing period, in ordering or delivery, for global credit notes (BR-FR-CO-03)",
+				is.Func("has invoicing period", invoiceHasInvoicingPeriod),
+			),
 			rules.Field("ordering",
-				rules.Assert("24", "invoice ordering is required for consolidated credit notes (BR-FR-CO-03)",
+				rules.Assert("24", "invoice ordering is required for global credit notes (BR-FR-CO-03)",
 					is.Present,
 				),
 				rules.Field("contracts",
-					rules.Assert("25", "invoice ordering contracts is required for consolidated credit notes (BR-FR-CO-03)",
+					rules.Assert("25", "invoice ordering contracts is required for global credit notes (BR-FR-CO-03)",
 						is.Present,
 					),
-					rules.Assert("26", "invoice ordering contracts must contain at least one entry for consolidated credit notes (BR-FR-CO-03)",
+					rules.Assert("26", "invoice ordering contracts must contain at least one entry for global credit notes (BR-FR-CO-03)",
 						is.Length(1, 0),
-					),
-				),
-			),
-			rules.Field("delivery",
-				rules.Assert("27", "invoice delivery is required for consolidated credit notes (BR-FR-CO-03)",
-					is.Present,
-				),
-				rules.Field("period",
-					rules.Assert("28", "invoice delivery period is required for consolidated credit notes (BR-FR-CO-03)",
-						is.Present,
 					),
 				),
 			),
@@ -517,6 +524,20 @@ func notesNoDuplicates(val any) bool {
 		}
 	}
 	return true
+}
+
+// invoiceHasInvoicingPeriod reports whether the invoice carries the
+// invoicing period (BG-14). gobl.ubl maps it from ordering.period,
+// gobl.cii from delivery.period, so either one satisfies the rule.
+func invoiceHasInvoicingPeriod(val any) bool {
+	inv, ok := val.(*bill.Invoice)
+	if !ok || inv == nil {
+		return false
+	}
+	if inv.Ordering != nil && inv.Ordering.Period != nil {
+		return true
+	}
+	return inv.Delivery != nil && inv.Delivery.Period != nil
 }
 
 func invoiceDueDatesValid(val any) bool {

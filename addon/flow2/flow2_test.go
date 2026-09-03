@@ -300,3 +300,129 @@ func TestInvoicePartyTwoLegalIdentities(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "only one identity may carry the legal scope")
 }
+
+// testInvoiceCreditNote returns a credit note carrying a single reference
+// to the invoice it corrects.
+func testInvoiceCreditNote(t *testing.T) *bill.Invoice {
+	t.Helper()
+	inv := testInvoiceB2BStandard(t)
+	inv.Type = bill.InvoiceTypeCreditNote
+	inv.Payment = nil
+	inv.Preceding = []*org.DocumentRef{
+		{Code: "FAC-2024-000", IssueDate: cal.NewDate(2024, 5, 13)},
+	}
+	return inv
+}
+
+func TestInvoiceCorrectivePreceding(t *testing.T) {
+	corrective := func(t *testing.T) *bill.Invoice {
+		inv := testInvoiceCreditNote(t)
+		inv.Type = bill.InvoiceTypeCorrective
+		return inv
+	}
+
+	t.Run("accepts one dated reference", func(t *testing.T) {
+		inv := corrective(t)
+		require.NoError(t, inv.Calculate())
+		assert.Equal(t, cbc.Code("384"), inv.Tax.Ext.Get(untdid.ExtKeyDocumentType))
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("rejects a reference without a date", func(t *testing.T) {
+		inv := corrective(t)
+		inv.Preceding[0].IssueDate = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-42")
+	})
+
+	t.Run("rejects more than one reference", func(t *testing.T) {
+		inv := corrective(t)
+		inv.Preceding = append(inv.Preceding, &org.DocumentRef{
+			Code:      "FAC-2023-999",
+			IssueDate: cal.NewDate(2023, 5, 13),
+		})
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-05")
+	})
+}
+
+func TestInvoiceCreditNotePreceding(t *testing.T) {
+	t.Run("accepts dated references", func(t *testing.T) {
+		inv := testInvoiceCreditNote(t)
+		inv.Preceding = append(inv.Preceding, &org.DocumentRef{
+			Code:      "FAC-2023-999",
+			IssueDate: cal.NewDate(2023, 5, 13),
+		})
+		require.NoError(t, inv.Calculate())
+		assert.Equal(t, cbc.Code("381"), inv.Tax.Ext.Get(untdid.ExtKeyDocumentType))
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("rejects a reference without a date", func(t *testing.T) {
+		inv := testInvoiceCreditNote(t)
+		inv.Preceding[0].IssueDate = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-43")
+	})
+
+	t.Run("rejects a missing reference", func(t *testing.T) {
+		inv := testInvoiceCreditNote(t)
+		inv.Preceding = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-06")
+	})
+}
+
+// testInvoiceGlobalCreditNote returns a global credit note (262): no
+// reference to a previous invoice, but a contract and an invoicing period.
+func testInvoiceGlobalCreditNote(t *testing.T) *bill.Invoice {
+	t.Helper()
+	inv := testInvoiceB2BStandard(t)
+	inv.Type = bill.InvoiceTypeCreditNote
+	inv.Tax.Ext = inv.Tax.Ext.Set(untdid.ExtKeyDocumentType, globalCreditNote)
+	inv.Payment = nil
+	inv.Ordering = &bill.Ordering{
+		Contracts: []*org.DocumentRef{{Code: "CTR-2024-001"}},
+		Period: &cal.Period{
+			Start: cal.MakeDate(2024, 5, 1),
+			End:   cal.MakeDate(2024, 5, 31),
+		},
+	}
+	return inv
+}
+
+func TestInvoiceGlobalCreditNote(t *testing.T) {
+	t.Run("an explicit 262 survives calculation", func(t *testing.T) {
+		inv := testInvoiceGlobalCreditNote(t)
+		require.NoError(t, inv.Calculate())
+		assert.Equal(t, globalCreditNote, inv.Tax.Ext.Get(untdid.ExtKeyDocumentType))
+	})
+
+	t.Run("needs no reference to a previous invoice", func(t *testing.T) {
+		inv := testInvoiceGlobalCreditNote(t)
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("requires a contract", func(t *testing.T) {
+		inv := testInvoiceGlobalCreditNote(t)
+		inv.Ordering.Contracts = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-25")
+	})
+
+	t.Run("requires an invoicing period", func(t *testing.T) {
+		inv := testInvoiceGlobalCreditNote(t)
+		inv.Ordering.Period = nil
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-44")
+	})
+
+	t.Run("accepts the invoicing period on the delivery", func(t *testing.T) {
+		inv := testInvoiceGlobalCreditNote(t)
+		inv.Delivery = &bill.DeliveryDetails{Period: inv.Ordering.Period}
+		inv.Ordering.Period = nil
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+}
