@@ -9,6 +9,7 @@ import (
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
+	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -152,4 +153,20 @@ func TestPaymentVATPercentsAllowed(t *testing.T) {
 		}}},
 	}}
 	assert.True(t, paymentVATPercentsAllowed(pmt))
+}
+
+func TestBillingModeAcceptsV14Codes(t *testing.T) {
+	codes := []cbc.Code{
+		dgfip.BillingModeB8, dgfip.BillingModeS8,
+		dgfip.BillingModeM8, dgfip.BillingModeB9, dgfip.BillingModeS9,
+		dgfip.BillingModeM9,
+	}
+	for _, code := range codes {
+		t.Run(string(code), func(t *testing.T) {
+			inv := testInvoiceB2BCrossBorder(t)
+			inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, code)
+			require.NoError(t, inv.Calculate())
+			assert.NoError(t, rules.Validate(inv))
+		})
+	}
 }
