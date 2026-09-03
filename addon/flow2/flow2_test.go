@@ -170,6 +170,16 @@ func TestInvoiceMissingBillingModeFails(t *testing.T) {
 	assert.Error(t, rules.Validate(inv))
 }
 
+func TestInvoiceInvalidBillingModeFails(t *testing.T) {
+	// GOBL does not enforce an extension's code list automatically; rule 09 must
+	// reject a value that is not a DGFiP billing-mode code (e.g. the "b2b" that
+	// reached PPF as an invalid BT-23 ProfileID).
+	inv := testInvoiceB2BStandard(t)
+	require.NoError(t, inv.Calculate())
+	inv.Tax.Ext = inv.Tax.Ext.Merge(tax.ExtensionsOf(cbc.CodeMap{dgfip.ExtKeyBillingMode: "b2b"}))
+	assert.Error(t, rules.Validate(inv))
+}
+
 func TestNormalizeAddsRequiredNotes(t *testing.T) {
 	inv := testInvoiceB2BStandard(t)
 	inv.Notes = nil
