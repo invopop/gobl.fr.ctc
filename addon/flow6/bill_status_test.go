@@ -80,6 +80,48 @@ func TestStatusHappyPath(t *testing.T) {
 	assert.Equal(t, bill.StatusTypeResponse, st.Type)
 }
 
+// BR-FR-CDV-03 (MDT-4): a CDV must carry a document identifier in Code
+// (the CDAR ram:ID). Series is optional and does not substitute for it.
+func TestStatusRequiresCode(t *testing.T) {
+	t.Run("missing code is rejected", func(t *testing.T) {
+		st := testStatus(t)
+		st.Code = ""
+		runNormalize(t, st)
+		assert.ErrorContains(t, rules.Validate(st), "document identifier")
+	})
+	t.Run("series does not substitute for code", func(t *testing.T) {
+		st := testStatus(t)
+		st.Code = ""
+		st.Series = "CDV-2026"
+		runNormalize(t, st)
+		assert.ErrorContains(t, rules.Validate(st), "document identifier")
+	})
+}
+
+// normalizeStatusLine derives the CDAR ProcessConditionCode from the
+// (status type, line key) pair when no ext is preset — the forward
+// direction of prepareStatusWithLine.
+func TestNormalizeStatusLineFromKey(t *testing.T) {
+	cases := []struct {
+		name string
+		typ  cbc.Key
+		key  cbc.Key
+		want cbc.Code
+	}{
+		{"update issued -> 200", bill.StatusTypeUpdate, bill.StatusLineIssued, "200"},
+		{"response issued -> 201", bill.StatusTypeResponse, bill.StatusLineIssued, "201"},
+		{"response acknowledged -> 202", bill.StatusTypeResponse, bill.StatusLineAcknowledged, "202"},
+		{"response processing -> 204", bill.StatusTypeResponse, bill.StatusLineProcessing, "204"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st := &bill.Status{Type: tc.typ, Lines: []*bill.StatusLine{{Key: tc.key}}}
+			normalizeStatus(st)
+			assert.Equal(t, tc.want, st.Lines[0].Ext.Get(ExtKeyStatus))
+		})
+	}
+}
+
 func TestStatusRejectsSTCIdentityScheme(t *testing.T) {
 	st := testStatus(t)
 	// Add an STC (0231) identity on the supplier — admissible on a

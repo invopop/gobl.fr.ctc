@@ -67,6 +67,24 @@ func TestPaymentReceiptHappyPath(t *testing.T) {
 	require.NoError(t, rules.Validate(pmt))
 }
 
+// BR-FR-CDV-03 (MDT-4): a CDV must carry a document identifier in Code
+// (the CDAR ram:ID). Series is optional and does not substitute for it.
+func TestPaymentRequiresCode(t *testing.T) {
+	t.Run("missing code is rejected", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Code = ""
+		runNormalize(t, pmt)
+		assert.ErrorContains(t, rules.Validate(pmt), "document identifier")
+	})
+	t.Run("series does not substitute for code", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Code = ""
+		pmt.Series = "PMT-2026"
+		runNormalize(t, pmt)
+		assert.ErrorContains(t, rules.Validate(pmt), "document identifier")
+	})
+}
+
 func TestPaymentReceiptSetsCDARStatusCode212(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	runNormalize(t, pmt)
