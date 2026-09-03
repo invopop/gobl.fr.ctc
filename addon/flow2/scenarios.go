@@ -120,14 +120,26 @@ var scenarios = []*tax.ScenarioSet{
 					untdid.ExtKeyDocumentType: "503",
 				}),
 			},
+			// Global credit note -------------------------------------------
+			// Matched on the code the caller already set, so the plain
+			// credit-note entry above cannot overwrite it back to 381.
+			{
+				Types:   []cbc.Key{bill.InvoiceTypeCreditNote},
+				ExtKey:  untdid.ExtKeyDocumentType,
+				ExtCode: globalCreditNote,
+				Ext: tax.ExtensionsOf(cbc.CodeMap{
+					untdid.ExtKeyDocumentType: globalCreditNote,
+				}),
+			},
 		},
 	},
 }
 
+// Global credit note: covers a contractual period, not a single invoice.
+const globalCreditNote cbc.Code = "262"
+
 // allowedInvoiceDocumentTypes is the whitelist of UNTDID 1001 codes
-// permitted on a Flow 2 invoice. Includes 262 for consolidated credit
-// notes (caller sets the extension explicitly; not driven by a
-// scenario).
+// permitted on a Flow 2 invoice.
 var allowedInvoiceDocumentTypes = []cbc.Code{
 	"380", "389", "393", "501",
 	"386", "500",
