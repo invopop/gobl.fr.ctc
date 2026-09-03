@@ -22,6 +22,13 @@ func legalIdentity(scheme cbc.Code, code string) *org.Identity {
 	}
 }
 
+// plainIdentity returns an identity that is not the party's legal one.
+func plainIdentity(scheme cbc.Code, code string) *org.Identity {
+	id := legalIdentity(scheme, code)
+	id.Scope = cbc.KeyEmpty
+	return id
+}
+
 func TestNormalizeParty(t *testing.T) {
 	t.Run("nil safe", func(t *testing.T) {
 		assert.NotPanics(t, func() { normalizeParty(nil) })
@@ -238,10 +245,26 @@ func TestIdentitiesSchemesUnique(t *testing.T) {
 	assert.True(t, identitiesSchemesUnique([]*org.Identity{}))
 	// nil and empty-ext entries skipped
 	assert.True(t, identitiesSchemesUnique([]*org.Identity{nil, {Code: "x"}}))
-	unique := []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1"), legalIdentity(identitySchemeIDNonEU, "2")}
+	unique := []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1"), plainIdentity(identitySchemeIDNonEU, "2")}
 	assert.True(t, identitiesSchemesUnique(unique))
-	dup := []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1"), legalIdentity(identitySchemeIDSIREN, "2")}
+	dup := []*org.Identity{plainIdentity(identitySchemeIDSIREN, "1"), plainIdentity(identitySchemeIDSIREN, "2")}
 	assert.False(t, identitiesSchemesUnique(dup))
+	shared := []*org.Identity{
+		legalIdentity(identitySchemeIDSIREN, "732829320"),
+		plainIdentity(identitySchemeIDSIREN, "732829320"),
+	}
+	assert.True(t, identitiesSchemesUnique(shared))
+}
+
+func TestNormalizePartyKeepsSingleSIREN(t *testing.T) {
+	p := &org.Party{
+		TaxID:      &tax.Identity{Country: "FR", Code: "44732829320"},
+		Identities: []*org.Identity{{Type: fr.IdentityTypeSIREN, Code: "732829320"}},
+	}
+	normalizeParty(p)
+	require.Len(t, p.Identities, 1)
+	assert.Equal(t, cbc.Code(identitySchemeIDSIREN), p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+	assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
 }
 
 func TestIdentitiesSingleLegalScope(t *testing.T) {
