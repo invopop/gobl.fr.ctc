@@ -4,6 +4,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
+	"github.com/invopop/gobl/i18n"
 	"github.com/invopop/gobl/tax"
 )
 
@@ -120,14 +121,40 @@ var scenarios = []*tax.ScenarioSet{
 					untdid.ExtKeyDocumentType: "503",
 				}),
 			},
+			// Global credit note -------------------------------------------
+			{
+				Types: []cbc.Key{bill.InvoiceTypeCreditNote},
+				Tags:  []cbc.Key{TagGlobal},
+				Ext: tax.ExtensionsOf(cbc.CodeMap{
+					untdid.ExtKeyDocumentType: globalCreditNote,
+				}),
+			},
+		},
+	},
+}
+
+// Global credit note: covers a contractual period, not a single invoice.
+const globalCreditNote cbc.Code = "262"
+
+// TagGlobal marks a credit note that settles a contractual period rather than
+// a single invoice, mapping to UNTDID 262.
+const TagGlobal cbc.Key = "global"
+
+var invoiceTags = &tax.TagSet{
+	Schema: bill.ShortSchemaInvoice,
+	List: []*cbc.Definition{
+		{
+			Key: TagGlobal,
+			Name: i18n.String{
+				i18n.EN: "Global credit note",
+				i18n.FR: "Avoir de remise globale",
+			},
 		},
 	},
 }
 
 // allowedInvoiceDocumentTypes is the whitelist of UNTDID 1001 codes
-// permitted on a Flow 2 invoice. Includes 262 for consolidated credit
-// notes (caller sets the extension explicitly; not driven by a
-// scenario).
+// permitted on a Flow 2 invoice.
 var allowedInvoiceDocumentTypes = []cbc.Code{
 	"380", "389", "393", "501",
 	"386", "500",
