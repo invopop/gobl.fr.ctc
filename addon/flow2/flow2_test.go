@@ -186,3 +186,35 @@ func TestNormalizeAddsRequiredNotes(t *testing.T) {
 	norm.Normalize(inv, tax.AddonContext(V1))
 	assert.GreaterOrEqual(t, len(inv.Notes), 3)
 }
+
+func TestInvoiceAttachmentDescription(t *testing.T) {
+	attachment := func(desc string) *org.Attachment {
+		return &org.Attachment{
+			Code:        "PJ-001",
+			Name:        "facture.pdf",
+			Description: desc,
+			URL:         "https://example.com/facture.pdf",
+		}
+	}
+
+	t.Run("accepts a missing description", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Attachments = []*org.Attachment{attachment("")}
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("accepts an allowed description", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Attachments = []*org.Attachment{attachment(attachmentFormatLisible)}
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("rejects an unknown description", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Attachments = []*org.Attachment{attachment("UNEXPECTED")}
+		require.NoError(t, inv.Calculate())
+		assert.Error(t, rules.Validate(inv))
+	})
+}
