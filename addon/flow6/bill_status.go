@@ -2,6 +2,7 @@ package flow6
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/iso"
@@ -278,6 +279,18 @@ func billStatusRules() *rules.Set {
 				// line.Ext[ExtKeyStatus] value derived by
 				// normalizeStatusLine).
 				rules.When(
+					lineHasStatusCode("208", "210"),
+					rules.Field("reasons",
+						rules.Each(
+							rules.Field("description",
+								rules.Assert("27", "status line reason description is required for status codes 208 (Suspendue) and 210 (Refusée), and carries the comment motivating it (MDT-126)",
+									is.Present,
+								),
+							),
+						),
+					),
+				),
+				rules.When(
 					lineHasStatusCode("200"),
 					rules.Field("reasons",
 						rules.Each(
@@ -439,10 +452,10 @@ func statusIsBusinessIssued(v any) bool {
 // ProcessConditionCode (line.Ext[ExtKeyStatus] — set by
 // normalizeStatusLine from the (Status.Type, line.Key) pair). Used to
 // branch BR-FR-CDV-CL-09's per-process-code reason allow-lists.
-func lineHasStatusCode(code cbc.Code) rules.Test {
-	return is.Func(fmt.Sprintf("line status code %s", code), func(v any) bool {
+func lineHasStatusCode(codes ...cbc.Code) rules.Test {
+	return is.Func(fmt.Sprintf("line status code %v", codes), func(v any) bool {
 		line, ok := v.(*bill.StatusLine)
-		return ok && line != nil && line.Ext.Get(ExtKeyStatus) == code
+		return ok && line != nil && slices.Contains(codes, line.Ext.Get(ExtKeyStatus))
 	})
 }
 

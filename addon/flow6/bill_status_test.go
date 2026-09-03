@@ -463,14 +463,16 @@ func TestStatusRejectedSiblingInvalidAndExpected(t *testing.T) {
 	st.Lines[0].Key = bill.StatusLineRejected
 	st.Lines[0].Reasons = []*bill.Reason{
 		{
-			Key: bill.ReasonKeyLegal,
+			Key:         bill.ReasonKeyLegal,
+			Description: "Taux de TVA erroné",
 			Ext: tax.ExtensionsOf(cbc.CodeMap{
 				ExtKeyReason:    "TX_TVA_ERR",
 				ExtKeyCondition: ConditionInvalidData,
 			}),
 		},
 		{
-			Key: bill.ReasonKeyLegal,
+			Key:         bill.ReasonKeyLegal,
+			Description: "Taux attendu : 20 %",
 			Ext: tax.ExtensionsOf(cbc.CodeMap{
 				ExtKeyReason:    "TX_TVA_ERR",
 				ExtKeyCondition: ConditionExpectedData,
@@ -669,4 +671,49 @@ func TestPartyHasInboxWhenRequiredWrongType(t *testing.T) {
 func TestPartyHasInboxWhenRequiredWKRole(t *testing.T) {
 	p := &org.Party{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyRole: RolePlatform})}
 	assert.True(t, partyHasInboxWhenRequired(p))
+}
+
+// MDT-126: a 210 (Refusée) or 208 (Suspendue) line must carry the comment
+// motivating it, which gobl.cii emits as the status IncludedNote/Content.
+func TestStatusRejectionComment(t *testing.T) {
+	reason := func(desc string) *bill.Reason {
+		return &bill.Reason{
+			Key:         bill.ReasonKeyLegal,
+			Description: desc,
+			Ext: tax.ExtensionsOf(cbc.CodeMap{
+				ExtKeyReason:    "TX_TVA_ERR",
+				ExtKeyCondition: ConditionInvalidData,
+			}),
+		}
+	}
+
+	t.Run("rejected without a comment", func(t *testing.T) {
+		st := testStatus(t)
+		st.Lines[0].Key = bill.StatusLineRejected
+		st.Lines[0].Reasons = []*bill.Reason{reason("")}
+		runNormalize(t, st)
+		assert.ErrorContains(t, rules.Validate(st), "BILL-STATUS-27")
+	})
+
+	t.Run("rejected with a comment", func(t *testing.T) {
+		st := testStatus(t)
+		st.Lines[0].Key = bill.StatusLineRejected
+		st.Lines[0].Reasons = []*bill.Reason{reason("Taux de TVA erroné")}
+		runNormalize(t, st)
+		require.NoError(t, rules.Validate(st))
+	})
+
+	t.Run("suspended without a comment", func(t *testing.T) {
+		st := testStatus(t)
+		st.Lines[0].Key = bill.StatusLineQuerying
+		st.Lines[0].Reasons = []*bill.Reason{reason("")}
+		runNormalize(t, st)
+		assert.ErrorContains(t, rules.Validate(st), "BILL-STATUS-27")
+	})
+
+	t.Run("other statuses do not need one", func(t *testing.T) {
+		st := testStatus(t)
+		runNormalize(t, st)
+		require.NoError(t, rules.Validate(st))
+	})
 }
