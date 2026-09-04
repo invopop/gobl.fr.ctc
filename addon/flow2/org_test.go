@@ -241,10 +241,31 @@ func TestIdentitiesSchemeFormatValid(t *testing.T) {
 		assert.Contains(t, err.Error(), "ISO scheme ID")
 	})
 	t.Run("duplicate scheme errors", func(t *testing.T) {
-		ids := []*org.Identity{sirenIdentity("1"), sirenIdentity("2")}
+		ids := []*org.Identity{
+			{Code: "1", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIRET})},
+			{Code: "2", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIRET})},
+		}
 		err := identitiesSchemeFormatValid(ids)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "duplicate")
+	})
+	t.Run("tax registration without scheme allowed", func(t *testing.T) {
+		// BT-32 lands in `ram:SpecifiedTaxRegistration` / `cac:PartyTaxScheme`,
+		// which BR-FR-CO-10 does not reach.
+		ids := []*org.Identity{{Code: "828701557", Scope: org.IdentityScopeTax}}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
+	t.Run("legal registration without scheme allowed", func(t *testing.T) {
+		// BT-30 lands in `ram:SpecifiedLegalOrganization` / `cac:PartyLegalEntity`.
+		ids := []*org.Identity{{Code: "356000000", Scope: org.IdentityScopeLegal}}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
+	t.Run("scoped identity does not collide with party identifier", func(t *testing.T) {
+		ids := []*org.Identity{
+			sirenIdentity("356000000"),
+			{Code: "356000000", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN})},
+		}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
 	})
 	t.Run("valid private-id", func(t *testing.T) {
 		ids := []*org.Identity{
