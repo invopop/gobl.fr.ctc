@@ -484,9 +484,22 @@ func identitiesSIRETSIRENCoherent(val any) bool {
 	return true
 }
 
+// isPartyIdentifier reports whether the identity is a BT-29 class party
+// identifier: BT-29 (seller), BT-46 (buyer), BT-60 (payee) or BT-71
+// (deliver to). Those are the only identities BR-FR-CO-10 reaches, as it
+// is bound to `cac:PartyIdentification/cbc:ID` in UBL and `ram:GlobalID`
+// in CII. The legal registration (BT-30) and the tax registration (BT-32)
+// are serialized elsewhere - `cac:PartyLegalEntity` /
+// `ram:SpecifiedLegalOrganization` and `cac:PartyTaxScheme` /
+// `ram:SpecifiedTaxRegistration` - and neither element has a slot for an
+// ISO 6523 scheme, so they are out of the rule's scope.
+func isPartyIdentifier(id *org.Identity) bool {
+	return !id.Scope.Has(org.IdentityScopeLegal) && !id.Scope.Has(org.IdentityScopeTax)
+}
+
 // identitiesSchemeFormatValid checks the ISO scheme IDs of a party's
-// identities. BR-FR-CO-10 only tests uniqueness over cac:PartyIdentification,
-// so the legal identity (cac:PartyLegalEntity/cbc:CompanyID) is exempt.
+// identities. BR-FR-CO-10 reaches party identifiers only, so the legal and
+// tax registrations are exempt from the scheme and uniqueness tests alike.
 func identitiesSchemeFormatValid(val any) error {
 	identities, ok := val.([]*org.Identity)
 	if !ok || len(identities) == 0 {
@@ -494,19 +507,17 @@ func identitiesSchemeFormatValid(val any) error {
 	}
 	schemes := make(map[cbc.Code]bool)
 	for _, id := range identities {
-		if id == nil {
+		if id == nil || !isPartyIdentifier(id) {
 			continue
 		}
 		schemeID := id.Ext.Get(iso.ExtKeySchemeID)
 		if schemeID == cbc.CodeEmpty {
-			return errors.New("all identities must have an ISO scheme ID defined in extensions BR-FR-CO-10")
+			return errors.New("all party identifiers must have an ISO scheme ID defined in extensions BR-FR-CO-10")
 		}
-		if !id.Scope.Has(org.IdentityScopeLegal) {
-			if schemes[schemeID] {
-				return fmt.Errorf("duplicate identities with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
-			}
-			schemes[schemeID] = true
+		if schemes[schemeID] {
+			return fmt.Errorf("duplicate party identifiers with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
 		}
+		schemes[schemeID] = true
 		if schemeID == identitySchemeIDPrivate {
 			code := string(id.Code)
 			if code == "" {

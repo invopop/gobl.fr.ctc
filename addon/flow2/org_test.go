@@ -382,6 +382,24 @@ func TestIdentitiesSchemeFormatValid(t *testing.T) {
 		ids := []*org.Identity{sirenIdentity("732829320"), unscopedSIREN("732829320")}
 		assert.NoError(t, identitiesSchemeFormatValid(ids))
 	})
+	t.Run("tax registration without scheme allowed", func(t *testing.T) {
+		// BT-32 lands in `ram:SpecifiedTaxRegistration` / `cac:PartyTaxScheme`,
+		// which BR-FR-CO-10 does not reach.
+		ids := []*org.Identity{{Code: "828701557", Scope: org.IdentityScopeTax}}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
+	t.Run("legal registration without scheme allowed", func(t *testing.T) {
+		// BT-30 lands in `ram:SpecifiedLegalOrganization` / `cac:PartyLegalEntity`.
+		ids := []*org.Identity{{Code: "356000000", Scope: org.IdentityScopeLegal}}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
+	t.Run("scoped identity does not collide with party identifier", func(t *testing.T) {
+		ids := []*org.Identity{
+			sirenIdentity("356000000"),
+			{Code: "356000000", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN})},
+		}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
 	t.Run("valid private-id", func(t *testing.T) {
 		ids := []*org.Identity{
 			{Code: "ABC-123", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate})},
