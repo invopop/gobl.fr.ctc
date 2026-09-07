@@ -98,7 +98,7 @@ func TestStatusRequiresCode(t *testing.T) {
 	})
 }
 
-// normalizeStatusLine derives the CDAR ProcessConditionCode from the
+// normalizeStatusLine derives the lifecycle status code from the
 // (status type, line key) pair when no ext is preset — the forward
 // direction of prepareStatusWithLine.
 func TestNormalizeStatusLineFromKey(t *testing.T) {
@@ -265,7 +265,7 @@ func TestStatusLineDocIssueDateRequired(t *testing.T) {
 	assert.ErrorContains(t, err, "status line doc issue_date is required")
 }
 
-// MDT-91: the referenced doc must carry the untdid-document-type extension
+// The referenced doc must carry the untdid-document-type extension
 // with a valid invoice type code. Clearing both the ext and the legacy Type
 // (so nothing is migrated) must fail validation.
 func TestStatusLineDocTypeRequired(t *testing.T) {
@@ -325,7 +325,7 @@ func TestStatus207RejectsCodeNotInAllowList(t *testing.T) {
 	st := testStatus(t)
 	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "207"})
 	st.Lines[0].Reasons = []*bill.Reason{
-		// Valid CDAR code, but belongs to status 208.
+		// Valid reason code, but belongs to status 208.
 		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "JUSTIF_ABS"})},
 	}
 	runNormalize(t, st)
@@ -347,7 +347,7 @@ func TestStatus213RejectsCodeNotInAllowList(t *testing.T) {
 	st := testStatus(t)
 	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "213"})
 	st.Lines[0].Reasons = []*bill.Reason{
-		// Valid CDAR code, but not allowed on 213.
+		// Valid reason code, but not allowed on 213.
 		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "QTE_ERR"})},
 	}
 	runNormalize(t, st)

@@ -5,7 +5,7 @@
 # defaults the party roles (Supplier → SE, Customer → BY).
 #
 # A `type: advice` document follows the same shape and resolves to
-# status code 211 (Paiement transmis) with the roles flipped.
+# status code 211 (Paiement transmis), with the same party roles.
 $schema: "https://gobl.org/draft-0/bill/payment"
 $addons:
   - "fr-ctc-flow6-v1"
