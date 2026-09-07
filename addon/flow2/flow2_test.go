@@ -1,6 +1,7 @@
 package flow2
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
@@ -214,6 +215,27 @@ func TestInvoiceSIRENEndpointFollowsDocumentType(t *testing.T) {
 		mismatch(inv.Customer)
 		require.NoError(t, inv.Calculate())
 		assert.NoError(t, rules.Validate(inv))
+	})
+}
+
+// The electronic address format rules reach endpoint-only parties: BR-FR-23
+// constrains the charset of a 0225 address, BR-FR-25 its length.
+func TestInvoiceEndpointAddressFormat(t *testing.T) {
+	t.Run("charset (BR-FR-23)", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Supplier.Inboxes = nil
+		inv.Supplier.Endpoints = []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:356000000/x"}}
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "BR-FR-23")
+	})
+	t.Run("length (BR-FR-25)", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Supplier.Inboxes = nil
+		inv.Supplier.Endpoints = []*org.Endpoint{
+			{URI: cbc.URI("iso6523-actorid-upis::0225:356000000" + strings.Repeat("A", 120))},
+		}
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "BR-FR-25")
 	})
 }
 

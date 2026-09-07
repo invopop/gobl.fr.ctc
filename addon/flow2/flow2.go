@@ -38,6 +38,7 @@ func init() {
 		orgPartyRules(),
 		orgIdentityRules(),
 		orgInboxRules(),
+		orgEndpointRules(),
 		orgItemRules(),
 	)
 	norm.RegisterWithGuard(is.InContext(tax.AddonIn(V1)),

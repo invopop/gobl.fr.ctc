@@ -27,6 +27,10 @@ const (
 
 const peppolEndpointScheme = "iso6523-actorid-upis"
 
+// endpointAddressFormatRegex is BR-FR-23's charset, which deliberately
+// differs from sirenInboxFormatRegex on `.` and `/`.
+var endpointAddressFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
+
 // sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
 // shared by SIREN-scope inboxes and private-id identity codes.
 var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
@@ -316,6 +320,54 @@ func orgIdentityRules() *rules.Set {
 			),
 		),
 	)
+}
+
+func orgEndpointRules() *rules.Set {
+	return rules.For(new(org.Endpoint),
+		rules.Field("uri",
+			rules.Assert("01", "electronic address with scheme 0225 must contain only alphanumeric characters and +, -, _, . (BR-FR-23)",
+				is.Func("valid 0225 address format", endpointAddressFormatValid),
+			),
+			rules.Assert("02", "electronic address must not exceed 125 characters (BR-FR-25)",
+				is.Func("address within 125 characters", endpointAddressLengthValid),
+			),
+		),
+	)
+}
+
+// endpointAddressValue returns what a CII ram:URIID carries: the code for a
+// Peppol endpoint, the opaque part otherwise.
+func endpointAddressValue(uri cbc.URI) (value string, sirenScheme bool) {
+	opaque := uri.Opaque()
+	if uri.Scheme() != peppolEndpointScheme {
+		return opaque, false
+	}
+	scheme, code, ok := splitPeppolEndpoint(opaque)
+	if !ok {
+		return opaque, false
+	}
+	return code, cbc.Code(scheme) == inboxSchemeSIREN
+}
+
+func endpointAddressFormatValid(val any) bool {
+	uri, ok := val.(cbc.URI)
+	if !ok {
+		return true
+	}
+	value, sirenScheme := endpointAddressValue(uri)
+	if !sirenScheme {
+		return true
+	}
+	return endpointAddressFormatRegex.MatchString(value)
+}
+
+func endpointAddressLengthValid(val any) bool {
+	uri, ok := val.(cbc.URI)
+	if !ok {
+		return true
+	}
+	value, _ := endpointAddressValue(uri)
+	return len(value) <= 125
 }
 
 func orgInboxRules() *rules.Set {
