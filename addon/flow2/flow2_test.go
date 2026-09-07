@@ -132,6 +132,40 @@ func TestInvoiceB2BHappyPath(t *testing.T) {
 	require.NoError(t, rules.Validate(inv))
 }
 
+// A French invoice whose parties carry only the canonical endpoint and no
+// legacy inbox — e.g. one parsed from UBL/CII — satisfies the electronic
+// address rules (BR-FR-13/21/22), which are bound to BT-34 / BT-49.
+func TestInvoiceB2BEndpointOnlyParties(t *testing.T) {
+	inv := testInvoiceB2BStandard(t)
+	for _, p := range []*org.Party{inv.Supplier, inv.Customer} {
+		siren := p.Inboxes[0].Code.String()
+		p.Inboxes = nil
+		p.Endpoints = []*org.Endpoint{
+			{URI: cbc.URI("iso6523-actorid-upis::0225:" + siren)},
+		}
+	}
+	require.NoError(t, inv.Calculate())
+	require.NoError(t, rules.Validate(inv))
+}
+
+// A party expressed the older way, with a Peppol inbox and no endpoint, is
+// migrated forward so the same rules pass. en16931 cannot do this migration
+// here: it normalizes before this addon, and the peppol key it looks for is
+// only assigned by normalizeInboxes.
+func TestInvoiceB2BInboxOnlyPartiesMigrateToEndpoint(t *testing.T) {
+	inv := testInvoiceB2BStandard(t)
+	for _, p := range []*org.Party{inv.Supplier, inv.Customer} {
+		p.Endpoints = nil
+		p.Inboxes = []*org.Inbox{
+			{Scheme: inboxSchemeSIREN, Code: p.Inboxes[0].Code}, // no peppol key
+		}
+	}
+	require.NoError(t, inv.Calculate())
+	require.NoError(t, rules.Validate(inv))
+	require.Len(t, inv.Supplier.Endpoints, 1)
+	assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:356000000"), inv.Supplier.Endpoints[0].URI)
+}
+
 func TestInvoiceCodeFormatRejectsBadChars(t *testing.T) {
 	inv := testInvoiceB2BStandard(t)
 	inv.Code = "INVALID CODE WITH SPACE"

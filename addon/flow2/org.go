@@ -25,6 +25,8 @@ const (
 	identityKeyPrivateID    cbc.Key  = "private-id"
 )
 
+const peppolEndpointScheme = "iso6523-actorid-upis"
+
 // sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
 // shared by SIREN-scope inboxes and private-id identity codes.
 var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
@@ -36,6 +38,39 @@ func normalizeParty(party *org.Party) {
 	normalizePartyFromTaxID(party)
 	normalizeIdentities(party)
 	normalizeInboxes(party)
+	ensureEndpointFromInbox(party)
+}
+
+// ensureEndpointFromInbox migrates a deprecated Peppol inbox to the canonical
+// endpoint. en16931 normalizes before this addon, so it misses the peppol key
+// that normalizeInboxes assigns above.
+func ensureEndpointFromInbox(party *org.Party) {
+	if party == nil || party.Endpoint(peppolEndpointScheme) != nil {
+		return
+	}
+	for _, inbox := range party.Inboxes {
+		if inbox == nil || inbox.Key != org.InboxKeyPeppol {
+			continue
+		}
+		if inbox.Scheme == cbc.CodeEmpty || inbox.Code == cbc.CodeEmpty {
+			continue
+		}
+		party.Endpoints = append(party.Endpoints, &org.Endpoint{
+			Label: inbox.Label,
+			URI:   cbc.URI(peppolEndpointScheme + "::" + inbox.Scheme.String() + ":" + inbox.Code.String()),
+		})
+		return
+	}
+}
+
+// splitPeppolEndpoint splits ":<scheme>:<code>", the form URI parsing exposes
+// the opaque part of "iso6523-actorid-upis::<scheme>:<code>" in.
+func splitPeppolEndpoint(opaque string) (scheme, code string, ok bool) {
+	parts := strings.SplitN(strings.TrimPrefix(opaque, ":"), ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 // normalizePartyFromTaxID derives a legal identity from the party's
@@ -223,7 +258,9 @@ func identitiesLegalIsSIREN(val any) bool {
 	return id != nil && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN
 }
 
-func partyHasSIRENInbox(val any) bool {
+// partyHasSIRENEndpoint reports whether the party's Peppol endpoint is on
+// scheme 0225 with a code starting with its SIREN (BR-FR-21/22).
+func partyHasSIRENEndpoint(val any) bool {
 	party, ok := val.(*org.Party)
 	if !ok || party == nil {
 		return true
@@ -232,12 +269,15 @@ func partyHasSIRENInbox(val any) bool {
 	if siren == "" {
 		return true
 	}
-	for _, inbox := range party.Inboxes {
-		if inbox != nil && inbox.Scheme == inboxSchemeSIREN {
-			return strings.HasPrefix(string(inbox.Code), siren)
-		}
+	ep := party.Endpoint(peppolEndpointScheme)
+	if ep == nil {
+		return false
 	}
-	return false
+	scheme, code, ok := splitPeppolEndpoint(ep.URI.Opaque())
+	if !ok {
+		return false
+	}
+	return cbc.Code(scheme) == inboxSchemeSIREN && strings.HasPrefix(code, siren)
 }
 
 // -- Rules ----------------------------------------------------------------

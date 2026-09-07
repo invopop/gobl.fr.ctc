@@ -93,6 +93,43 @@ func TestNormalizeParty(t *testing.T) {
 		assert.Equal(t, cbc.Key(""), p.Inboxes[1].Key)
 	})
 
+	t.Run("migrates a peppol inbox to the canonical endpoint", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Key: org.InboxKeyPeppol, Scheme: inboxSchemeSIREN, Code: "732829320_PEP"},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:732829320_PEP"), p.Endpoints[0].URI)
+	})
+
+	t.Run("migrates a 0225 inbox that arrives without the peppol key", func(t *testing.T) {
+		// normalizeInboxes assigns the key, which is why this addon has to do
+		// the migration itself — en16931 has already normalized by then.
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Scheme: inboxSchemeSIREN, Code: "732829320_PEP"},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:732829320_PEP"), p.Endpoints[0].URI)
+	})
+
+	t.Run("does not duplicate an existing peppol endpoint", func(t *testing.T) {
+		p := &org.Party{
+			Inboxes:   []*org.Inbox{{Key: org.InboxKeyPeppol, Scheme: inboxSchemeSIREN, Code: "732829320_PEP"}},
+			Endpoints: []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:keep-me"}},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:keep-me"), p.Endpoints[0].URI)
+	})
+
+	t.Run("leaves a party with no inbox alone", func(t *testing.T) {
+		p := &org.Party{Endpoints: []*org.Endpoint{{URI: "mailto:billing@example.com"}}}
+		normalizeParty(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("mailto:billing@example.com"), p.Endpoints[0].URI)
+	})
+
 	t.Run("SIREN always gets legal scope even when another identity has it", func(t *testing.T) {
 		p := &org.Party{Identities: []*org.Identity{
 			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
@@ -197,23 +234,46 @@ func TestIdentitiesLegalIsSIREN(t *testing.T) {
 	assert.False(t, identitiesLegalIsSIREN(legalNonSIREN))
 }
 
-func TestPartyHasSIRENInbox(t *testing.T) {
-	assert.True(t, partyHasSIRENInbox("wrong-type"))
-	assert.True(t, partyHasSIRENInbox((*org.Party)(nil)))
+func TestPartyHasSIRENEndpoint(t *testing.T) {
+	assert.True(t, partyHasSIRENEndpoint("wrong-type"))
+	assert.True(t, partyHasSIRENEndpoint((*org.Party)(nil)))
 	// no SIREN at all → passes
-	assert.True(t, partyHasSIRENInbox(&org.Party{}))
-	// SIREN present, matching inbox
+	assert.True(t, partyHasSIRENEndpoint(&org.Party{}))
+	// SIREN present, matching endpoint (starts-with, per BR-FR-21/22)
 	ok := &org.Party{
 		Identities: []*org.Identity{sirenIdentity("732829320")},
-		Inboxes:    []*org.Inbox{{Scheme: inboxSchemeSIREN, Code: "732829320_PEP"}},
+		Endpoints:  []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:732829320_PEP"}},
 	}
-	assert.True(t, partyHasSIRENInbox(ok))
-	// SIREN present, no matching inbox
-	bad := &org.Party{
+	assert.True(t, partyHasSIRENEndpoint(ok))
+	// SIREN present, wrong endpoint scheme
+	badScheme := &org.Party{
 		Identities: []*org.Identity{sirenIdentity("732829320")},
-		Inboxes:    []*org.Inbox{{Scheme: "9999", Code: "X"}},
+		Endpoints:  []*org.Endpoint{{URI: "iso6523-actorid-upis::9999:732829320"}},
 	}
-	assert.False(t, partyHasSIRENInbox(bad))
+	assert.False(t, partyHasSIRENEndpoint(badScheme))
+	// SIREN present, code does not start with it
+	badCode := &org.Party{
+		Identities: []*org.Identity{sirenIdentity("732829320")},
+		Endpoints:  []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:999999999"}},
+	}
+	assert.False(t, partyHasSIRENEndpoint(badCode))
+	// SIREN present, no peppol endpoint at all
+	noEndpoint := &org.Party{
+		Identities: []*org.Identity{sirenIdentity("732829320")},
+		Endpoints:  []*org.Endpoint{{URI: "mailto:billing@example.com"}},
+	}
+	assert.False(t, partyHasSIRENEndpoint(noEndpoint))
+}
+
+func TestSplitPeppolEndpoint(t *testing.T) {
+	scheme, code, ok := splitPeppolEndpoint(":0225:356000000")
+	assert.True(t, ok)
+	assert.Equal(t, "0225", scheme)
+	assert.Equal(t, "356000000", code)
+	_, _, ok = splitPeppolEndpoint(":0225:")
+	assert.False(t, ok)
+	_, _, ok = splitPeppolEndpoint("356000000")
+	assert.False(t, ok)
 }
 
 func TestIdentitiesSIRETSIRENCoherent(t *testing.T) {
