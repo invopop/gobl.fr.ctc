@@ -166,6 +166,57 @@ func TestInvoiceB2BInboxOnlyPartiesMigrateToEndpoint(t *testing.T) {
 	assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:356000000"), inv.Supplier.Endpoints[0].URI)
 }
 
+// BR-FR-21 constrains the buyer's electronic address (BT-49) on a normal B2B
+// invoice; BR-FR-22 constrains the seller's (BT-34) when the document is
+// self-billed. Which party carries the SIREN-matching endpoint therefore
+// swaps with the document type.
+func TestInvoiceSIRENEndpointFollowsDocumentType(t *testing.T) {
+	// An endpoint that is present and well-formed, but whose code does not
+	// start with the party's SIREN.
+	mismatch := func(p *org.Party) {
+		p.Inboxes = nil
+		p.Endpoints = []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:999999999"}}
+	}
+	// The self-billed tag drives the scenario that sets document type 389;
+	// Calculate re-derives the ext, so setting it directly would not survive.
+	selfBilled := func(inv *bill.Invoice) {
+		inv.Tags = tax.WithTags(tax.TagSelfBilled)
+		inv.Tax.Ext = tax.ExtensionsOf(cbc.CodeMap{
+			dgfip.ExtKeyBillingMode: dgfip.BillingModeS1,
+		})
+	}
+
+	t.Run("standard invoice checks the customer (BR-FR-21)", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		mismatch(inv.Customer)
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "customer must have a Peppol endpoint")
+	})
+
+	t.Run("standard invoice leaves the supplier's SIREN unchecked", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		mismatch(inv.Supplier)
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("self-billed invoice checks the supplier (BR-FR-22)", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		selfBilled(inv)
+		mismatch(inv.Supplier)
+		require.NoError(t, inv.Calculate())
+		assert.ErrorContains(t, rules.Validate(inv), "supplier must have a Peppol endpoint")
+	})
+
+	t.Run("self-billed invoice leaves the customer's SIREN unchecked", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		selfBilled(inv)
+		mismatch(inv.Customer)
+		require.NoError(t, inv.Calculate())
+		assert.NoError(t, rules.Validate(inv))
+	})
+}
+
 func TestInvoiceCodeFormatRejectsBadChars(t *testing.T) {
 	inv := testInvoiceB2BStandard(t)
 	inv.Code = "INVALID CODE WITH SPACE"
