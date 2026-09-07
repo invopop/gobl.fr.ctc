@@ -184,6 +184,17 @@ func TestNormalizeParty(t *testing.T) {
 		require.NotNil(t, siren)
 		assert.Equal(t, org.IdentityScopeLegal, siren.Scope)
 	})
+
+	t.Run("SIREN with a scope of its own keeps it", func(t *testing.T) {
+		// A BT-32 tax registration may hold the SIREN.
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeTax},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, org.IdentityScopeTax, p.Identities[0].Scope)
+		assert.Equal(t, identitySchemeIDSIREN, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+	})
 }
 
 func TestSirenFromFrenchTaxID(t *testing.T) {

@@ -176,11 +176,16 @@ func normalizeIdentities(party *org.Party) {
 }
 
 // assignSIRENLegalScope gives the legal scope to one SIREN, preferring one
-// that already carries it, and clears it from the rest.
+// that already carries it, and clears it from the rest. A SIREN that already
+// carries a scope of its own is a different registration - a BT-32 tax
+// registration may hold the SIREN too - so it is left alone.
 func assignSIRENLegalScope(identities []*org.Identity) {
 	var chosen *org.Identity
 	for _, id := range identities {
 		if id == nil || id.Type != fr.IdentityTypeSIREN {
+			continue
+		}
+		if id.Scope != cbc.KeyEmpty && !id.Scope.Has(org.IdentityScopeLegal) {
 			continue
 		}
 		if chosen == nil ||
