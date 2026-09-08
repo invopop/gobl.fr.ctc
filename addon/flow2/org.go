@@ -120,7 +120,11 @@ func ensureSIRENIdentity(party *org.Party, code cbc.Code) {
 		return
 	}
 	for _, id := range party.Identities {
-		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
+		if id == nil {
+			continue
+		}
+		// The scheme is only set later by normalizeIdentity.
+		if id.Type == fr.IdentityTypeSIREN || id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
 			return
 		}
 	}
@@ -166,10 +170,22 @@ func normalizeIdentities(party *org.Party) {
 			party.Identities = append(party.Identities, siren)
 		}
 	}
-	// The SIREN is France's legal identifier: it must always carry the
-	// legal scope (any other legal-scoped identity is rejected in the rules).
-	if siren != nil {
-		siren.Scope = org.IdentityScopeLegal
+	assignSIRENLegalScope(party.Identities)
+}
+
+// assignSIRENLegalScope gives the legal scope to an unscoped SIREN when no
+// identity claims it yet. Anything else is left for the rules to reject.
+func assignSIRENLegalScope(identities []*org.Identity) {
+	for _, id := range identities {
+		if id != nil && id.Scope.Has(org.IdentityScopeLegal) {
+			return
+		}
+	}
+	for _, id := range identities {
+		if id != nil && id.Type == fr.IdentityTypeSIREN && id.Scope == cbc.KeyEmpty {
+			id.Scope = org.IdentityScopeLegal
+			return
+		}
 	}
 }
 
@@ -436,6 +452,12 @@ func identitiesSIRETSIRENCoherent(val any) bool {
 	return true
 }
 
+// isPartyIdentifier reports whether BR-FR-CO-10 reaches the identity. It is
+// bound to GlobalID, so BT-30 and BT-32 serialize out of its scope.
+func isPartyIdentifier(id *org.Identity) bool {
+	return !id.Scope.Has(org.IdentityScopeLegal) && !id.Scope.Has(org.IdentityScopeTax)
+}
+
 func identitiesSchemeFormatValid(val any) error {
 	identities, ok := val.([]*org.Identity)
 	if !ok || len(identities) == 0 {
@@ -443,20 +465,20 @@ func identitiesSchemeFormatValid(val any) error {
 	}
 	schemes := make(map[cbc.Code]bool)
 	for _, id := range identities {
-		if id == nil {
+		if id == nil || !isPartyIdentifier(id) {
 			continue
 		}
 		schemeID := id.Ext.Get(iso.ExtKeySchemeID)
 		if schemeID == cbc.CodeEmpty {
-			return errors.New("all identities must have an ISO scheme ID defined in extensions BR-FR-CO-10")
+			return errors.New("all party identifiers must have an ISO scheme ID defined in extensions BR-FR-CO-10")
 		}
 		if schemes[schemeID] {
-			return fmt.Errorf("duplicate identities with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
+			return fmt.Errorf("duplicate party identifiers with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
 		}
+		schemes[schemeID] = true
 		if schemeID == identitySchemeIDPrivate {
 			code := string(id.Code)
 			if code == "" {
-				schemes[schemeID] = true
 				continue
 			}
 			if len(code) > 100 {
@@ -466,7 +488,6 @@ func identitiesSchemeFormatValid(val any) error {
 				return errors.New("identity with ISO scheme ID 0224 (private-id) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)")
 			}
 		}
-		schemes[schemeID] = true
 	}
 	return nil
 }
