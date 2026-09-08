@@ -326,6 +326,18 @@ func billStatusRules() *rules.Set {
 					),
 				),
 				rules.When(
+					lineHasStatusCodeIn(statusCommentRequiredCodes...),
+					rules.Field("reasons",
+						rules.Each(
+							rules.Field("description",
+								rules.Assert("27", "status line reason description is required on status codes 208 and 210, which PPF rejects without a comment (MDT-126)",
+									is.Present,
+								),
+							),
+						),
+					),
+				),
+				rules.When(
 					lineHasStatusCode("210"),
 					rules.Field("reasons",
 						rules.Each(
@@ -417,6 +429,13 @@ func statusIsBusinessIssued(v any) bool {
 // ProcessConditionCode (line.Ext[ExtKeyStatus] — set by
 // normalizeStatusLine from the (Status.Type, line.Key) pair). Used to
 // branch BR-FR-CDV-CL-09's per-process-code reason allow-lists.
+func lineHasStatusCodeIn(codes ...cbc.Code) rules.Test {
+	return is.Func(fmt.Sprintf("line status code in %v", codes), func(v any) bool {
+		line, ok := v.(*bill.StatusLine)
+		return ok && line != nil && line.Ext.Get(ExtKeyStatus).In(codes...)
+	})
+}
+
 func lineHasStatusCode(code cbc.Code) rules.Test {
 	return is.Func(fmt.Sprintf("line status code %s", code), func(v any) bool {
 		line, ok := v.(*bill.StatusLine)

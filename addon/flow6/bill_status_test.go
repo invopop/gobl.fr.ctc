@@ -1,6 +1,7 @@
 package flow6
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/invopop/gobl/bill"
@@ -434,19 +435,61 @@ func TestReasonNormalizerPreservesNonDefaultCode(t *testing.T) {
 // characteristics across separate Reasons. The accompanying
 // bill.Condition entries are reserved for Peppol cac:Condition-style
 // business-rule codes.
+// PPF makes the free-text comment (MDT-126) mandatory on 210 (Refusée) and 208
+// (Suspendue) and answers 601 without it. No schematron checks it, so this is a
+// platform requirement rather than a BR-FR rule.
+func TestStatusCommentRequiredOnRefusedAndSuspended(t *testing.T) {
+	reason := func(code cbc.Code, desc string) *bill.Reason {
+		// no Key: prepareReasonKey derives it from the reason code
+		return &bill.Reason{
+			Description: desc,
+			Ext:         tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: code}),
+		}
+	}
+
+	// each status permits its own reason codes (BR-FR-CDV-CL-09)
+	for code, reasonCode := range map[cbc.Code]cbc.Code{"210": "TX_TVA_ERR", "208": "JUSTIF_ABS"} {
+		t.Run(code.String()+" without a description is rejected", func(t *testing.T) {
+			st := testStatus(t)
+			st.Lines[0].Ext = st.Lines[0].Ext.Set(ExtKeyStatus, code)
+			st.Lines[0].Reasons = []*bill.Reason{reason(reasonCode, "")}
+			runNormalize(t, st)
+			assert.ErrorContains(t, rules.Validate(st), "BILL-STATUS-27")
+		})
+
+		t.Run(code.String()+" with a description is accepted", func(t *testing.T) {
+			st := testStatus(t)
+			st.Lines[0].Ext = st.Lines[0].Ext.Set(ExtKeyStatus, code)
+			st.Lines[0].Reasons = []*bill.Reason{reason(reasonCode, "Motif du refus")}
+			runNormalize(t, st)
+			assert.NoError(t, rules.Validate(st))
+		})
+	}
+
+	t.Run("other statuses are unaffected", func(t *testing.T) {
+		st := testStatus(t)
+		st.Lines[0].Ext = st.Lines[0].Ext.Set(ExtKeyStatus, "207")
+		st.Lines[0].Reasons = []*bill.Reason{reason("TX_TVA_ERR", "")}
+		runNormalize(t, st)
+		assert.NotContains(t, fmt.Sprint(rules.Validate(st)), "BILL-STATUS-27")
+	})
+}
+
 func TestStatusRejectedSiblingInvalidAndExpected(t *testing.T) {
 	st := testStatus(t)
 	st.Lines[0].Key = bill.StatusLineRejected
 	st.Lines[0].Reasons = []*bill.Reason{
 		{
-			Key: bill.ReasonKeyLegal,
+			Key:         bill.ReasonKeyLegal,
+			Description: "Taux de TVA incorrect",
 			Ext: tax.ExtensionsOf(cbc.CodeMap{
 				ExtKeyReason:    "TX_TVA_ERR",
 				ExtKeyCondition: ConditionInvalidData,
 			}),
 		},
 		{
-			Key: bill.ReasonKeyLegal,
+			Key:         bill.ReasonKeyLegal,
+			Description: "Taux de TVA attendu",
 			Ext: tax.ExtensionsOf(cbc.CodeMap{
 				ExtKeyReason:    "TX_TVA_ERR",
 				ExtKeyCondition: ConditionExpectedData,

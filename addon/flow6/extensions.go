@@ -142,6 +142,10 @@ func reasonCodesMsg(status, label string, codes []cbc.Code) string {
 	)
 }
 
+// statusCommentRequiredCodes lists the status codes PPF requires a free-text
+// comment (MDT-126) on. No schematron checks it.
+var statusCommentRequiredCodes = []cbc.Code{"208", "210"}
+
 // statusProcessCodes lists the ProcessConditionCodes (MDT-9) valid on
 // bill.Status.Ext[fr-ctc-flow6-status]. Payment-related codes 211 /
 // 212 live on bill.Payment — see paymentProcessCodes.
