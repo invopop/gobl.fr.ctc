@@ -475,12 +475,6 @@ func identitiesSIRETSIRENCoherent(val any) bool {
 	return true
 }
 
-// isPartyIdentifier reports whether BR-FR-CO-10 reaches the identity. It is
-// bound to GlobalID, so BT-30 and BT-32 serialize out of its scope.
-func isPartyIdentifier(id *org.Identity) bool {
-	return !id.Scope.Has(org.IdentityScopeLegal) && !id.Scope.Has(org.IdentityScopeTax)
-}
-
 func identitiesSchemeFormatValid(val any) error {
 	identities, ok := val.([]*org.Identity)
 	if !ok || len(identities) == 0 {
@@ -488,7 +482,9 @@ func identitiesSchemeFormatValid(val any) error {
 	}
 	schemes := make(map[cbc.Code]bool)
 	for _, id := range identities {
-		if id == nil || !isPartyIdentifier(id) {
+		// BR-FR-CO-10 is bound to GlobalID, so the legal (BT-30) and tax
+		// (BT-32) registrations are out of its scope.
+		if id == nil || id.Scope.Has(org.IdentityScopeLegal) || id.Scope.Has(org.IdentityScopeTax) {
 			continue
 		}
 		schemeID := id.Ext.Get(iso.ExtKeySchemeID)
