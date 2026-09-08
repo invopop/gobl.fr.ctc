@@ -22,6 +22,13 @@ func sirenIdentity(code string) *org.Identity {
 	}
 }
 
+// unscopedSIREN returns a SIREN identity that is not the party's legal one.
+func unscopedSIREN(code string) *org.Identity {
+	id := sirenIdentity(code)
+	id.Scope = cbc.KeyEmpty
+	return id
+}
+
 func TestNormalizeParty(t *testing.T) {
 	t.Run("nil safe", func(t *testing.T) {
 		assert.NotPanics(t, func() { normalizeParty(nil) })
@@ -130,20 +137,66 @@ func TestNormalizeParty(t *testing.T) {
 		assert.Equal(t, cbc.URI("mailto:billing@example.com"), p.Endpoints[0].URI)
 	})
 
-	t.Run("SIREN always gets legal scope even when another identity has it", func(t *testing.T) {
+	t.Run("only the first SIREN keeps the legal scope", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeLegal},
+			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 2)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+		assert.Equal(t, cbc.KeyEmpty, p.Identities[1].Scope)
+	})
+
+	t.Run("legal scope follows the SIREN that already carries it", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeLegal},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, cbc.KeyEmpty, p.Identities[0].Scope)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[1].Scope)
+	})
+
+	t.Run("does not duplicate a SIREN that lacks the ISO scheme", func(t *testing.T) {
+		p := &org.Party{
+			TaxID:      &tax.Identity{Country: "FR", Code: "44732829320"},
+			Identities: []*org.Identity{{Type: fr.IdentityTypeSIREN, Code: "732829320"}},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, identitySchemeIDSIREN, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+	})
+
+	t.Run("leaves the SIREN unscoped when another identity claims legal", func(t *testing.T) {
 		p := &org.Party{Identities: []*org.Identity{
 			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
 			{Key: identityKeyPrivateID, Code: "ABC123", Scope: org.IdentityScopeLegal},
 		}}
 		normalizeParty(p)
-		var siren *org.Identity
-		for _, id := range p.Identities {
-			if id.Type == fr.IdentityTypeSIREN {
-				siren = id
-			}
-		}
-		require.NotNil(t, siren)
-		assert.Equal(t, org.IdentityScopeLegal, siren.Scope)
+		assert.Equal(t, cbc.KeyEmpty, p.Identities[0].Scope)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[1].Scope)
+	})
+
+	t.Run("leaves two legal SIRENs alone", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeLegal},
+			{Type: fr.IdentityTypeSIREN, Code: "356000000", Scope: org.IdentityScopeLegal},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[1].Scope)
+	})
+
+	t.Run("SIREN with a scope of its own keeps it", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeTax},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, org.IdentityScopeTax, p.Identities[0].Scope)
+		assert.Equal(t, identitySchemeIDSIREN, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
 	})
 }
 
@@ -322,10 +375,25 @@ func TestIdentitiesSchemeFormatValid(t *testing.T) {
 		assert.Contains(t, err.Error(), "ISO scheme ID")
 	})
 	t.Run("duplicate scheme errors", func(t *testing.T) {
-		ids := []*org.Identity{sirenIdentity("1"), sirenIdentity("2")}
+		ids := []*org.Identity{unscopedSIREN("1"), unscopedSIREN("2")}
 		err := identitiesSchemeFormatValid(ids)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "duplicate")
+	})
+	t.Run("tax registration without scheme allowed", func(t *testing.T) {
+		ids := []*org.Identity{{Code: "828701557", Scope: org.IdentityScopeTax}}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
+	t.Run("legal registration without scheme allowed", func(t *testing.T) {
+		ids := []*org.Identity{{Code: "356000000", Scope: org.IdentityScopeLegal}}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
+	t.Run("scoped identity does not collide with party identifier", func(t *testing.T) {
+		ids := []*org.Identity{
+			sirenIdentity("356000000"),
+			{Code: "356000000", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN})},
+		}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
 	})
 	t.Run("valid private-id", func(t *testing.T) {
 		ids := []*org.Identity{

@@ -126,7 +126,14 @@ func ensureIdentity(party *org.Party, typ cbc.Code, code cbc.Code, schemeID stri
 		return
 	}
 	for _, id := range party.Identities {
-		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID).String() == schemeID {
+		if id == nil {
+			continue
+		}
+		// The scheme is only set later by normalizeIdentity.
+		if typ != "" && id.Type == typ {
+			return
+		}
+		if id.Ext.Get(iso.ExtKeySchemeID).String() == schemeID {
 			return
 		}
 	}
@@ -347,6 +354,13 @@ func identitiesSingleLegalScope(val any) bool {
 	return legal <= 1
 }
 
+// isPartyIdentifier reports whether BR-FR-CO-10 reaches the identity. It is
+// bound to GlobalID, so BT-30 and BT-32 serialize out of its scope.
+func isPartyIdentifier(id *org.Identity) bool {
+	return !id.Scope.Has(org.IdentityScopeLegal) && !id.Scope.Has(org.IdentityScopeTax)
+}
+
+// identitiesSchemesUnique reports whether no ISO scheme ID repeats.
 func identitiesSchemesUnique(val any) bool {
 	identities, ok := val.([]*org.Identity)
 	if !ok || len(identities) == 0 {
@@ -354,7 +368,7 @@ func identitiesSchemesUnique(val any) bool {
 	}
 	seen := make(map[cbc.Code]bool, len(identities))
 	for _, id := range identities {
-		if id == nil {
+		if id == nil || !isPartyIdentifier(id) {
 			continue
 		}
 		schemeID := id.Ext.Get(iso.ExtKeySchemeID)
