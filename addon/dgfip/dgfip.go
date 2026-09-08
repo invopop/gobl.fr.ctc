@@ -20,21 +20,28 @@ const ExtKeyBillingMode cbc.Key = "fr-ctc-billing-mode"
 // Billing mode codes. The prefix denotes invoice nature (B = goods, S =
 // services, M = mixed); the numeric suffix encodes the payment context
 // (1 = deposit, 2 = already paid, 4 = final after down payment,
-// 5 = subcontractor, 6 = co-contractor, 7 = e-reporting).
+// 5 = subcontractor, 6 = co-contractor, 7 = e-reporting,
+// 8 = multi-vendor, 9 = bi-directional).
 const (
 	BillingModeB1 cbc.Code = "B1"
 	BillingModeB2 cbc.Code = "B2"
 	BillingModeB4 cbc.Code = "B4"
 	BillingModeB7 cbc.Code = "B7"
+	BillingModeB8 cbc.Code = "B8"
+	BillingModeB9 cbc.Code = "B9"
 	BillingModeS1 cbc.Code = "S1"
 	BillingModeS2 cbc.Code = "S2"
 	BillingModeS4 cbc.Code = "S4"
 	BillingModeS5 cbc.Code = "S5"
 	BillingModeS6 cbc.Code = "S6"
 	BillingModeS7 cbc.Code = "S7"
+	BillingModeS8 cbc.Code = "S8"
+	BillingModeS9 cbc.Code = "S9"
 	BillingModeM1 cbc.Code = "M1"
 	BillingModeM2 cbc.Code = "M2"
 	BillingModeM4 cbc.Code = "M4"
+	BillingModeM8 cbc.Code = "M8"
+	BillingModeM9 cbc.Code = "M9"
 )
 
 // ExtBillingMode is the shared billing-mode extension definition. Flow addons
@@ -60,7 +67,8 @@ var ExtBillingMode = &cbc.Definition{
 
 			The numeric suffix indicates the payment type (1=deposit,
 			2=already paid, 4=final after down payment, 5=subcontractor,
-			6=co-contractor, 7=e-reporting).
+			6=co-contractor, 7=e-reporting, 8=multi-vendor,
+			9=bi-directional).
 		`),
 		i18n.FR: here.Doc(`
 			Code utilisé pour décrire le cadre de facturation de la facture. Le
@@ -75,7 +83,8 @@ var ExtBillingMode = &cbc.Definition{
 
 			Le suffixe numérique indique le type de paiement (1=dépôt,
 			2=déjà payée, 4=définitive après acompte, 5=sous-traitant,
-			6=cotraitant, 7=e-reporting).
+			6=cotraitant, 7=e-reporting, 8=multi-vendeurs,
+			9=bidirectionnelle).
 		`),
 	},
 	Values: []*cbc.Definition{
@@ -83,14 +92,20 @@ var ExtBillingMode = &cbc.Definition{
 		{Code: BillingModeB2, Name: i18n.String{i18n.EN: "Goods - Already paid invoice", i18n.FR: "Biens - Facture déjà payée"}},
 		{Code: BillingModeB4, Name: i18n.String{i18n.EN: "Goods - Final invoice (after down payment)", i18n.FR: "Biens - Facture définitive (après acompte)"}},
 		{Code: BillingModeB7, Name: i18n.String{i18n.EN: "Goods - E-reporting (VAT already collected)", i18n.FR: "Biens - E-reporting (TVA déjà collectée)"}},
+		{Code: BillingModeB8, Name: i18n.String{i18n.EN: "Goods - Multi-vendor invoice", i18n.FR: "Biens - Facture multi-vendeurs de biens"}},
+		{Code: BillingModeB9, Name: i18n.String{i18n.EN: "Goods - Bi-directional invoice", i18n.FR: "Biens - Facture bidirectionnelle de biens"}},
 		{Code: BillingModeS1, Name: i18n.String{i18n.EN: "Services - Standard invoice", i18n.FR: "Services - Facture de dépôt"}},
 		{Code: BillingModeS2, Name: i18n.String{i18n.EN: "Services - Already paid invoice", i18n.FR: "Services - Facture déjà payée"}},
 		{Code: BillingModeS4, Name: i18n.String{i18n.EN: "Services - Final invoice (after down payment)", i18n.FR: "Services - Facture définitive (après acompte)"}},
 		{Code: BillingModeS5, Name: i18n.String{i18n.EN: "Services - Subcontractor invoice", i18n.FR: "Services - Facture de sous-traitance"}},
 		{Code: BillingModeS6, Name: i18n.String{i18n.EN: "Services - Co-contractor invoice", i18n.FR: "Services - Facture de cotraitance"}},
 		{Code: BillingModeS7, Name: i18n.String{i18n.EN: "Services - E-reporting (VAT already collected)", i18n.FR: "Services - E-reporting (TVA déjà collectée)"}},
+		{Code: BillingModeS8, Name: i18n.String{i18n.EN: "Services - Multi-vendor invoice", i18n.FR: "Services - Facture multi-vendeurs de services"}},
+		{Code: BillingModeS9, Name: i18n.String{i18n.EN: "Services - Bi-directional invoice", i18n.FR: "Services - Facture bidirectionnelle de services"}},
 		{Code: BillingModeM1, Name: i18n.String{i18n.EN: "Mixed - Standard invoice", i18n.FR: "Mixte - Facture de dépôt"}},
 		{Code: BillingModeM2, Name: i18n.String{i18n.EN: "Mixed - Already paid invoice", i18n.FR: "Mixte - Facture déjà payée"}},
 		{Code: BillingModeM4, Name: i18n.String{i18n.EN: "Mixed - Final invoice (after down payment)", i18n.FR: "Mixte - Facture définitive (après acompte)"}},
+		{Code: BillingModeM8, Name: i18n.String{i18n.EN: "Mixed - Multi-vendor invoice (unit invoices not all Sx or Bx)", i18n.FR: "Mixte - Facture multi-vendeurs double, contenant des factures unitaires qui ne sont pas toutes Sx ou Bx"}},
+		{Code: BillingModeM9, Name: i18n.String{i18n.EN: "Mixed - Bi-directional invoice", i18n.FR: "Mixte - Facture bidirectionnelle double"}},
 	},
 }
