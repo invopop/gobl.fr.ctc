@@ -8,7 +8,7 @@ code: "STA-2026-0001"
 # Buyer-issued ack (CDV-205, "approved"). The buyer's platform reports
 # acceptance back to the seller's invoice. The fr-ctc-flow6 normaliser
 # fills the seller (Supplier) role with SE and the buyer (Customer)
-# with BY automatically, and derives the CDAR ProcessConditionCode
+# with BY automatically, and derives the lifecycle status code
 # from the line's (Key, Type) pair.
 supplier:
   name: "VENDEUR SARL"

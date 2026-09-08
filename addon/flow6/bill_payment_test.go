@@ -85,7 +85,7 @@ func TestPaymentRequiresCode(t *testing.T) {
 	})
 }
 
-func TestPaymentReceiptSetsCDARStatusCode212(t *testing.T) {
+func TestPaymentReceiptSetsStatusCode212(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	runNormalize(t, pmt)
 	assert.Equal(t, cbc.Code("212"), pmt.Ext.Get(ExtKeyStatus))
@@ -132,7 +132,7 @@ func TestPaymentRejectsStatusOnlyConditionCodes(t *testing.T) {
 	}
 }
 
-// Status-only ProcessConditionCodes are rejected on a Payment.
+// Status-only lifecycle status codes are rejected on a Payment.
 func TestPaymentRejectsStatusProcessCodes(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	runNormalize(t, pmt)
@@ -141,7 +141,7 @@ func TestPaymentRejectsStatusProcessCodes(t *testing.T) {
 	assert.ErrorContains(t, err, "Payment-applicable")
 }
 
-func TestPaymentAdviceSetsCDARStatusCode211(t *testing.T) {
+func TestPaymentAdviceSetsStatusCode211(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	pmt.Type = bill.PaymentTypeAdvice
 	runNormalize(t, pmt)
@@ -162,7 +162,7 @@ func TestPaymentAdviceKeepsSellerBuyerRoles(t *testing.T) {
 	// The role code names the party, not the issuer: the supplier is the
 	// seller (SE) and the customer the buyer (BY), same as a receipt. An
 	// advice being payer-issued is reflected at generation time by making
-	// the buyer the CDAR issuer (cdar_payment.go), not by flipping roles.
+	// the buyer the issuer of the generated document, not by flipping roles.
 	assert.Equal(t, RoleSeller, pmt.Supplier.Ext.Get(ExtKeyRole))
 	assert.Equal(t, RoleBuyer, pmt.Customer.Ext.Get(ExtKeyRole))
 }
@@ -247,7 +247,7 @@ func TestPaymentStatusCodeMismatchRejected(t *testing.T) {
 	runNormalize(t, pmt)
 	pmt.Ext = pmt.Ext.Set(ExtKeyStatus, "211") // wrong code for receipt
 	err := rules.Validate(pmt)
-	assert.ErrorContains(t, err, "ProcessConditionCode")
+	assert.ErrorContains(t, err, "status code 212")
 }
 
 // Document the assumption that the payment-line currency is not
@@ -283,7 +283,7 @@ func TestPaymentDoesNotMigrateNonCodeType(t *testing.T) {
 	assert.ErrorContains(t, rules.Validate(pmt), "untdid-document-type")
 }
 
-// --- MDT-224: a payment receipt must carry a VAT breakdown ---------------
+// --- A payment receipt must carry a VAT breakdown ----------------------
 
 func TestPaymentReceiptRequiresVATBreakdown(t *testing.T) {
 	pmt := testPaymentReceipt(t)
@@ -292,7 +292,7 @@ func TestPaymentReceiptRequiresVATBreakdown(t *testing.T) {
 	assert.ErrorContains(t, rules.Validate(pmt), "VAT")
 }
 
-// A VAT category with no rate entries does not satisfy MDT-224: the rule
+// A VAT category with no rate entries does not satisfy the rule: it
 // requires the breakdown to be present, even though an exempt rate is fine.
 func TestPaymentReceiptRejectsVATCategoryWithoutRates(t *testing.T) {
 	pmt := testPaymentReceipt(t)

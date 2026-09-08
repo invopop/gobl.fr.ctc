@@ -98,7 +98,7 @@ func TestStatusRequiresCode(t *testing.T) {
 	})
 }
 
-// normalizeStatusLine derives the CDAR ProcessConditionCode from the
+// normalizeStatusLine derives the lifecycle status code from the
 // (status type, line key) pair when no ext is preset — the forward
 // direction of prepareStatusWithLine.
 func TestNormalizeStatusLineFromKey(t *testing.T) {
@@ -265,7 +265,7 @@ func TestStatusLineDocIssueDateRequired(t *testing.T) {
 	assert.ErrorContains(t, err, "status line doc issue_date is required")
 }
 
-// MDT-91: the referenced doc must carry the untdid-document-type extension
+// The referenced doc must carry the untdid-document-type extension
 // with a valid invoice type code. Clearing both the ext and the legacy Type
 // (so nothing is migrated) must fail validation.
 func TestStatusLineDocTypeRequired(t *testing.T) {
@@ -325,7 +325,7 @@ func TestStatus207RejectsCodeNotInAllowList(t *testing.T) {
 	st := testStatus(t)
 	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "207"})
 	st.Lines[0].Reasons = []*bill.Reason{
-		// Valid CDAR code, but belongs to status 208.
+		// Valid reason code, but belongs to status 208.
 		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "JUSTIF_ABS"})},
 	}
 	runNormalize(t, st)
@@ -347,7 +347,7 @@ func TestStatus213RejectsCodeNotInAllowList(t *testing.T) {
 	st := testStatus(t)
 	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "213"})
 	st.Lines[0].Reasons = []*bill.Reason{
-		// Valid CDAR code, but not allowed on 213.
+		// Valid reason code, but not allowed on 213.
 		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "QTE_ERR"})},
 	}
 	runNormalize(t, st)
@@ -366,7 +366,7 @@ func TestReasonNormalizerFillsKeyFromExt(t *testing.T) {
 }
 
 // TestReasonKeyFromEachReasonCode exercises prepareReasonKey across
-// every CDAR ReasonCode bucket (one representative code each), so the
+// every reason-code bucket (one representative code each), so the
 // reverse mapping and the matching forward bucket are both covered.
 func TestReasonKeyFromEachReasonCode(t *testing.T) {
 	cases := map[cbc.Code]cbc.Key{
@@ -416,7 +416,7 @@ func TestReasonNormalizerLeavesUnknownExtAlone(t *testing.T) {
 	assert.Equal(t, cbc.Key(""), r.Key)
 }
 
-// SetOneOf semantics in the normalizer: a CDAR ReasonCode that does
+// SetOneOf semantics in the normalizer: a reason code that does
 // not belong to the Reason.Key bucket is replaced with the bucket's
 // default rather than failing validation. Mirrors how verifactu
 // normalizes inconsistent tax-combo ext values.
@@ -449,12 +449,12 @@ func TestReasonNormalizerPreservesNonDefaultCode(t *testing.T) {
 	assert.Equal(t, cbc.Code("CALCUL_ERR"), r.Ext.Get(ExtKeyReason))
 }
 
-// --- Reason.Ext[fr-ctc-flow6-condition] → CDAR MDT-207 ------------------
+// --- Reason.Ext[fr-ctc-flow6-condition] ---------------------------------
 
 // A rejected status with two sibling Reasons — one flagged DIV
 // (invalid value), one flagged DVA (expected value) — passes
-// validation. The CDAR cardinality (0..1 TypeCode per
-// SpecifiedDocumentStatus) is honoured by spreading the two
+// validation. The spec's cardinality (at most one condition code
+// per status reason) is honoured by spreading the two
 // characteristics across separate Reasons. The accompanying
 // bill.Condition entries are reserved for Peppol cac:Condition-style
 // business-rule codes.
@@ -495,7 +495,7 @@ func TestReasonRejectsUnknownConditionExt(t *testing.T) {
 	assert.ErrorContains(t, err, "fr-ctc-flow6-condition")
 }
 
-// Every Status-applicable MDT-207 code is accepted on a bill.Reason.
+// Every Status-applicable condition code is accepted on a bill.Reason.
 // The 3 payment-amount markers (MEN / MPA / RAP) are explicitly
 // excluded — they live on bill.Payment, not bill.Reason — and the
 // rule rejects them; see TestReasonRejectsPaymentConditionCodes.
@@ -518,7 +518,7 @@ func TestReasonAcceptsAllStatusConditionCodes(t *testing.T) {
 	}
 }
 
-// Payment-related ProcessConditionCodes (211, 212) are rejected on a
+// Payment-related lifecycle status codes (211, 212) are rejected on a
 // bill.Status — those belong on bill.Payment.
 func TestStatusRejectsPaymentProcessCodes(t *testing.T) {
 	for _, code := range []cbc.Code{"211", "212"} {
@@ -530,7 +530,7 @@ func TestStatusRejectsPaymentProcessCodes(t *testing.T) {
 	}
 }
 
-// --- fr-ctc-flow6-action (MDT-121 / BR-FR-CDV-CL-10) -------------------
+// --- fr-ctc-flow6-action (BR-FR-CDV-CL-10) -----------------------------
 
 // Action normalizer fills the ext from the Key bucket.
 func TestActionNormalizerFillsExtFromKey(t *testing.T) {
@@ -549,10 +549,10 @@ func TestActionNormalizerFillsKeyFromExt(t *testing.T) {
 	assert.Equal(t, cbc.Code("CNP"), a.Ext.Get(ExtKeyAction))
 }
 
-// Every MDT-121 code defined in actionTable is accepted by the rule.
+// Every action code defined in actionTable is accepted by the rule.
 // The normalizer fills the Action.Key from the ext so core
 // bill.Action validation (which requires Key) also passes.
-func TestActionAcceptsAllMDT121Codes(t *testing.T) {
+func TestActionAcceptsAllActionCodes(t *testing.T) {
 	for _, code := range []cbc.Code{"NOA", "PIN", "NIN", "CNF", "CNP", "CNA", "OTH"} {
 		a := &bill.Action{
 			Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyAction: code}),
