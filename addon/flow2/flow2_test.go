@@ -562,11 +562,14 @@ func TestInvoiceGlobalCreditNote(t *testing.T) {
 		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-43")
 	})
 
-	t.Run("accepts the invoicing period on the delivery", func(t *testing.T) {
+	// delivery.period is "the period in which to expect delivery", not BG-14.
+	// gobl.cii reads BillingSpecifiedPeriod from it, which is a converter bug;
+	// satisfying the rule from that field would bless the wrong data.
+	t.Run("a delivery period does not satisfy BG-14", func(t *testing.T) {
 		inv := testInvoiceGlobalCreditNote(t)
 		inv.Delivery = &bill.DeliveryDetails{Period: inv.Ordering.Period}
 		inv.Ordering.Period = nil
 		require.NoError(t, inv.Calculate())
-		require.NoError(t, rules.Validate(inv))
+		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-43")
 	})
 }

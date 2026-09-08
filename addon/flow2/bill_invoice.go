@@ -282,12 +282,14 @@ func billInvoiceRules() *rules.Set {
 		),
 		rules.When(
 			invoiceTaxExtIn(untdid.ExtKeyDocumentType, globalCreditNote),
-			rules.Assert("43", "invoice must declare an invoicing period, in ordering or delivery, for global credit notes (BR-FR-CO-03)",
-				is.Func("has invoicing period", invoiceHasInvoicingPeriod),
-			),
 			rules.Field("ordering",
 				rules.Assert("24", "invoice ordering is required for global credit notes (BR-FR-CO-03)",
 					is.Present,
+				),
+				rules.Field("period",
+					rules.Assert("43", "invoice ordering period is required for global credit notes (BG-14, BR-FR-CO-03)",
+						is.Present,
+					),
 				),
 				rules.Field("contracts",
 					rules.Assert("25", "invoice ordering contracts is required for global credit notes (BR-FR-CO-03)",
@@ -517,20 +519,6 @@ func notesNoDuplicates(val any) bool {
 		}
 	}
 	return true
-}
-
-// invoiceHasInvoicingPeriod reports whether the invoice carries the
-// invoicing period (BG-14). gobl.ubl maps it from ordering.period,
-// gobl.cii from delivery.period, so either one satisfies the rule.
-func invoiceHasInvoicingPeriod(val any) bool {
-	inv, ok := val.(*bill.Invoice)
-	if !ok || inv == nil {
-		return false
-	}
-	if inv.Ordering != nil && inv.Ordering.Period != nil {
-		return true
-	}
-	return inv.Delivery != nil && inv.Delivery.Period != nil
 }
 
 func invoiceDueDatesValid(val any) bool {
