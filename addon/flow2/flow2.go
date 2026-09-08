@@ -86,6 +86,7 @@ func newV1Addon() *tax.AddonDef {
 		},
 		// Shared DGFiP billing-mode code list (also declared by Flow 10).
 		Extensions: []*cbc.Definition{dgfip.ExtBillingMode},
+		Tags:       []*tax.TagSet{invoiceTags},
 		Scenarios:  scenarios,
 	}
 }
