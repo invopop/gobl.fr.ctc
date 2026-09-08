@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/l10n"
 	"github.com/invopop/gobl/org"
@@ -393,6 +394,28 @@ func endpointAddressLengthValid(val any) bool {
 	}
 	value, _ := endpointAddressValue(uri)
 	return len(value) <= 125
+}
+
+// orgNoteRules relaxes GOBL-ORG-NOTE-01, which requires text on every note. A
+// Flow 2 note may instead carry only its UNTDID 4451 subject code, which is
+// the content in that case, so one or the other is required.
+func orgNoteRules() *rules.Set {
+	return rules.For(new(org.Note),
+		rules.Ignore("GOBL-ORG-NOTE-01"),
+		rules.Object(
+			rules.Assert("01", "note must carry either text or an untdid-text-subject extension",
+				is.Func("text or subject", noteHasTextOrSubject),
+			),
+		),
+	)
+}
+
+func noteHasTextOrSubject(val any) bool {
+	note, ok := val.(*org.Note)
+	if !ok || note == nil {
+		return true
+	}
+	return note.Text != "" || note.Ext.Get(untdid.ExtKeyTextSubject) != cbc.CodeEmpty
 }
 
 func orgInboxRules() *rules.Set {

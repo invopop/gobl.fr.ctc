@@ -38,6 +38,7 @@ func init() {
 		orgPartyRules(),
 		orgIdentityRules(),
 		orgInboxRules(),
+		orgNoteRules(),
 		orgEndpointRules(),
 		orgItemRules(),
 	)

@@ -239,6 +239,46 @@ func TestInvoiceEndpointAddressFormat(t *testing.T) {
 	})
 }
 
+// GOBL-ORG-NOTE-01 requires text on every note. A Flow 2 note may carry only
+// its UNTDID 4451 subject instead, so that fault is ignored and replaced with
+// an either-or check.
+func TestInvoiceNoteTextOrSubject(t *testing.T) {
+	t.Run("subject without text is accepted", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Notes = append(inv.Notes, &org.Note{
+			Ext: tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyTextSubject: "ACB"}),
+		})
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("a key deriving the subject is accepted", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Notes = append(inv.Notes, &org.Note{Key: org.NoteKeyGeneral})
+		require.NoError(t, inv.Calculate())
+		assert.Equal(t, cbc.Code("AAI"), inv.Notes[3].Ext.Get(untdid.ExtKeyTextSubject))
+		assert.Empty(t, inv.Notes[3].Text)
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("text without a subject is accepted", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Notes = append(inv.Notes, &org.Note{Text: "Free text, no subject"})
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("neither is rejected", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Notes = append(inv.Notes, &org.Note{})
+		require.NoError(t, inv.Calculate())
+		err := rules.Validate(inv)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "FLOW2-ORG-NOTE-01")
+		assert.NotContains(t, err.Error(), "GOBL-ORG-NOTE-01")
+	})
+}
+
 func TestInvoiceCodeFormatRejectsBadChars(t *testing.T) {
 	inv := testInvoiceB2BStandard(t)
 	inv.Code = "INVALID CODE WITH SPACE"
