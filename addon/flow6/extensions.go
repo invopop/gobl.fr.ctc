@@ -1,6 +1,9 @@
 package flow6
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/i18n"
 	"github.com/invopop/gobl/pkg/here"
@@ -90,6 +93,54 @@ const (
 	// ConditionAmountRemaining (RAP) — reste à payer.
 	ConditionAmountRemaining cbc.Code = "RAP"
 )
+
+// statusReasonCodes* list the reason codes each status permits
+// (BR-FR-CDV-CL-09).
+var (
+	statusReasonCodes200 = []cbc.Code{
+		"NON_TRANSMISE",
+	}
+	statusReasonCodes206 = []cbc.Code{
+		"AUTRE", "CMD_ERR", "SIRET_ERR", "CODE_ROUTAGE_ERR",
+		"REF_CT_ABSENT", "REF_ERR", "PU_ERR", "REM_ERR", "QTE_ERR",
+		"ART_ERR", "MODPAI_ERR", "QUALITE_ERR", "LIVR_INCOMP",
+	}
+	statusReasonCodes207 = []cbc.Code{
+		"AUTRE", "COORD_BANC_ERR", "TX_TVA_ERR", "MONTANTTOTAL_ERR",
+		"CALCUL_ERR", "NON_CONFORME", "DOUBLON", "DEST_INC", "DEST_ERR",
+		"TRANSAC_INC", "EMMET_INC", "CONTRAT_TERM", "DOUBLE_FACT",
+		"CMD_ERR", "ADR_ERR", "SIRET_ERR", "CODE_ROUTAGE_ERR",
+		"REF_CT_ABSENT", "REF_ERR", "PU_ERR", "REM_ERR", "QTE_ERR",
+		"ART_ERR", "MODPAI_ERR", "QUALITE_ERR", "LIVR_INCOMP",
+	}
+	statusReasonCodes208 = []cbc.Code{
+		"JUSTIF_ABS", "COORD_BANC_ERR", "CMD_ERR", "SIRET_ERR",
+		"CODE_ROUTAGE_ERR", "REF_CT_ABSENT", "REF_ERR",
+	}
+	statusReasonCodes210 = []cbc.Code{
+		"TX_TVA_ERR", "MONTANTTOTAL_ERR", "CALCUL_ERR", "NON_CONFORME",
+		"DOUBLON", "DEST_ERR", "TRANSAC_INC", "EMMET_INC",
+		"CONTRAT_TERM", "DOUBLE_FACT", "CMD_ERR", "ADR_ERR",
+		"REF_CT_ABSENT",
+	}
+	statusReasonCodes213 = []cbc.Code{
+		"MONTANTTOTAL_ERR", "CALCUL_ERR", "DOUBLON", "DEST_INC",
+		"ADR_ERR", "REJ_SEMAN", "REJ_UNI", "REJ_COH", "REJ_ADR",
+		"REJ_CONT_B2G", "REJ_REF_PJ", "REJ_ASS_PJ",
+	}
+)
+
+// reasonCodesMsg renders the permitted reasons for a status code.
+func reasonCodesMsg(status, label string, codes []cbc.Code) string {
+	list := strings.Join(cbc.CodeStrings(codes), ", ")
+	if len(codes) > 1 {
+		list = "one of " + list
+	}
+	return fmt.Sprintf(
+		"status line reason ext fr-ctc-flow6-reason for status code %s (%s) must be %s (BR-FR-CDV-CL-09)",
+		status, label, list,
+	)
+}
 
 // statusProcessCodes lists the ProcessConditionCodes (MDT-9) valid on
 // bill.Status.Ext[fr-ctc-flow6-status]. Payment-related codes 211 /
