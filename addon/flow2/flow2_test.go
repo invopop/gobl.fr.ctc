@@ -191,7 +191,7 @@ func TestInvoiceSIRENEndpointFollowsDocumentType(t *testing.T) {
 		inv := testInvoiceB2BStandard(t)
 		mismatch(inv.Customer)
 		require.NoError(t, inv.Calculate())
-		assert.ErrorContains(t, rules.Validate(inv), "customer must have a Peppol endpoint")
+		assert.ErrorContains(t, rules.Validate(inv), "customer must have an endpoint")
 	})
 
 	t.Run("standard invoice leaves the supplier's SIREN unchecked", func(t *testing.T) {
@@ -206,7 +206,7 @@ func TestInvoiceSIRENEndpointFollowsDocumentType(t *testing.T) {
 		selfBilled(inv)
 		mismatch(inv.Supplier)
 		require.NoError(t, inv.Calculate())
-		assert.ErrorContains(t, rules.Validate(inv), "supplier must have a Peppol endpoint")
+		assert.ErrorContains(t, rules.Validate(inv), "supplier must have an endpoint")
 	})
 
 	t.Run("self-billed invoice leaves the customer's SIREN unchecked", func(t *testing.T) {

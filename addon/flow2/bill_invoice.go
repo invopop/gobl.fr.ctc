@@ -217,7 +217,7 @@ func billInvoiceRules() *rules.Set {
 		rules.When(
 			invoiceTaxExtNotIn(untdid.ExtKeyDocumentType, selfBilledDocumentTypes...),
 			rules.Field("customer",
-				rules.Assert("13", "invoice customer must have a Peppol endpoint with scheme 0225 matching the SIREN code (BR-FR-21)",
+				rules.Assert("13", "invoice customer must have an endpoint with scheme 0225 matching the SIREN code (BR-FR-21)",
 					is.Func("has SIREN endpoint", partyHasSIRENEndpoint),
 				),
 			),
@@ -237,7 +237,7 @@ func billInvoiceRules() *rules.Set {
 		rules.When(
 			invoiceTaxExtIn(untdid.ExtKeyDocumentType, selfBilledDocumentTypes...),
 			rules.Field("supplier",
-				rules.Assert("16", "invoice supplier must have a Peppol endpoint with scheme 0225 matching the SIREN code (BR-FR-22)",
+				rules.Assert("16", "invoice supplier must have an endpoint with scheme 0225 matching the SIREN code (BR-FR-22)",
 					is.Func("has SIREN endpoint", partyHasSIRENEndpoint),
 				),
 			),
