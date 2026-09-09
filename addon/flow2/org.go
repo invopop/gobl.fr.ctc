@@ -324,10 +324,10 @@ func orgIdentityRules() *rules.Set {
 		rules.When(
 			is.Func("scheme 0224", identitySchemeIs0224),
 			rules.Field("code",
-				rules.Assert("01", "must be no more than 100 characters long",
+				rules.Assert("01", "identity code must be no more than 100 characters long",
 					is.Length(0, 100),
 				),
-				rules.Assert("02", "must be in a valid format",
+				rules.Assert("02", "identity code must be in a valid format",
 					is.Matches(`^[A-Za-z0-9\-\+_/]+$`),
 				),
 			),
@@ -335,7 +335,7 @@ func orgIdentityRules() *rules.Set {
 		rules.When(
 			is.Func("scheme 0002 or 0231", identitySchemeIsSIRENBased),
 			rules.Field("code",
-				rules.Assert("03", "must be exactly 9 digits (BR-FR-32)",
+				rules.Assert("03", "identity code must be exactly 9 digits (BR-FR-32)",
 					is.Matches(`^\d{9}$`),
 				),
 			),
