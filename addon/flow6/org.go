@@ -22,7 +22,6 @@ const (
 	identitySchemeIDPrivate cbc.Code = "0224"
 	identityKeyPrivateID    cbc.Key  = "private-id"
 	inboxSchemeSIREN        cbc.Code = "0225"
-	peppolEndpointScheme    cbc.Code = "iso6523-actorid-upis"
 )
 
 // sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
@@ -109,7 +108,7 @@ func normalizeInboxes(party *org.Party) {
 // envelope can derive its Head.From / Head.To routing URIs from the
 // lifecycle document's parties.
 func normalizeEndpoints(party *org.Party) {
-	if party.Endpoint(peppolEndpointScheme.String()) != nil {
+	if party.Endpoint(iso.ActorIDScheme) != nil {
 		return
 	}
 	for _, in := range party.Inboxes {
@@ -121,7 +120,7 @@ func normalizeEndpoints(party *org.Party) {
 		}
 		party.Endpoints = append(party.Endpoints, &org.Endpoint{
 			Label: in.Label,
-			URI:   cbc.URI(peppolEndpointScheme + "::" + in.Scheme + ":" + in.Code),
+			URI:   cbc.URI(iso.ActorIDScheme + "::" + in.Scheme.String() + ":" + in.Code.String()),
 		})
 		return
 	}

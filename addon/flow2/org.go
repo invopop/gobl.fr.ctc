@@ -27,8 +27,6 @@ const (
 	identityKeyPrivateID    cbc.Key  = "private-id"
 )
 
-const peppolEndpointScheme = "iso6523-actorid-upis"
-
 // endpointAddressFormatRegex is BR-FR-23's charset, which deliberately
 // differs from sirenInboxFormatRegex on `.` and `/`.
 var endpointAddressFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
@@ -51,7 +49,7 @@ func normalizeParty(party *org.Party) {
 // endpoint. en16931 normalizes before this addon, so it misses the peppol key
 // that normalizeInboxes assigns above.
 func ensureEndpointFromInbox(party *org.Party) {
-	if party == nil || party.Endpoint(peppolEndpointScheme) != nil {
+	if party == nil || party.Endpoint(iso.ActorIDScheme) != nil {
 		return
 	}
 	for _, inbox := range party.Inboxes {
@@ -63,7 +61,7 @@ func ensureEndpointFromInbox(party *org.Party) {
 		}
 		party.Endpoints = append(party.Endpoints, &org.Endpoint{
 			Label: inbox.Label,
-			URI:   cbc.URI(peppolEndpointScheme + "::" + inbox.Scheme.String() + ":" + inbox.Code.String()),
+			URI:   cbc.URI(iso.ActorIDScheme + "::" + inbox.Scheme.String() + ":" + inbox.Code.String()),
 		})
 		return
 	}
@@ -291,7 +289,7 @@ func partyHasSIRENEndpoint(val any) bool {
 	if siren == "" {
 		return true
 	}
-	ep := party.Endpoint(peppolEndpointScheme)
+	ep := party.Endpoint(iso.ActorIDScheme)
 	if ep == nil {
 		return false
 	}
@@ -365,7 +363,7 @@ func orgEndpointRules() *rules.Set {
 // Peppol endpoint, the opaque part otherwise.
 func endpointAddressValue(uri cbc.URI) (value string, sirenScheme bool) {
 	opaque := uri.Opaque()
-	if uri.Scheme() != peppolEndpointScheme {
+	if uri.Scheme() != iso.ActorIDScheme {
 		return opaque, false
 	}
 	scheme, code, ok := splitPeppolEndpoint(opaque)

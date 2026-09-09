@@ -516,8 +516,8 @@ func testInvoiceGlobalCreditNote(t *testing.T) *bill.Invoice {
 	inv.Ordering = &bill.Ordering{
 		Contracts: []*org.DocumentRef{{Code: "CTR-2024-001"}},
 		Period: &cal.Period{
-			Start: cal.MakeDate(2024, 5, 1),
-			End:   cal.MakeDate(2024, 5, 31),
+			Start: cal.NewDate(2024, 5, 1),
+			End:   cal.NewDate(2024, 5, 31),
 		},
 	}
 	return inv
