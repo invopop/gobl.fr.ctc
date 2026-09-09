@@ -355,7 +355,7 @@ func billInvoiceRules() *rules.Set {
 		rules.Field("attachments",
 			rules.Each(
 				rules.Field("description",
-					rules.AssertIfPresent("39", "invoice attachment description must be one of the allowed values (BR-FR-17)",
+					rules.AssertIfPresent("40", "invoice attachment description must be one of the allowed values (BR-FR-17)",
 						is.In(allowedAttachmentDescriptions...),
 					),
 				),

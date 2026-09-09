@@ -402,11 +402,13 @@ func TestInvoiceAttachmentDescription(t *testing.T) {
 		require.NoError(t, rules.Validate(inv))
 	})
 
+	// Rule 40 kept its v0.0.7 meaning when the presence check (39) folded into
+	// it, so anything matching that code still sees the same fault.
 	t.Run("rejects an unknown description", func(t *testing.T) {
 		inv := testInvoiceB2BStandard(t)
 		inv.Attachments = []*org.Attachment{attachment("UNEXPECTED")}
 		require.NoError(t, inv.Calculate())
-		assert.Error(t, rules.Validate(inv))
+		assertFault(t, inv, "GOBL-FR-CTC-FLOW2-BILL-INVOICE-40")
 	})
 }
 
