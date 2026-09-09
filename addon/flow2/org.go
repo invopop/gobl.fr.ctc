@@ -27,12 +27,16 @@ const (
 	identityKeyPrivateID    cbc.Key  = "private-id"
 )
 
-// endpointAddressFormatRegex is BR-FR-23's charset, which deliberately
-// differs from sirenInboxFormatRegex on `.` and `/`.
-var endpointAddressFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
+// The opaque part of an ISO 6523 endpoint on the French 0225 scheme, and
+// BR-FR-23's charset for its address. The charset deliberately differs from
+// sirenInboxFormatRegex on `.` and `/`.
+var (
+	endpointSIRENScheme  = fmt.Sprintf(`^:%s:`, inboxSchemeSIREN)
+	endpointSIRENAddress = fmt.Sprintf(`^:%s:[A-Za-z0-9+\-_.]+$`, inboxSchemeSIREN)
+)
 
-// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
-// shared by SIREN-scope inboxes and private-id identity codes.
+// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format required of
+// private-id identity codes.
 var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
 
 func normalizeParty(party *org.Party) {
@@ -339,43 +343,24 @@ func orgIdentityRules() *rules.Set {
 	)
 }
 
+// orgEndpointRules constrains the ISO 6523 endpoint, which is the one the
+// electronic address terms BT-34/BT-49 carry. Other schemes, such as a
+// mailto: or gobl: routing address, are outside the French rules.
 func orgEndpointRules() *rules.Set {
 	return rules.For(new(org.Endpoint),
 		rules.Field("uri",
-			rules.Assert("01", "electronic address with scheme 0225 must contain only alphanumeric characters and +, -, _, . (BR-FR-23)",
-				is.Func("valid 0225 address format", endpointAddressFormatValid),
-			),
-			rules.Assert("02", "electronic address must not exceed 125 characters (BR-FR-25)",
-				is.Func("address within 125 characters", endpointAddressLengthValid),
+			rules.When(cbc.URISchemeIn(iso.ActorIDScheme),
+				rules.When(cbc.URIOpaqueMatches(endpointSIRENScheme),
+					rules.Assert("01", "endpoint address on scheme 0225 must contain only alphanumeric characters and +, -, _, . (BR-FR-23)",
+						cbc.URIOpaqueMatches(endpointSIRENAddress),
+					),
+				),
+				rules.Assert("02", "endpoint address must not exceed 125 characters (BR-FR-25)",
+					is.Func("address within 125 characters", endpointAddressLengthValid),
+				),
 			),
 		),
 	)
-}
-
-// endpointAddressValue returns what a CII ram:URIID carries: the code for a
-// Peppol endpoint, the opaque part otherwise.
-func endpointAddressValue(uri cbc.URI) (value string, sirenScheme bool) {
-	opaque := uri.Opaque()
-	if uri.Scheme() != iso.ActorIDScheme {
-		return opaque, false
-	}
-	scheme, code, ok := splitPeppolEndpoint(opaque)
-	if !ok {
-		return opaque, false
-	}
-	return code, cbc.Code(scheme) == inboxSchemeSIREN
-}
-
-func endpointAddressFormatValid(val any) bool {
-	uri, ok := val.(cbc.URI)
-	if !ok {
-		return true
-	}
-	value, sirenScheme := endpointAddressValue(uri)
-	if !sirenScheme {
-		return true
-	}
-	return endpointAddressFormatRegex.MatchString(value)
 }
 
 func endpointAddressLengthValid(val any) bool {
@@ -383,7 +368,11 @@ func endpointAddressLengthValid(val any) bool {
 	if !ok {
 		return true
 	}
-	value, _ := endpointAddressValue(uri)
+	// A malformed pair has no code to measure, so cap the whole opaque part.
+	value := uri.Opaque()
+	if _, code, ok := splitPeppolEndpoint(value); ok {
+		value = code
+	}
 	return len(value) <= 125
 }
 

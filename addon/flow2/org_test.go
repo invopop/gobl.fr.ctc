@@ -318,25 +318,14 @@ func TestPartyHasSIRENEndpoint(t *testing.T) {
 	assert.False(t, partyHasSIRENEndpoint(noEndpoint))
 }
 
-func TestEndpointAddressFormatValid(t *testing.T) {
-	// out of the rule's reach: non-URI values and non-peppol endpoints
-	assert.True(t, endpointAddressFormatValid("wrong-type"))
-	assert.True(t, endpointAddressFormatValid(cbc.URI("mailto:billing@example.com")))
-	// BR-FR-23 constrains addresses carrying scheme 0225
-	assert.True(t, endpointAddressFormatValid(cbc.URI("iso6523-actorid-upis::0225:732829320_PEP")))
-	assert.True(t, endpointAddressFormatValid(cbc.URI("iso6523-actorid-upis::0225:a.b-c+d_e")))
-	assert.False(t, endpointAddressFormatValid(cbc.URI("iso6523-actorid-upis::0225:has/slash")))
-	assert.False(t, endpointAddressFormatValid(cbc.URI("iso6523-actorid-upis::0225:has space")))
-	// other ISO schemes are outside BR-FR-23
-	assert.True(t, endpointAddressFormatValid(cbc.URI("iso6523-actorid-upis::0002:has/slash")))
-}
-
+// Only the endpoints the rule set guards on iso.ActorIDScheme reach this one,
+// so it is exercised here on ISO 6523 addresses alone.
 func TestEndpointAddressLengthValid(t *testing.T) {
 	assert.True(t, endpointAddressLengthValid("wrong-type"))
 	assert.True(t, endpointAddressLengthValid(cbc.URI("iso6523-actorid-upis::0225:"+strings.Repeat("A", 125))))
 	assert.False(t, endpointAddressLengthValid(cbc.URI("iso6523-actorid-upis::0225:"+strings.Repeat("A", 126))))
-	// BR-FR-25 carries no scheme predicate, so it caps any address
-	assert.False(t, endpointAddressLengthValid(cbc.URI("mailto:"+strings.Repeat("a", 126))))
+	// a malformed pair has no code to measure, so the whole opaque part is
+	assert.False(t, endpointAddressLengthValid(cbc.URI("iso6523-actorid-upis:"+strings.Repeat("A", 126))))
 }
 
 func TestSplitPeppolEndpoint(t *testing.T) {

@@ -22,6 +22,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// assertFault requires that validating the invoice raises the given rule code,
+// so a test names the rule it covers rather than matching its message.
+func assertFault(t *testing.T, inv *bill.Invoice, code rules.Code) {
+	t.Helper()
+	faults := rules.Validate(inv)
+	require.Error(t, faults)
+	assert.True(t, faults.HasCode(code), "want %s, got %s", code, faults)
+}
+
 // frPartyWithSIREN returns a French party with a SIREN identity.
 func frPartyWithSIREN(name, taxCode, siren string) *org.Party {
 	return &org.Party{
@@ -218,24 +227,79 @@ func TestInvoiceSIRENEndpointFollowsDocumentType(t *testing.T) {
 	})
 }
 
-// The electronic address format rules reach endpoint-only parties: BR-FR-23
-// constrains the charset of a 0225 address, BR-FR-25 its length.
+// The electronic address rules are bound to the ISO 6523 endpoint, the one
+// BT-34/BT-49 carries: BR-FR-23 constrains the charset of a 0225 address and
+// BR-FR-25 its length, while any other scheme is outside both.
 func TestInvoiceEndpointAddressFormat(t *testing.T) {
+	endpointOnly := func(inv *bill.Invoice, uri cbc.URI) {
+		inv.Supplier.Inboxes = nil
+		inv.Supplier.Endpoints = []*org.Endpoint{{URI: uri}}
+	}
+
 	t.Run("charset (BR-FR-23)", func(t *testing.T) {
 		inv := testInvoiceB2BStandard(t)
-		inv.Supplier.Inboxes = nil
-		inv.Supplier.Endpoints = []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:356000000/x"}}
+		endpointOnly(inv, "iso6523-actorid-upis::0225:356000000/x")
 		require.NoError(t, inv.Calculate())
-		assert.ErrorContains(t, rules.Validate(inv), "BR-FR-23")
+		assertFault(t, inv, "GOBL-FR-CTC-FLOW2-ORG-ENDPOINT-01")
 	})
+
 	t.Run("length (BR-FR-25)", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		endpointOnly(inv, cbc.URI("iso6523-actorid-upis::0225:356000000"+strings.Repeat("A", 120)))
+		require.NoError(t, inv.Calculate())
+		assertFault(t, inv, "GOBL-FR-CTC-FLOW2-ORG-ENDPOINT-02")
+	})
+
+	t.Run("charset allows . + - _ (BR-FR-23)", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		endpointOnly(inv, "iso6523-actorid-upis::0225:a.b-c+d_e")
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("another ISO scheme is outside BR-FR-23", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		endpointOnly(inv, "iso6523-actorid-upis::0002:has/slash")
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("a mailto endpoint is left to the scheme guard", func(t *testing.T) {
+		// The inbox still migrates to the ISO 6523 endpoint the French rules
+		// need; the over-long mailto address next to it is not theirs to cap.
+		inv := testInvoiceB2BStandard(t)
+		inv.Supplier.Endpoints = []*org.Endpoint{
+			{URI: cbc.URI("mailto:" + strings.Repeat("a", 126) + "@example.com")},
+		}
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+}
+
+// Party.Endpoint returns the first ISO 6523 match, so the French rules rely on
+// there being only one. en16931 ORG-PARTY-04 carries that; flow2 keeps the test
+// so the assumption stays covered.
+func TestInvoicePartySingleActorIDEndpoint(t *testing.T) {
+	t.Run("a second ISO 6523 endpoint is rejected", func(t *testing.T) {
 		inv := testInvoiceB2BStandard(t)
 		inv.Supplier.Inboxes = nil
 		inv.Supplier.Endpoints = []*org.Endpoint{
-			{URI: cbc.URI("iso6523-actorid-upis::0225:356000000" + strings.Repeat("A", 120))},
+			{URI: "iso6523-actorid-upis::0225:356000000"},
+			{URI: "iso6523-actorid-upis::0225:356000000_ALT"},
 		}
 		require.NoError(t, inv.Calculate())
-		assert.ErrorContains(t, rules.Validate(inv), "BR-FR-25")
+		assertFault(t, inv, "GOBL-EU-EN16931-ORG-PARTY-04")
+	})
+
+	t.Run("one ISO 6523 endpoint beside another scheme is accepted", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Supplier.Inboxes = nil
+		inv.Supplier.Endpoints = []*org.Endpoint{
+			{URI: "mailto:billing@example.com"},
+			{URI: "iso6523-actorid-upis::0225:356000000"},
+		}
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
 	})
 }
 
