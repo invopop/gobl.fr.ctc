@@ -425,21 +425,6 @@ func TestIdentitiesSchemeFormatValid(t *testing.T) {
 	})
 }
 
-func TestInboxCodeValid(t *testing.T) {
-	assert.True(t, inboxCodeValid("wrong-type"))
-	assert.True(t, inboxCodeValid((*org.Inbox)(nil)))
-	// non-SIREN scheme passes regardless
-	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: "9999", Code: "anything goes"}))
-	// SIREN scheme empty code passes
-	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN}))
-	// SIREN scheme valid code
-	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "732829320_PEP"}))
-	// SIREN scheme too long
-	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: cbc.Code(strings.Repeat("A", 126))}))
-	// SIREN scheme bad format
-	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "bad code"}))
-}
-
 func TestSchemeGuards(t *testing.T) {
 	assert.False(t, identitySchemeIs0224("wrong-type"))
 	assert.False(t, identitySchemeIs0224(&org.Identity{}))

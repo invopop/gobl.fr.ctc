@@ -312,13 +312,6 @@ func orgPartyRules() *rules.Set {
 				is.FuncError("valid scheme format", identitiesSchemeFormatValid),
 			),
 		),
-		rules.Field("inboxes",
-			rules.Each(
-				rules.Assert("03", "inbox code format invalid",
-					is.Func("valid inbox", inboxCodeValid),
-				),
-			),
-		),
 	)
 }
 
@@ -507,24 +500,6 @@ func identitiesSchemeFormatValid(val any) error {
 		}
 	}
 	return nil
-}
-
-func inboxCodeValid(val any) bool {
-	inbox, ok := val.(*org.Inbox)
-	if !ok || inbox == nil {
-		return true
-	}
-	if inbox.Scheme != inboxSchemeSIREN {
-		return true
-	}
-	code := string(inbox.Code)
-	if code == "" {
-		return true
-	}
-	if len(code) > 125 {
-		return false
-	}
-	return sirenInboxFormatRegex.MatchString(code)
 }
 
 func identitySchemeIs0224(val any) bool {
