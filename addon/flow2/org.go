@@ -1,7 +1,6 @@
 package flow2
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -312,8 +311,11 @@ func orgPartyRules() *rules.Set {
 			rules.Assert("01", "SIRET and SIREN must be coherent (BR-FR-09/10)",
 				is.Func("SIRET/SIREN coherent", identitiesSIRETSIRENCoherent),
 			),
-			rules.Assert("02", "identity scheme format invalid (BR-FR-CO-10)",
-				is.FuncError("valid scheme format", identitiesSchemeFormatValid),
+			rules.Assert("03", "party identities must not duplicate iso-scheme-id values (BR-FR-CO-10)",
+				is.Func("unique iso-scheme-id", identitiesSchemesUnique),
+			),
+			rules.Assert("04", "every party identifier must carry the iso-scheme-id extension (BR-FR-CO-10)",
+				is.Func("iso-scheme-id present", identitiesSchemesPresent),
 			),
 		),
 	)
@@ -324,11 +326,11 @@ func orgIdentityRules() *rules.Set {
 		rules.When(
 			is.Func("scheme 0224", identitySchemeIs0224),
 			rules.Field("code",
-				rules.Assert("01", "identity code must be no more than 100 characters long",
+				rules.Assert("01", "identity code for private-id (0224) must not exceed 100 characters (BR-FR-26)",
 					is.Length(0, 100),
 				),
-				rules.Assert("02", "identity code must be in a valid format",
-					is.Matches(`^[A-Za-z0-9\-\+_/]+$`),
+				rules.Assert("02", "identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)",
+					is.MatchesRegexp(sirenInboxFormatRegex),
 				),
 			),
 		),
@@ -418,7 +420,7 @@ func orgItemRules() *rules.Set {
 	return rules.For(new(org.Item),
 		rules.Field("meta",
 			rules.Assert("01", "meta values cannot be blank (BR-FR-28)",
-				is.FuncError("no blank meta", metaNoBlankValues),
+				is.Func("no blank meta", metaNoBlankValues),
 			),
 		),
 	)
@@ -455,12 +457,12 @@ func identitiesSIRETSIRENCoherent(val any) bool {
 	return true
 }
 
-func identitiesSchemeFormatValid(val any) error {
+func identitiesSchemesUnique(val any) bool {
 	identities, ok := val.([]*org.Identity)
 	if !ok || len(identities) == 0 {
-		return nil
+		return true
 	}
-	schemes := make(map[cbc.Code]bool)
+	seen := make(map[cbc.Code]bool, len(identities))
 	for _, id := range identities {
 		// BR-FR-CO-10 is bound to GlobalID, so the legal (BT-30) and tax
 		// (BT-32) registrations are out of its scope.
@@ -469,26 +471,32 @@ func identitiesSchemeFormatValid(val any) error {
 		}
 		schemeID := id.Ext.Get(iso.ExtKeySchemeID)
 		if schemeID == cbc.CodeEmpty {
-			return errors.New("all party identifiers must have an ISO scheme ID defined in extensions BR-FR-CO-10")
+			continue
 		}
-		if schemes[schemeID] {
-			return fmt.Errorf("duplicate party identifiers with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
+		if seen[schemeID] {
+			return false
 		}
-		schemes[schemeID] = true
-		if schemeID == identitySchemeIDPrivate {
-			code := string(id.Code)
-			if code == "" {
-				continue
-			}
-			if len(code) > 100 {
-				return errors.New("identity with ISO scheme ID 0224 (private-id) must not exceed 100 characters (BR-FR-26)")
-			}
-			if !sirenInboxFormatRegex.MatchString(code) {
-				return errors.New("identity with ISO scheme ID 0224 (private-id) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)")
-			}
+		seen[schemeID] = true
+	}
+	return true
+}
+
+func identitiesSchemesPresent(val any) bool {
+	identities, ok := val.([]*org.Identity)
+	if !ok {
+		return true
+	}
+	for _, id := range identities {
+		// BR-FR-CO-10 is bound to GlobalID, so the legal (BT-30) and tax
+		// (BT-32) registrations are out of its scope.
+		if id == nil || id.Scope.Has(org.IdentityScopeLegal) || id.Scope.Has(org.IdentityScopeTax) {
+			continue
+		}
+		if id.Ext.Get(iso.ExtKeySchemeID) == cbc.CodeEmpty {
+			return false
 		}
 	}
-	return nil
+	return true
 }
 
 func identitySchemeIs0224(val any) bool {
@@ -512,15 +520,15 @@ func inboxSchemeIs0225(val any) bool {
 	return ok && inbox != nil && inbox.Scheme == inboxSchemeSIREN
 }
 
-func metaNoBlankValues(val any) error {
+func metaNoBlankValues(val any) bool {
 	meta, ok := val.(cbc.Meta)
 	if !ok || len(meta) == 0 {
-		return nil
+		return true
 	}
-	for key, v := range meta {
+	for _, v := range meta {
 		if strings.TrimSpace(v) == "" {
-			return fmt.Errorf("%s: value cannot be blank (BR-FR-28)", key)
+			return false
 		}
 	}
-	return nil
+	return true
 }
