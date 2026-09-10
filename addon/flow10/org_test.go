@@ -224,6 +224,22 @@ func TestPartyHasAllowedLegalScheme(t *testing.T) {
 	assert.False(t, partyHasAllowedLegalScheme(&org.Party{Identities: []*org.Identity{legalIdentity("9999", "1")}}))
 }
 
+func TestPartyHasTaxIDWhenRequired(t *testing.T) {
+	assert.True(t, partyHasTaxIDWhenRequired("wrong-type"))
+	assert.True(t, partyHasTaxIDWhenRequired((*org.Party)(nil)))
+
+	t.Run("non-VAT-requiring scheme passes without tax ID", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{legalIdentity(identitySchemeIDNonEU, "1")}}
+		assert.True(t, partyHasTaxIDWhenRequired(p))
+	})
+	t.Run("SIREN scheme requires tax ID", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{legalIdentity(identitySchemeIDSIREN, "1")}}
+		assert.False(t, partyHasTaxIDWhenRequired(p))
+		p.TaxID = &tax.Identity{Country: "FR", Code: "44732829320"}
+		assert.True(t, partyHasTaxIDWhenRequired(p))
+	})
+}
+
 func TestIdentitiesSchemesUnique(t *testing.T) {
 	assert.True(t, identitiesSchemesUnique("wrong-type"))
 	assert.True(t, identitiesSchemesUnique([]*org.Identity{}))
