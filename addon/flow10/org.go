@@ -33,6 +33,12 @@ var allowedPartySchemeIDs = []string{
 	identitySchemeIDTAHITI,
 }
 
+// schemeIDsRequiringVAT are the scheme IDs for which party.TaxID must also be present.
+var schemeIDsRequiringVAT = []string{
+	identitySchemeIDSIREN,
+	identitySchemeIDEUVAT,
+}
+
 func normalizeParty(party *org.Party) {
 	if party == nil {
 		return
@@ -254,6 +260,18 @@ func partyHasAllowedLegalScheme(v any) bool {
 		return false
 	}
 	return slices.Contains(allowedPartySchemeIDs, partyLegalSchemeID(party))
+}
+
+func partyHasTaxIDWhenRequired(v any) bool {
+	party, ok := v.(*org.Party)
+	if !ok || party == nil {
+		return true
+	}
+	scheme := partyLegalSchemeID(party)
+	if !slices.Contains(schemeIDsRequiringVAT, scheme) {
+		return true
+	}
+	return party.TaxID != nil && party.TaxID.Code != ""
 }
 
 func partyHasVATCode(p *org.Party) bool {
