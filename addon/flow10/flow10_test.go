@@ -164,6 +164,13 @@ func TestInvoiceB2BMissingBillingModeFails(t *testing.T) {
 	assert.Error(t, rules.Validate(inv))
 }
 
+func TestInvoiceB2BInvalidBillingModeFails(t *testing.T) {
+	inv := testInvoiceB2BCrossBorder(t)
+	require.NoError(t, inv.Calculate())
+	inv.Tax.Ext = inv.Tax.Ext.Merge(tax.ExtensionsOf(cbc.CodeMap{dgfip.ExtKeyBillingMode: "b2b"}))
+	assert.ErrorContains(t, rules.Validate(inv), "must be a valid billing-mode code")
+}
+
 func TestInvoiceB2CVATRateRejectedOutsideWhitelist(t *testing.T) {
 	inv := testInvoiceB2C(t)
 	inv.Lines[0].Taxes = tax.Set{

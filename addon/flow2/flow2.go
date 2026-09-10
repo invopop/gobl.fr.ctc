@@ -38,6 +38,8 @@ func init() {
 		orgPartyRules(),
 		orgIdentityRules(),
 		orgInboxRules(),
+		orgNoteRules(),
+		orgEndpointRules(),
 		orgItemRules(),
 	)
 	norm.RegisterWithGuard(is.InContext(tax.AddonIn(V1)),
@@ -85,6 +87,7 @@ func newV1Addon() *tax.AddonDef {
 		},
 		// Shared DGFiP billing-mode code list (also declared by Flow 10).
 		Extensions: []*cbc.Definition{dgfip.ExtBillingMode},
+		Tags:       []*tax.TagSet{invoiceTags},
 		Scenarios:  scenarios,
 	}
 }

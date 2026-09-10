@@ -33,12 +33,6 @@ var allowedPartySchemeIDs = []string{
 	identitySchemeIDTAHITI,
 }
 
-// schemeIDsRequiringVAT are the scheme IDs for which party.TaxID must also be present.
-var schemeIDsRequiringVAT = []string{
-	identitySchemeIDSIREN,
-	identitySchemeIDEUVAT,
-}
-
 func normalizeParty(party *org.Party) {
 	if party == nil {
 		return
@@ -126,7 +120,14 @@ func ensureIdentity(party *org.Party, typ cbc.Code, code cbc.Code, schemeID stri
 		return
 	}
 	for _, id := range party.Identities {
-		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID).String() == schemeID {
+		if id == nil {
+			continue
+		}
+		// The scheme is only set later by normalizeIdentity.
+		if typ != "" && id.Type == typ {
+			return
+		}
+		if id.Ext.Get(iso.ExtKeySchemeID).String() == schemeID {
 			return
 		}
 	}
@@ -255,18 +256,6 @@ func partyHasAllowedLegalScheme(v any) bool {
 	return slices.Contains(allowedPartySchemeIDs, partyLegalSchemeID(party))
 }
 
-func partyHasTaxIDWhenRequired(v any) bool {
-	party, ok := v.(*org.Party)
-	if !ok || party == nil {
-		return true
-	}
-	scheme := partyLegalSchemeID(party)
-	if !slices.Contains(schemeIDsRequiringVAT, scheme) {
-		return true
-	}
-	return party.TaxID != nil && party.TaxID.Code != ""
-}
-
 func partyHasVATCode(p *org.Party) bool {
 	return p != nil && p.TaxID != nil && p.TaxID.Code != ""
 }
@@ -347,6 +336,7 @@ func identitiesSingleLegalScope(val any) bool {
 	return legal <= 1
 }
 
+// identitiesSchemesUnique reports whether no ISO scheme ID repeats.
 func identitiesSchemesUnique(val any) bool {
 	identities, ok := val.([]*org.Identity)
 	if !ok || len(identities) == 0 {
@@ -354,7 +344,9 @@ func identitiesSchemesUnique(val any) bool {
 	}
 	seen := make(map[cbc.Code]bool, len(identities))
 	for _, id := range identities {
-		if id == nil {
+		// BR-FR-CO-10 is bound to GlobalID, so the legal (BT-30) and tax
+		// (BT-32) registrations are out of its scope.
+		if id == nil || id.Scope.Has(org.IdentityScopeLegal) || id.Scope.Has(org.IdentityScopeTax) {
 			continue
 		}
 		schemeID := id.Ext.Get(iso.ExtKeySchemeID)

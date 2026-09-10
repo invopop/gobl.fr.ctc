@@ -1,6 +1,7 @@
 package flow6
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/invopop/gobl/bill"
@@ -78,6 +79,24 @@ func TestStatusHappyPath(t *testing.T) {
 	runNormalize(t, st)
 	require.NoError(t, rules.Validate(st))
 	assert.Equal(t, bill.StatusTypeResponse, st.Type)
+}
+
+// BR-FR-CDV-03: a CDV must carry a document identifier in Code. gobl.cii falls
+// back to Series for the document id, but flow6 requires Code outright.
+func TestStatusRequiresCode(t *testing.T) {
+	t.Run("missing code is rejected", func(t *testing.T) {
+		st := testStatus(t)
+		st.Code = ""
+		runNormalize(t, st)
+		assert.ErrorContains(t, rules.Validate(st), "document identifier")
+	})
+	t.Run("series does not substitute for code", func(t *testing.T) {
+		st := testStatus(t)
+		st.Code = ""
+		st.Series = "CDV-2026"
+		runNormalize(t, st)
+		assert.ErrorContains(t, rules.Validate(st), "document identifier")
+	})
 }
 
 func TestStatusRejectsSTCIdentityScheme(t *testing.T) {
@@ -267,6 +286,52 @@ func TestStatusAcceptedDoesNotRequireReason(t *testing.T) {
 	require.NoError(t, rules.Validate(st))
 }
 
+// --- BR-FR-CDV-CL-09: DEST_INC on statuses 207 and 213 -------------------
+
+func TestStatus207AcceptsDestIncReason(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "207"})
+	st.Lines[0].Reasons = []*bill.Reason{
+		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "DEST_INC"})},
+	}
+	runNormalize(t, st)
+	assert.NoError(t, rules.Validate(st))
+}
+
+func TestStatus207RejectsCodeNotInAllowList(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "207"})
+	st.Lines[0].Reasons = []*bill.Reason{
+		// Valid CDAR code, but belongs to status 208.
+		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "JUSTIF_ABS"})},
+	}
+	runNormalize(t, st)
+	err := rules.Validate(st)
+	assert.ErrorContains(t, err, "status code 207")
+}
+
+func TestStatus213AcceptsDestIncReason(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "213"})
+	st.Lines[0].Reasons = []*bill.Reason{
+		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "DEST_INC"})},
+	}
+	runNormalize(t, st)
+	assert.NoError(t, rules.Validate(st))
+}
+
+func TestStatus213RejectsCodeNotInAllowList(t *testing.T) {
+	st := testStatus(t)
+	st.Lines[0].Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyStatus: "213"})
+	st.Lines[0].Reasons = []*bill.Reason{
+		// Valid CDAR code, but not allowed on 213.
+		{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: "QTE_ERR"})},
+	}
+	runNormalize(t, st)
+	err := rules.Validate(st)
+	assert.ErrorContains(t, err, "status code 213")
+}
+
 // --- bill.Reason validation + normalization ------------------------------
 
 func TestReasonNormalizerFillsKeyFromExt(t *testing.T) {
@@ -370,19 +435,61 @@ func TestReasonNormalizerPreservesNonDefaultCode(t *testing.T) {
 // characteristics across separate Reasons. The accompanying
 // bill.Condition entries are reserved for Peppol cac:Condition-style
 // business-rule codes.
+// PPF makes the free-text comment (MDT-126) mandatory on 210 (Refusée) and 208
+// (Suspendue) and answers 601 without it. No schematron checks it, so this is a
+// platform requirement rather than a BR-FR rule.
+func TestStatusCommentRequiredOnRefusedAndSuspended(t *testing.T) {
+	reason := func(code cbc.Code, desc string) *bill.Reason {
+		// no Key: prepareReasonKey derives it from the reason code
+		return &bill.Reason{
+			Description: desc,
+			Ext:         tax.ExtensionsOf(cbc.CodeMap{ExtKeyReason: code}),
+		}
+	}
+
+	// each status permits its own reason codes (BR-FR-CDV-CL-09)
+	for code, reasonCode := range map[cbc.Code]cbc.Code{"210": "TX_TVA_ERR", "208": "JUSTIF_ABS"} {
+		t.Run(code.String()+" without a description is rejected", func(t *testing.T) {
+			st := testStatus(t)
+			st.Lines[0].Ext = st.Lines[0].Ext.Set(ExtKeyStatus, code)
+			st.Lines[0].Reasons = []*bill.Reason{reason(reasonCode, "")}
+			runNormalize(t, st)
+			assert.ErrorContains(t, rules.Validate(st), "BILL-STATUS-27")
+		})
+
+		t.Run(code.String()+" with a description is accepted", func(t *testing.T) {
+			st := testStatus(t)
+			st.Lines[0].Ext = st.Lines[0].Ext.Set(ExtKeyStatus, code)
+			st.Lines[0].Reasons = []*bill.Reason{reason(reasonCode, "Motif du refus")}
+			runNormalize(t, st)
+			assert.NoError(t, rules.Validate(st))
+		})
+	}
+
+	t.Run("other statuses are unaffected", func(t *testing.T) {
+		st := testStatus(t)
+		st.Lines[0].Ext = st.Lines[0].Ext.Set(ExtKeyStatus, "207")
+		st.Lines[0].Reasons = []*bill.Reason{reason("TX_TVA_ERR", "")}
+		runNormalize(t, st)
+		assert.NotContains(t, fmt.Sprint(rules.Validate(st)), "BILL-STATUS-27")
+	})
+}
+
 func TestStatusRejectedSiblingInvalidAndExpected(t *testing.T) {
 	st := testStatus(t)
 	st.Lines[0].Key = bill.StatusLineRejected
 	st.Lines[0].Reasons = []*bill.Reason{
 		{
-			Key: bill.ReasonKeyLegal,
+			Key:         bill.ReasonKeyLegal,
+			Description: "Taux de TVA incorrect",
 			Ext: tax.ExtensionsOf(cbc.CodeMap{
 				ExtKeyReason:    "TX_TVA_ERR",
 				ExtKeyCondition: ConditionInvalidData,
 			}),
 		},
 		{
-			Key: bill.ReasonKeyLegal,
+			Key:         bill.ReasonKeyLegal,
+			Description: "Taux de TVA attendu",
 			Ext: tax.ExtensionsOf(cbc.CodeMap{
 				ExtKeyReason:    "TX_TVA_ERR",
 				ExtKeyCondition: ConditionExpectedData,

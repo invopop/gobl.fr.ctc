@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/l10n"
 	"github.com/invopop/gobl/org"
@@ -22,11 +23,20 @@ const (
 	identitySchemeIDSIREN   cbc.Code = "0002"
 	identitySchemeIDSIRET   cbc.Code = "0009"
 	identitySchemeIDPrivate cbc.Code = "0224"
+	identitySchemeIDSTC     cbc.Code = "0231"
 	identityKeyPrivateID    cbc.Key  = "private-id"
 )
 
-// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
-// shared by SIREN-scope inboxes and private-id identity codes.
+// The opaque part of an ISO 6523 endpoint on the French 0225 scheme, and
+// BR-FR-23's charset for its address. The charset deliberately differs from
+// sirenInboxFormatRegex on `.` and `/`.
+var (
+	endpointSIRENScheme  = fmt.Sprintf(`^:%s:`, inboxSchemeSIREN)
+	endpointSIRENAddress = fmt.Sprintf(`^:%s:[A-Za-z0-9+\-_.]+$`, inboxSchemeSIREN)
+)
+
+// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format required of
+// private-id identity codes.
 var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
 
 func normalizeParty(party *org.Party) {
@@ -36,6 +46,39 @@ func normalizeParty(party *org.Party) {
 	normalizePartyFromTaxID(party)
 	normalizeIdentities(party)
 	normalizeInboxes(party)
+	ensureEndpointFromInbox(party)
+}
+
+// ensureEndpointFromInbox migrates a deprecated Peppol inbox to the canonical
+// endpoint. en16931 normalizes before this addon, so it misses the peppol key
+// that normalizeInboxes assigns above.
+func ensureEndpointFromInbox(party *org.Party) {
+	if party == nil || party.Endpoint(iso.ActorIDScheme) != nil {
+		return
+	}
+	for _, inbox := range party.Inboxes {
+		if inbox == nil || inbox.Key != org.InboxKeyPeppol {
+			continue
+		}
+		if inbox.Scheme == cbc.CodeEmpty || inbox.Code == cbc.CodeEmpty {
+			continue
+		}
+		party.Endpoints = append(party.Endpoints, &org.Endpoint{
+			Label: inbox.Label,
+			URI:   cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, inbox.Scheme, inbox.Code)),
+		})
+		return
+	}
+}
+
+// splitPeppolEndpoint splits ":<scheme>:<code>", the form URI parsing exposes
+// the opaque part of "iso6523-actorid-upis::<scheme>:<code>" in.
+func splitPeppolEndpoint(opaque string) (scheme, code string, ok bool) {
+	parts := strings.SplitN(strings.TrimPrefix(opaque, ":"), ":", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 // normalizePartyFromTaxID derives a legal identity from the party's
@@ -80,7 +123,11 @@ func ensureSIRENIdentity(party *org.Party, code cbc.Code) {
 		return
 	}
 	for _, id := range party.Identities {
-		if id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
+		if id == nil {
+			continue
+		}
+		// The scheme is only set later by normalizeIdentity.
+		if id.Type == fr.IdentityTypeSIREN || id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN {
 			return
 		}
 	}
@@ -126,10 +173,22 @@ func normalizeIdentities(party *org.Party) {
 			party.Identities = append(party.Identities, siren)
 		}
 	}
-	// The SIREN is France's legal identifier: it must always carry the
-	// legal scope (any other legal-scoped identity is rejected in the rules).
-	if siren != nil {
-		siren.Scope = org.IdentityScopeLegal
+	assignSIRENLegalScope(party.Identities)
+}
+
+// assignSIRENLegalScope gives the legal scope to an unscoped SIREN when no
+// identity claims it yet. Anything else is left for the rules to reject.
+func assignSIRENLegalScope(identities []*org.Identity) {
+	for _, id := range identities {
+		if id != nil && id.Scope.Has(org.IdentityScopeLegal) {
+			return
+		}
+	}
+	for _, id := range identities {
+		if id != nil && id.Type == fr.IdentityTypeSIREN && id.Scope == cbc.KeyEmpty {
+			id.Scope = org.IdentityScopeLegal
+			return
+		}
 	}
 }
 
@@ -193,7 +252,7 @@ func isPartyIdentitySTC(party *org.Party) bool {
 	}
 	for _, id := range party.Identities {
 		if id != nil && !id.Ext.IsZero() {
-			if code := id.Ext.Get(iso.ExtKeySchemeID); code == "0231" {
+			if code := id.Ext.Get(iso.ExtKeySchemeID); code == identitySchemeIDSTC {
 				return true
 			}
 		}
@@ -223,7 +282,9 @@ func identitiesLegalIsSIREN(val any) bool {
 	return id != nil && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDSIREN
 }
 
-func partyHasSIRENInbox(val any) bool {
+// partyHasSIRENEndpoint reports whether the party's Peppol endpoint is on
+// scheme 0225 with a code starting with its SIREN (BR-FR-21/22).
+func partyHasSIRENEndpoint(val any) bool {
 	party, ok := val.(*org.Party)
 	if !ok || party == nil {
 		return true
@@ -232,12 +293,15 @@ func partyHasSIRENInbox(val any) bool {
 	if siren == "" {
 		return true
 	}
-	for _, inbox := range party.Inboxes {
-		if inbox != nil && inbox.Scheme == inboxSchemeSIREN {
-			return strings.HasPrefix(string(inbox.Code), siren)
-		}
+	ep := party.Endpoint(iso.ActorIDScheme)
+	if ep == nil {
+		return false
 	}
-	return false
+	scheme, code, ok := splitPeppolEndpoint(ep.URI.Opaque())
+	if !ok {
+		return false
+	}
+	return cbc.Code(scheme) == inboxSchemeSIREN && strings.HasPrefix(code, siren)
 }
 
 // -- Rules ----------------------------------------------------------------
@@ -252,13 +316,6 @@ func orgPartyRules() *rules.Set {
 				is.FuncError("valid scheme format", identitiesSchemeFormatValid),
 			),
 		),
-		rules.Field("inboxes",
-			rules.Each(
-				rules.Assert("03", "inbox code format invalid",
-					is.Func("valid inbox", inboxCodeValid),
-				),
-			),
-		),
 	)
 }
 
@@ -267,15 +324,78 @@ func orgIdentityRules() *rules.Set {
 		rules.When(
 			is.Func("scheme 0224", identitySchemeIs0224),
 			rules.Field("code",
-				rules.Assert("01", "must be no more than 100 characters long",
+				rules.Assert("01", "identity code must be no more than 100 characters long",
 					is.Length(0, 100),
 				),
-				rules.Assert("02", "must be in a valid format",
+				rules.Assert("02", "identity code must be in a valid format",
 					is.Matches(`^[A-Za-z0-9\-\+_/]+$`),
 				),
 			),
 		),
+		rules.When(
+			is.Func("scheme 0002 or 0231", identitySchemeIsSIRENBased),
+			rules.Field("code",
+				rules.Assert("03", "identity code must be exactly 9 digits (BR-FR-32)",
+					is.Matches(`^\d{9}$`),
+				),
+			),
+		),
 	)
+}
+
+// orgEndpointRules constrains the ISO 6523 endpoint, which is the one the
+// electronic address terms BT-34/BT-49 carry. Other schemes, such as a
+// mailto: or gobl: routing address, are outside the French rules.
+func orgEndpointRules() *rules.Set {
+	return rules.For(new(org.Endpoint),
+		rules.Field("uri",
+			rules.When(cbc.URISchemeIn(iso.ActorIDScheme),
+				rules.When(cbc.URIOpaqueMatches(endpointSIRENScheme),
+					rules.Assert("01", fmt.Sprintf("%s endpoint on scheme 0225 must contain only alphanumeric characters and +, -, _, . (BR-FR-23)", iso.ActorIDScheme),
+						cbc.URIOpaqueMatches(endpointSIRENAddress),
+					),
+				),
+				rules.Assert("02", fmt.Sprintf("%s endpoint address must not exceed 125 characters (BR-FR-25)", iso.ActorIDScheme),
+					is.Func("address within 125 characters", endpointAddressLengthValid),
+				),
+			),
+		),
+	)
+}
+
+func endpointAddressLengthValid(val any) bool {
+	uri, ok := val.(cbc.URI)
+	if !ok {
+		return true
+	}
+	// A malformed pair has no code to measure, so cap the whole opaque part.
+	value := uri.Opaque()
+	if _, code, ok := splitPeppolEndpoint(value); ok {
+		value = code
+	}
+	return len(value) <= 125
+}
+
+// orgNoteRules relaxes GOBL-ORG-NOTE-01, which requires text on every note. A
+// Flow 2 note may instead carry only its UNTDID 4451 subject code, which is
+// the content in that case, so one or the other is required.
+func orgNoteRules() *rules.Set {
+	return rules.For(new(org.Note),
+		rules.Ignore("GOBL-ORG-NOTE-01"),
+		rules.Object(
+			rules.Assert("01", "note must carry either text or an untdid-text-subject extension",
+				is.Func("text or subject", noteHasTextOrSubject),
+			),
+		),
+	)
+}
+
+func noteHasTextOrSubject(val any) bool {
+	note, ok := val.(*org.Note)
+	if !ok || note == nil {
+		return true
+	}
+	return note.Text != "" || note.Ext.Get(untdid.ExtKeyTextSubject) != cbc.CodeEmpty
 }
 
 func orgInboxRules() *rules.Set {
@@ -342,20 +462,22 @@ func identitiesSchemeFormatValid(val any) error {
 	}
 	schemes := make(map[cbc.Code]bool)
 	for _, id := range identities {
-		if id == nil {
+		// BR-FR-CO-10 is bound to GlobalID, so the legal (BT-30) and tax
+		// (BT-32) registrations are out of its scope.
+		if id == nil || id.Scope.Has(org.IdentityScopeLegal) || id.Scope.Has(org.IdentityScopeTax) {
 			continue
 		}
 		schemeID := id.Ext.Get(iso.ExtKeySchemeID)
 		if schemeID == cbc.CodeEmpty {
-			return errors.New("all identities must have an ISO scheme ID defined in extensions BR-FR-CO-10")
+			return errors.New("all party identifiers must have an ISO scheme ID defined in extensions BR-FR-CO-10")
 		}
 		if schemes[schemeID] {
-			return fmt.Errorf("duplicate identities with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
+			return fmt.Errorf("duplicate party identifiers with ISO scheme ID '%s' are not allowed (BR-FR-CO-10)", schemeID)
 		}
+		schemes[schemeID] = true
 		if schemeID == identitySchemeIDPrivate {
 			code := string(id.Code)
 			if code == "" {
-				schemes[schemeID] = true
 				continue
 			}
 			if len(code) > 100 {
@@ -365,32 +487,24 @@ func identitiesSchemeFormatValid(val any) error {
 				return errors.New("identity with ISO scheme ID 0224 (private-id) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)")
 			}
 		}
-		schemes[schemeID] = true
 	}
 	return nil
-}
-
-func inboxCodeValid(val any) bool {
-	inbox, ok := val.(*org.Inbox)
-	if !ok || inbox == nil {
-		return true
-	}
-	if inbox.Scheme != inboxSchemeSIREN {
-		return true
-	}
-	code := string(inbox.Code)
-	if code == "" {
-		return true
-	}
-	if len(code) > 125 {
-		return false
-	}
-	return sirenInboxFormatRegex.MatchString(code)
 }
 
 func identitySchemeIs0224(val any) bool {
 	id, ok := val.(*org.Identity)
 	return ok && id != nil && !id.Ext.IsZero() && id.Ext.Get(iso.ExtKeySchemeID) == identitySchemeIDPrivate
+}
+
+// identitySchemeIsSIRENBased reports whether the identity carries a
+// scheme whose code must be a SIREN.
+func identitySchemeIsSIRENBased(val any) bool {
+	id, ok := val.(*org.Identity)
+	if !ok || id == nil || id.Ext.IsZero() {
+		return false
+	}
+	scheme := id.Ext.Get(iso.ExtKeySchemeID)
+	return scheme == identitySchemeIDSIREN || scheme == identitySchemeIDSTC
 }
 
 func inboxSchemeIs0225(val any) bool {

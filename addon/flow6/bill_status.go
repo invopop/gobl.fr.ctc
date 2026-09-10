@@ -184,6 +184,11 @@ func billStatusRules() *rules.Set {
 				tax.ExtensionsHasCodes(ExtKeyStatus, statusProcessCodes...),
 			),
 		),
+		rules.Field("code",
+			rules.Assert("26", "status code is required as the CDV document identifier (ram:ID; BR-FR-CDV-03, MDT-4)",
+				is.Present,
+			),
+		),
 		rules.Field("supplier",
 			rules.Assert("03", "status supplier is required (BR-FR-CDV-13)",
 				is.Present,
@@ -263,7 +268,7 @@ func billStatusRules() *rules.Set {
 				rules.When(
 					bill.StatusLineKeyIn(bill.StatusLineRejected, bill.StatusLineQuerying, bill.StatusLineError),
 					rules.Field("reasons",
-						rules.Assert("16", "status line reasons require at least one entry when key is rejected, querying or error (BR-FR-CDV-14)",
+						rules.Assert("16", "status line reasons require at least one entry when key is rejected, querying or error (BR-FR-CDV-15)",
 							is.Present,
 						),
 					),
@@ -277,8 +282,8 @@ func billStatusRules() *rules.Set {
 					rules.Field("reasons",
 						rules.Each(
 							rules.Field("ext",
-								rules.Assert("17", "status line reason ext fr-ctc-flow6-reason for status code 200 (Déposée — transmission rejection) must be NON_TRANSMISE (BR-FR-CDV-CL-09)",
-									tax.ExtensionsHasCodes(ExtKeyReason, "NON_TRANSMISE"),
+								rules.Assert("17", reasonCodesMsg("200", "Déposée — transmission rejection", statusReasonCodes200),
+									tax.ExtensionsHasCodes(ExtKeyReason, statusReasonCodes200...),
 								),
 							),
 						),
@@ -289,12 +294,8 @@ func billStatusRules() *rules.Set {
 					rules.Field("reasons",
 						rules.Each(
 							rules.Field("ext",
-								rules.Assert("18", "status line reason ext fr-ctc-flow6-reason for status code 206 (Approuvée partiellement) must be one of AUTRE, CMD_ERR, SIRET_ERR, CODE_ROUTAGE_ERR, REF_CT_ABSENT, REF_ERR, PU_ERR, REM_ERR, QTE_ERR, ART_ERR, MODPAI_ERR, QUALITE_ERR, LIVR_INCOMP (BR-FR-CDV-CL-09)",
-									tax.ExtensionsHasCodes(ExtKeyReason,
-										"AUTRE", "CMD_ERR", "SIRET_ERR", "CODE_ROUTAGE_ERR",
-										"REF_CT_ABSENT", "REF_ERR", "PU_ERR", "REM_ERR", "QTE_ERR",
-										"ART_ERR", "MODPAI_ERR", "QUALITE_ERR", "LIVR_INCOMP",
-									),
+								rules.Assert("18", reasonCodesMsg("206", "Approuvée partiellement", statusReasonCodes206),
+									tax.ExtensionsHasCodes(ExtKeyReason, statusReasonCodes206...),
 								),
 							),
 						),
@@ -305,15 +306,8 @@ func billStatusRules() *rules.Set {
 					rules.Field("reasons",
 						rules.Each(
 							rules.Field("ext",
-								rules.Assert("19", "status line reason ext fr-ctc-flow6-reason for status code 207 (En litige) must be one of AUTRE, COORD_BANC_ERR, TX_TVA_ERR, MONTANTTOTAL_ERR, CALCUL_ERR, NON_CONFORME, DOUBLON, DEST_ERR, TRANSAC_INC, EMMET_INC, CONTRAT_TERM, DOUBLE_FACT, CMD_ERR, ADR_ERR, SIRET_ERR, CODE_ROUTAGE_ERR, REF_CT_ABSENT, REF_ERR, PU_ERR, REM_ERR, QTE_ERR, ART_ERR, MODPAI_ERR, QUALITE_ERR, LIVR_INCOMP (BR-FR-CDV-CL-09)",
-									tax.ExtensionsHasCodes(ExtKeyReason,
-										"AUTRE", "COORD_BANC_ERR", "TX_TVA_ERR", "MONTANTTOTAL_ERR",
-										"CALCUL_ERR", "NON_CONFORME", "DOUBLON", "DEST_ERR",
-										"TRANSAC_INC", "EMMET_INC", "CONTRAT_TERM", "DOUBLE_FACT",
-										"CMD_ERR", "ADR_ERR", "SIRET_ERR", "CODE_ROUTAGE_ERR",
-										"REF_CT_ABSENT", "REF_ERR", "PU_ERR", "REM_ERR", "QTE_ERR",
-										"ART_ERR", "MODPAI_ERR", "QUALITE_ERR", "LIVR_INCOMP",
-									),
+								rules.Assert("19", reasonCodesMsg("207", "En litige", statusReasonCodes207),
+									tax.ExtensionsHasCodes(ExtKeyReason, statusReasonCodes207...),
 								),
 							),
 						),
@@ -324,11 +318,20 @@ func billStatusRules() *rules.Set {
 					rules.Field("reasons",
 						rules.Each(
 							rules.Field("ext",
-								rules.Assert("20", "status line reason ext fr-ctc-flow6-reason for status code 208 (Suspendue) must be one of JUSTIF_ABS, COORD_BANC_ERR, CMD_ERR, SIRET_ERR, CODE_ROUTAGE_ERR, REF_CT_ABSENT, REF_ERR (BR-FR-CDV-CL-09)",
-									tax.ExtensionsHasCodes(ExtKeyReason,
-										"JUSTIF_ABS", "COORD_BANC_ERR", "CMD_ERR", "SIRET_ERR",
-										"CODE_ROUTAGE_ERR", "REF_CT_ABSENT", "REF_ERR",
-									),
+								rules.Assert("20", reasonCodesMsg("208", "Suspendue", statusReasonCodes208),
+									tax.ExtensionsHasCodes(ExtKeyReason, statusReasonCodes208...),
+								),
+							),
+						),
+					),
+				),
+				rules.When(
+					lineHasStatusCodeIn(statusCommentRequiredCodes...),
+					rules.Field("reasons",
+						rules.Each(
+							rules.Field("description",
+								rules.Assert("27", "status line reason description is required on status codes 208 and 210, which PPF rejects without a comment (MDT-126)",
+									is.Present,
 								),
 							),
 						),
@@ -339,12 +342,8 @@ func billStatusRules() *rules.Set {
 					rules.Field("reasons",
 						rules.Each(
 							rules.Field("ext",
-								rules.Assert("21", "status line reason ext fr-ctc-flow6-reason for status code 210 (Refusée) must be one of TX_TVA_ERR, MONTANTTOTAL_ERR, CALCUL_ERR, NON_CONFORME, DOUBLON, DEST_ERR, TRANSAC_INC, EMMET_INC, CONTRAT_TERM, DOUBLE_FACT, CMD_ERR, ADR_ERR, REF_CT_ABSENT (BR-FR-CDV-CL-09)",
-									tax.ExtensionsHasCodes(ExtKeyReason,
-										"TX_TVA_ERR", "MONTANTTOTAL_ERR", "CALCUL_ERR", "NON_CONFORME",
-										"DOUBLON", "DEST_ERR", "TRANSAC_INC", "EMMET_INC", "CONTRAT_TERM",
-										"DOUBLE_FACT", "CMD_ERR", "ADR_ERR", "REF_CT_ABSENT",
-									),
+								rules.Assert("21", reasonCodesMsg("210", "Refusée", statusReasonCodes210),
+									tax.ExtensionsHasCodes(ExtKeyReason, statusReasonCodes210...),
 								),
 							),
 						),
@@ -355,12 +354,8 @@ func billStatusRules() *rules.Set {
 					rules.Field("reasons",
 						rules.Each(
 							rules.Field("ext",
-								rules.Assert("22", "status line reason ext fr-ctc-flow6-reason for status code 213 (Rejetée sémantique) must be one of MONTANTTOTAL_ERR, CALCUL_ERR, DOUBLON, ADR_ERR, REJ_SEMAN, REJ_UNI, REJ_COH, REJ_ADR, REJ_CONT_B2G, REJ_REF_PJ, REJ_ASS_PJ (BR-FR-CDV-CL-09)",
-									tax.ExtensionsHasCodes(ExtKeyReason,
-										"MONTANTTOTAL_ERR", "CALCUL_ERR", "DOUBLON", "ADR_ERR",
-										"REJ_SEMAN", "REJ_UNI", "REJ_COH", "REJ_ADR", "REJ_CONT_B2G",
-										"REJ_REF_PJ", "REJ_ASS_PJ",
-									),
+								rules.Assert("22", reasonCodesMsg("213", "Rejetée sémantique", statusReasonCodes213),
+									tax.ExtensionsHasCodes(ExtKeyReason, statusReasonCodes213...),
 								),
 							),
 						),
@@ -434,6 +429,13 @@ func statusIsBusinessIssued(v any) bool {
 // ProcessConditionCode (line.Ext[ExtKeyStatus] — set by
 // normalizeStatusLine from the (Status.Type, line.Key) pair). Used to
 // branch BR-FR-CDV-CL-09's per-process-code reason allow-lists.
+func lineHasStatusCodeIn(codes ...cbc.Code) rules.Test {
+	return is.Func(fmt.Sprintf("line status code in %v", codes), func(v any) bool {
+		line, ok := v.(*bill.StatusLine)
+		return ok && line != nil && line.Ext.Get(ExtKeyStatus).In(codes...)
+	})
+}
+
 func lineHasStatusCode(code cbc.Code) rules.Test {
 	return is.Func(fmt.Sprintf("line status code %s", code), func(v any) bool {
 		line, ok := v.(*bill.StatusLine)

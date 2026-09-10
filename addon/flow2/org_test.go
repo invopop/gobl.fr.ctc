@@ -22,6 +22,13 @@ func sirenIdentity(code string) *org.Identity {
 	}
 }
 
+// unscopedSIREN returns a SIREN identity that is not the party's legal one.
+func unscopedSIREN(code string) *org.Identity {
+	id := sirenIdentity(code)
+	id.Scope = cbc.KeyEmpty
+	return id
+}
+
 func TestNormalizeParty(t *testing.T) {
 	t.Run("nil safe", func(t *testing.T) {
 		assert.NotPanics(t, func() { normalizeParty(nil) })
@@ -93,20 +100,103 @@ func TestNormalizeParty(t *testing.T) {
 		assert.Equal(t, cbc.Key(""), p.Inboxes[1].Key)
 	})
 
-	t.Run("SIREN always gets legal scope even when another identity has it", func(t *testing.T) {
+	t.Run("migrates a peppol inbox to the canonical endpoint", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Key: org.InboxKeyPeppol, Scheme: inboxSchemeSIREN, Code: "732829320_PEP"},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:732829320_PEP"), p.Endpoints[0].URI)
+	})
+
+	t.Run("migrates a 0225 inbox that arrives without the peppol key", func(t *testing.T) {
+		// normalizeInboxes assigns the key, which is why this addon has to do
+		// the migration itself — en16931 has already normalized by then.
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Scheme: inboxSchemeSIREN, Code: "732829320_PEP"},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:732829320_PEP"), p.Endpoints[0].URI)
+	})
+
+	t.Run("does not duplicate an existing peppol endpoint", func(t *testing.T) {
+		p := &org.Party{
+			Inboxes:   []*org.Inbox{{Key: org.InboxKeyPeppol, Scheme: inboxSchemeSIREN, Code: "732829320_PEP"}},
+			Endpoints: []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:keep-me"}},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:keep-me"), p.Endpoints[0].URI)
+	})
+
+	t.Run("leaves a party with no inbox alone", func(t *testing.T) {
+		p := &org.Party{Endpoints: []*org.Endpoint{{URI: "mailto:billing@example.com"}}}
+		normalizeParty(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("mailto:billing@example.com"), p.Endpoints[0].URI)
+	})
+
+	t.Run("only the first SIREN keeps the legal scope", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeLegal},
+			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 2)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+		assert.Equal(t, cbc.KeyEmpty, p.Identities[1].Scope)
+	})
+
+	t.Run("legal scope follows the SIREN that already carries it", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeLegal},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, cbc.KeyEmpty, p.Identities[0].Scope)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[1].Scope)
+	})
+
+	t.Run("does not duplicate a SIREN that lacks the ISO scheme", func(t *testing.T) {
+		p := &org.Party{
+			TaxID:      &tax.Identity{Country: "FR", Code: "44732829320"},
+			Identities: []*org.Identity{{Type: fr.IdentityTypeSIREN, Code: "732829320"}},
+		}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, identitySchemeIDSIREN, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+	})
+
+	t.Run("leaves the SIREN unscoped when another identity claims legal", func(t *testing.T) {
 		p := &org.Party{Identities: []*org.Identity{
 			{Type: fr.IdentityTypeSIREN, Code: "732829320"},
 			{Key: identityKeyPrivateID, Code: "ABC123", Scope: org.IdentityScopeLegal},
 		}}
 		normalizeParty(p)
-		var siren *org.Identity
-		for _, id := range p.Identities {
-			if id.Type == fr.IdentityTypeSIREN {
-				siren = id
-			}
-		}
-		require.NotNil(t, siren)
-		assert.Equal(t, org.IdentityScopeLegal, siren.Scope)
+		assert.Equal(t, cbc.KeyEmpty, p.Identities[0].Scope)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[1].Scope)
+	})
+
+	t.Run("leaves two legal SIRENs alone", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeLegal},
+			{Type: fr.IdentityTypeSIREN, Code: "356000000", Scope: org.IdentityScopeLegal},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[0].Scope)
+		assert.Equal(t, org.IdentityScopeLegal, p.Identities[1].Scope)
+	})
+
+	t.Run("SIREN with a scope of its own keeps it", func(t *testing.T) {
+		p := &org.Party{Identities: []*org.Identity{
+			{Type: fr.IdentityTypeSIREN, Code: "732829320", Scope: org.IdentityScopeTax},
+		}}
+		normalizeParty(p)
+		require.Len(t, p.Identities, 1)
+		assert.Equal(t, org.IdentityScopeTax, p.Identities[0].Scope)
+		assert.Equal(t, identitySchemeIDSIREN, p.Identities[0].Ext.Get(iso.ExtKeySchemeID))
 	})
 }
 
@@ -197,23 +287,56 @@ func TestIdentitiesLegalIsSIREN(t *testing.T) {
 	assert.False(t, identitiesLegalIsSIREN(legalNonSIREN))
 }
 
-func TestPartyHasSIRENInbox(t *testing.T) {
-	assert.True(t, partyHasSIRENInbox("wrong-type"))
-	assert.True(t, partyHasSIRENInbox((*org.Party)(nil)))
+func TestPartyHasSIRENEndpoint(t *testing.T) {
+	assert.True(t, partyHasSIRENEndpoint("wrong-type"))
+	assert.True(t, partyHasSIRENEndpoint((*org.Party)(nil)))
 	// no SIREN at all → passes
-	assert.True(t, partyHasSIRENInbox(&org.Party{}))
-	// SIREN present, matching inbox
+	assert.True(t, partyHasSIRENEndpoint(&org.Party{}))
+	// SIREN present, matching endpoint (starts-with, per BR-FR-21/22)
 	ok := &org.Party{
 		Identities: []*org.Identity{sirenIdentity("732829320")},
-		Inboxes:    []*org.Inbox{{Scheme: inboxSchemeSIREN, Code: "732829320_PEP"}},
+		Endpoints:  []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:732829320_PEP"}},
 	}
-	assert.True(t, partyHasSIRENInbox(ok))
-	// SIREN present, no matching inbox
-	bad := &org.Party{
+	assert.True(t, partyHasSIRENEndpoint(ok))
+	// SIREN present, wrong endpoint scheme
+	badScheme := &org.Party{
 		Identities: []*org.Identity{sirenIdentity("732829320")},
-		Inboxes:    []*org.Inbox{{Scheme: "9999", Code: "X"}},
+		Endpoints:  []*org.Endpoint{{URI: "iso6523-actorid-upis::9999:732829320"}},
 	}
-	assert.False(t, partyHasSIRENInbox(bad))
+	assert.False(t, partyHasSIRENEndpoint(badScheme))
+	// SIREN present, code does not start with it
+	badCode := &org.Party{
+		Identities: []*org.Identity{sirenIdentity("732829320")},
+		Endpoints:  []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:999999999"}},
+	}
+	assert.False(t, partyHasSIRENEndpoint(badCode))
+	// SIREN present, no peppol endpoint at all
+	noEndpoint := &org.Party{
+		Identities: []*org.Identity{sirenIdentity("732829320")},
+		Endpoints:  []*org.Endpoint{{URI: "mailto:billing@example.com"}},
+	}
+	assert.False(t, partyHasSIRENEndpoint(noEndpoint))
+}
+
+// Only the endpoints the rule set guards on iso.ActorIDScheme reach this one,
+// so it is exercised here on ISO 6523 addresses alone.
+func TestEndpointAddressLengthValid(t *testing.T) {
+	assert.True(t, endpointAddressLengthValid("wrong-type"))
+	assert.True(t, endpointAddressLengthValid(cbc.URI("iso6523-actorid-upis::0225:"+strings.Repeat("A", 125))))
+	assert.False(t, endpointAddressLengthValid(cbc.URI("iso6523-actorid-upis::0225:"+strings.Repeat("A", 126))))
+	// a malformed pair has no code to measure, so the whole opaque part is
+	assert.False(t, endpointAddressLengthValid(cbc.URI("iso6523-actorid-upis:"+strings.Repeat("A", 126))))
+}
+
+func TestSplitPeppolEndpoint(t *testing.T) {
+	scheme, code, ok := splitPeppolEndpoint(":0225:356000000")
+	assert.True(t, ok)
+	assert.Equal(t, "0225", scheme)
+	assert.Equal(t, "356000000", code)
+	_, _, ok = splitPeppolEndpoint(":0225:")
+	assert.False(t, ok)
+	_, _, ok = splitPeppolEndpoint("356000000")
+	assert.False(t, ok)
 }
 
 func TestIdentitiesSIRETSIRENCoherent(t *testing.T) {
@@ -241,10 +364,25 @@ func TestIdentitiesSchemeFormatValid(t *testing.T) {
 		assert.Contains(t, err.Error(), "ISO scheme ID")
 	})
 	t.Run("duplicate scheme errors", func(t *testing.T) {
-		ids := []*org.Identity{sirenIdentity("1"), sirenIdentity("2")}
+		ids := []*org.Identity{unscopedSIREN("1"), unscopedSIREN("2")}
 		err := identitiesSchemeFormatValid(ids)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "duplicate")
+	})
+	t.Run("tax registration without scheme allowed", func(t *testing.T) {
+		ids := []*org.Identity{{Code: "828701557", Scope: org.IdentityScopeTax}}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
+	t.Run("legal registration without scheme allowed", func(t *testing.T) {
+		ids := []*org.Identity{{Code: "356000000", Scope: org.IdentityScopeLegal}}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
+	})
+	t.Run("scoped identity does not collide with party identifier", func(t *testing.T) {
+		ids := []*org.Identity{
+			sirenIdentity("356000000"),
+			{Code: "356000000", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN})},
+		}
+		assert.NoError(t, identitiesSchemeFormatValid(ids))
 	})
 	t.Run("valid private-id", func(t *testing.T) {
 		ids := []*org.Identity{
@@ -276,25 +414,17 @@ func TestIdentitiesSchemeFormatValid(t *testing.T) {
 	})
 }
 
-func TestInboxCodeValid(t *testing.T) {
-	assert.True(t, inboxCodeValid("wrong-type"))
-	assert.True(t, inboxCodeValid((*org.Inbox)(nil)))
-	// non-SIREN scheme passes regardless
-	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: "9999", Code: "anything goes"}))
-	// SIREN scheme empty code passes
-	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN}))
-	// SIREN scheme valid code
-	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "732829320_PEP"}))
-	// SIREN scheme too long
-	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: cbc.Code(strings.Repeat("A", 126))}))
-	// SIREN scheme bad format
-	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "bad code"}))
-}
-
 func TestSchemeGuards(t *testing.T) {
 	assert.False(t, identitySchemeIs0224("wrong-type"))
 	assert.False(t, identitySchemeIs0224(&org.Identity{}))
 	assert.True(t, identitySchemeIs0224(&org.Identity{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate})}))
+
+	assert.False(t, identitySchemeIsSIRENBased("wrong-type"))
+	assert.False(t, identitySchemeIsSIRENBased((*org.Identity)(nil)))
+	assert.False(t, identitySchemeIsSIRENBased(&org.Identity{}))
+	assert.False(t, identitySchemeIsSIRENBased(&org.Identity{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIRET})}))
+	assert.True(t, identitySchemeIsSIRENBased(&org.Identity{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN})}))
+	assert.True(t, identitySchemeIsSIRENBased(&org.Identity{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSTC})}))
 
 	assert.False(t, inboxSchemeIs0225("wrong-type"))
 	assert.False(t, inboxSchemeIs0225(&org.Inbox{Scheme: "9999"}))
