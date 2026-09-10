@@ -65,7 +65,7 @@ func ensureEndpointFromInbox(party *org.Party) {
 		}
 		party.Endpoints = append(party.Endpoints, &org.Endpoint{
 			Label: inbox.Label,
-			URI:   cbc.URI(iso.ActorIDScheme + "::" + inbox.Scheme.String() + ":" + inbox.Code.String()),
+			URI:   cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, inbox.Scheme, inbox.Code)),
 		})
 		return
 	}
@@ -351,11 +351,11 @@ func orgEndpointRules() *rules.Set {
 		rules.Field("uri",
 			rules.When(cbc.URISchemeIn(iso.ActorIDScheme),
 				rules.When(cbc.URIOpaqueMatches(endpointSIRENScheme),
-					rules.Assert("01", "endpoint address on scheme 0225 must contain only alphanumeric characters and +, -, _, . (BR-FR-23)",
+					rules.Assert("01", fmt.Sprintf("%s endpoint on scheme 0225 must contain only alphanumeric characters and +, -, _, . (BR-FR-23)", iso.ActorIDScheme),
 						cbc.URIOpaqueMatches(endpointSIRENAddress),
 					),
 				),
-				rules.Assert("02", "endpoint address must not exceed 125 characters (BR-FR-25)",
+				rules.Assert("02", fmt.Sprintf("%s endpoint address must not exceed 125 characters (BR-FR-25)", iso.ActorIDScheme),
 					is.Func("address within 125 characters", endpointAddressLengthValid),
 				),
 			),

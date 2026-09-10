@@ -1,6 +1,7 @@
 package flow6
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -120,7 +121,7 @@ func normalizeEndpoints(party *org.Party) {
 		}
 		party.Endpoints = append(party.Endpoints, &org.Endpoint{
 			Label: in.Label,
-			URI:   cbc.URI(iso.ActorIDScheme + "::" + in.Scheme.String() + ":" + in.Code.String()),
+			URI:   cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, in.Scheme, in.Code)),
 		})
 		return
 	}
