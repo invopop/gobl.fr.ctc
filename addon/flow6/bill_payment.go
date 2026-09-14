@@ -146,6 +146,11 @@ func billPaymentRules() *rules.Set {
 				),
 			),
 		),
+		// A 211 advice may report a zero remaining balance (RAP).
+		rules.When(
+			bill.PaymentTypeIn(bill.PaymentTypeAdvice),
+			rules.Ignore("GOBL-BILL-PAYMENTLINE-04"),
+		),
 		rules.When(
 			bill.PaymentTypeIn(bill.PaymentTypeReceipt),
 			rules.Field("ext",
