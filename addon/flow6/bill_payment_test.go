@@ -333,3 +333,23 @@ func TestPaymentLineHasVATTax(t *testing.T) {
 		Tax: &tax.Total{Categories: []*tax.CategoryTotal{{Code: tax.CategoryVAT, Rates: []*tax.RateTotal{{Percent: num.NewPercentage(20, 2)}}}}},
 	}}))
 }
+
+// A 211 advice reporting a fully-settled balance carries amount zero,
+// which GOBL core rejects; flow6 suppresses that fault for advices only.
+func TestPaymentAdviceAllowsZeroAmount(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Type = bill.PaymentTypeAdvice
+	pmt.Ext = pmt.Ext.Set(ExtKeyCondition, ConditionAmountRemaining)
+	pmt.Lines[0].Amount = num.MakeAmount(0, 2)
+	runNormalize(t, pmt)
+	require.NoError(t, rules.Validate(pmt))
+}
+
+func TestPaymentReceiptRejectsZeroAmount(t *testing.T) {
+	pmt := testPaymentReceipt(t)
+	pmt.Lines[0].Amount = num.MakeAmount(0, 2)
+	runNormalize(t, pmt)
+	err := rules.Validate(pmt)
+	assert.ErrorContains(t, err, "GOBL-BILL-PAYMENTLINE-04")
+	assert.ErrorContains(t, err, "amount must be positive")
+}
