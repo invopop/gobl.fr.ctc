@@ -174,6 +174,7 @@ func TestInvoiceTaxExtInGuards(t *testing.T) {
 
 func TestBillingModeAcceptsV14Codes(t *testing.T) {
 	codes := []cbc.Code{
+		dgfip.BillingModeS3,
 		dgfip.BillingModeB8, dgfip.BillingModeS8,
 		dgfip.BillingModeM8, dgfip.BillingModeB9, dgfip.BillingModeS9,
 		dgfip.BillingModeM9,
