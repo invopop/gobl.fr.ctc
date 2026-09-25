@@ -1,0 +1,231 @@
+{
+	"$schema": "https://gobl.org/draft-0/envelope",
+	"head": {
+		"uuid": "8a51fd30-2a27-11ee-be56-0242ac120002",
+		"dig": {
+			"alg": "sha256",
+			"val": "663278958533ff5d5ca61a2f51c4b287d5b2b5dd43a14263db0de0d67b0c88be"
+		},
+		"from": "iso6523-actorid-upis::0225:732829320",
+		"to": "iso6523-actorid-upis::0225:356000000"
+	},
+	"doc": {
+		"$schema": "https://gobl.org/draft-0/bill/invoice",
+		"$regime": "FR",
+		"$addons": [
+			"eu-en16931-v2017",
+			"fr-ctc-flow2-v1"
+		],
+		"uuid": "8f2b1c40-5d63-4a7e-9b18-2c5e7f091a34",
+		"type": "standard",
+		"series": "STF",
+		"code": "2026-001",
+		"issue_date": "2026-09-22",
+		"currency": "EUR",
+		"tax": {
+			"rounding": "currency",
+			"ext": {
+				"fr-ctc-billing-mode": "S3",
+				"untdid-document-type": "380"
+			}
+		},
+		"supplier": {
+			"name": "Sous-traitant Example SARL",
+			"tax_id": {
+				"country": "FR",
+				"code": "44732829320"
+			},
+			"identities": [
+				{
+					"scope": "legal",
+					"type": "SIREN",
+					"code": "732829320",
+					"ext": {
+						"iso-scheme-id": "0002"
+					}
+				},
+				{
+					"type": "SIRET",
+					"code": "73282932000074",
+					"ext": {
+						"iso-scheme-id": "0009"
+					}
+				}
+			],
+			"endpoints": [
+				{
+					"uri": "iso6523-actorid-upis::0225:732829320"
+				}
+			],
+			"inboxes": [
+				{
+					"key": "peppol",
+					"scheme": "0225",
+					"code": "732829320"
+				}
+			],
+			"addresses": [
+				{
+					"num": "12",
+					"street": "Rue des Artisans",
+					"locality": "Lyon",
+					"code": "69002",
+					"country": "FR"
+				}
+			],
+			"emails": [
+				{
+					"addr": "facturation@sous-traitant.fr"
+				}
+			]
+		},
+		"customer": {
+			"name": "Commune Example",
+			"tax_id": {
+				"country": "FR",
+				"code": "39356000000"
+			},
+			"identities": [
+				{
+					"scope": "legal",
+					"type": "SIREN",
+					"code": "356000000",
+					"ext": {
+						"iso-scheme-id": "0002"
+					}
+				},
+				{
+					"type": "SIRET",
+					"code": "35600000000048",
+					"ext": {
+						"iso-scheme-id": "0009"
+					}
+				}
+			],
+			"endpoints": [
+				{
+					"uri": "iso6523-actorid-upis::0225:356000000"
+				}
+			],
+			"inboxes": [
+				{
+					"key": "peppol",
+					"scheme": "0225",
+					"code": "356000000"
+				}
+			],
+			"addresses": [
+				{
+					"num": "1",
+					"street": "Place de la Mairie",
+					"locality": "Villeurbanne",
+					"code": "69100",
+					"country": "FR"
+				}
+			],
+			"emails": [
+				{
+					"addr": "finances@commune-example.fr"
+				}
+			]
+		},
+		"lines": [
+			{
+				"i": 1,
+				"quantity": "1",
+				"item": {
+					"name": "Travaux de second oeuvre - lot 3",
+					"price": "12500.00",
+					"unit": "one"
+				},
+				"sum": "12500.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"rate": "general",
+						"percent": "20%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"total": "12500.00"
+			}
+		],
+		"ordering": {
+			"contracts": [
+				{
+					"code": "MARCHE-2026-0042"
+				}
+			]
+		},
+		"payment": {
+			"terms": {
+				"notes": "Paiement a 30 jours - paiement direct au sous-traitant"
+			},
+			"instructions": {
+				"key": "credit-transfer",
+				"credit_transfer": [
+					{
+						"iban": "FR7630006000011234567890189",
+						"name": "Sous-traitant Example SARL"
+					}
+				],
+				"ext": {
+					"untdid-payment-means": "30"
+				}
+			}
+		},
+		"totals": {
+			"sum": "12500.00",
+			"total": "12500.00",
+			"taxes": {
+				"categories": [
+					{
+						"code": "VAT",
+						"rates": [
+							{
+								"key": "standard",
+								"ext": {
+									"untdid-tax-category": "S"
+								},
+								"base": "12500.00",
+								"percent": "20%",
+								"amount": "2500.00"
+							}
+						],
+						"amount": "2500.00"
+					}
+				],
+				"sum": "2500.00"
+			},
+			"tax": "2500.00",
+			"total_with_tax": "15000.00",
+			"payable": "15000.00"
+		},
+		"notes": [
+			{
+				"key": "payment",
+				"text": "Une penalite fixe de 40 EUR sera appliquee en cas de retard de paiement.",
+				"ext": {
+					"untdid-text-subject": "PMT"
+				}
+			},
+			{
+				"key": "payment-method",
+				"text": "Des penalites de retard s'appliquent conformement a nos conditions generales de vente.",
+				"ext": {
+					"untdid-text-subject": "PMD"
+				}
+			},
+			{
+				"key": "payment-term",
+				"text": "Aucun escompte n'est offert pour paiement anticipe.",
+				"ext": {
+					"untdid-text-subject": "AAB"
+				}
+			}
+		]
+	}
+}
