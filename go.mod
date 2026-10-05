@@ -3,13 +3,26 @@ module github.com/invopop/gobl.fr.ctc
 go 1.25.0
 
 require (
-	github.com/invopop/gobl v0.505.0
+	github.com/invopop/gobl v0.507.1-0.20261005135443-e3d9c968f66c
+	github.com/invopop/gobl.ubl v0.82.1-0.20261005220029-d99954f26e09
 	github.com/stretchr/testify v1.11.1
 )
 
 require (
-	cloud.google.com/go v0.116.0 // indirect
-	github.com/Masterminds/semver/v3 v3.3.0 // indirect
+	github.com/beevik/etree v1.6.0 // indirect
+	github.com/invopop/gobl.sa.zatca v0.0.2 // indirect
+	github.com/invopop/validation v0.8.0 // indirect
+	github.com/invopop/xmlctx v0.13.0 // indirect
+	github.com/invopop/xmldsig v0.14.0 // indirect
+	github.com/jonboulle/clockwork v0.5.0 // indirect
+	github.com/russellhaering/goxmldsig v1.6.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+	software.sslmate.com/src/go-pkcs12 v0.7.0 // indirect
+)
+
+require (
+	cloud.google.com/go v0.118.0 // indirect
+	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
@@ -19,7 +32,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/invopop/yaml v0.3.1 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/magefile/mage v1.15.0 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

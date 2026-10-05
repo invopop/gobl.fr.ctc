@@ -37,6 +37,11 @@ documents take on its weight.
   light so importing it never pulls in conversion tooling.
 - the module root (and future subpackages) is reserved for converters and other
   CTC logic that build on the addon.
+- `ubl/` — registers the Peppol France CIUS (`ubl+peppol-fr-cius-v1`) and
+  Extended (`ubl+peppol-fr-extended-v1`) UBL contexts with GOBL's `convert`
+  register, using [gobl.ubl](https://github.com/invopop/gobl.ubl) for the
+  conversion. Add `_ "github.com/invopop/gobl.fr.ctc/ubl"` to import and export
+  French UBL documents through `convert.Import` and `convert.Export`.
 
 ## Usage
 
