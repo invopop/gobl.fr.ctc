@@ -4,13 +4,13 @@ go 1.25.0
 
 require (
 	github.com/invopop/gobl v0.507.1-0.20261005135443-e3d9c968f66c
-	github.com/invopop/gobl.ubl v0.82.1-0.20261005220029-d99954f26e09
+	github.com/invopop/gobl.ubl v0.82.1-0.20261005223043-d593674b67b1
+	github.com/invopop/phorm v0.1.5
 	github.com/stretchr/testify v1.11.1
 )
 
 require (
 	github.com/beevik/etree v1.6.0 // indirect
-	github.com/invopop/gobl.sa.zatca v0.0.2 // indirect
 	github.com/invopop/validation v0.8.0 // indirect
 	github.com/invopop/xmlctx v0.13.0 // indirect
 	github.com/invopop/xmldsig v0.14.0 // indirect
