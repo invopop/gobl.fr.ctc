@@ -174,4 +174,6 @@ func TestInboxCodeValid(t *testing.T) {
 	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "1_PEP"}))
 	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: cbc.Code(strings.Repeat("A", 126))}))
 	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "bad code"}))
+	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "356000000_billing-dept.example"}))
+	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "356000000/billing"}))
 }
