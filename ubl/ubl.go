@@ -1,5 +1,5 @@
-// Package ubl adds the French CTC UBL contexts on top of the gobl.ubl base
-// conversion, and registers them with gobl.ubl and the GOBL convert
+// Package ubl adds the French CTC UBL formats on top of the gobl.ubl base
+// import and export, and registers them with gobl.ubl and the GOBL convert
 // register. Import it for its side effects:
 //
 //	import _ "github.com/invopop/gobl.fr.ctc/ubl"
@@ -15,7 +15,7 @@ import (
 	"github.com/invopop/gobl/schema"
 )
 
-// Context keys.
+// Format keys.
 const (
 	KeyCIUS     cbc.Key = "ubl+peppol+fr-cius-v1"
 	KeyExtended cbc.Key = "ubl+peppol+fr-extended-v1"
@@ -27,8 +27,8 @@ const (
 	ProcessIDNonRegulated = "urn:peppol:france:billing:non-regulated"
 )
 
-// ContextCIUS defines the context for France UBL Invoice CIUS.
-var ContextCIUS = goblubl.Context{
+// FormatCIUS defines the format for France UBL Invoice CIUS.
+var FormatCIUS = goblubl.Format{
 	Key:                   KeyCIUS,
 	Name:                  i18n.NewString("UBL Peppol France CIUS"),
 	Countries:             []l10n.Code{l10n.FR},
@@ -41,11 +41,12 @@ var ContextCIUS = goblubl.Context{
 		Invoice:    "fr.ctc:ubl-invoice:1.4.0-03",
 		CreditNote: "fr.ctc:ubl-creditnote:1.4.0-03",
 	},
-	Layers: []*goblubl.Layer{LayerCIUS},
+	ExportFuncs: []goblubl.ExportFunc{exportCIUS},
+	ImportFuncs: []goblubl.ImportFunc{importCIUS},
 }
 
-// ContextExtended defines the context for France UBL Invoice Extended.
-var ContextExtended = goblubl.Context{
+// FormatExtended defines the format for France UBL Invoice Extended.
+var FormatExtended = goblubl.Format{
 	Key:                   KeyExtended,
 	Name:                  i18n.NewString("UBL Peppol France Extended"),
 	Countries:             []l10n.Code{l10n.FR},
@@ -65,25 +66,28 @@ var ContextExtended = goblubl.Context{
 	Fallback: func(_, profileID string) bool {
 		return isBillingMode(profileID)
 	},
-	Layers: []*goblubl.Layer{LayerCIUS, LayerExtended},
+	// The CIUS rules run last so they also cover the parties the Extended
+	// rules add.
+	ExportFuncs: []goblubl.ExportFunc{exportExtended, exportCIUS},
+	ImportFuncs: []goblubl.ImportFunc{importCIUS, importExtended},
 }
 
 func init() {
 	// France CIUS documents use the same CustomizationID as EN 16931, but
 	// can be identified by their ProfileID carrying a billing mode code.
-	ContextCIUS.Match = matchBillingMode(ContextCIUS)
-	ContextExtended.Match = matchBillingMode(ContextExtended)
-	goblubl.RegisterContexts(ContextCIUS, ContextExtended)
+	FormatCIUS.Match = matchBillingMode(FormatCIUS)
+	FormatExtended.Match = matchBillingMode(FormatExtended)
+	goblubl.RegisterFormats(FormatCIUS, FormatExtended)
 }
 
-// matchBillingMode claims documents declaring the context's specification
+// matchBillingMode claims documents declaring the format's specification
 // together with a French billing mode.
-func matchBillingMode(ctx goblubl.Context) func(customizationID, profileID string) bool {
+func matchBillingMode(f goblubl.Format) func(customizationID, profileID string) bool {
 	return func(customizationID, profileID string) bool {
 		if !isBillingMode(profileID) {
 			return false
 		}
-		return customizationID == ctx.OutputCustomizationID || customizationID == ctx.CustomizationID
+		return customizationID == f.OutputCustomizationID || customizationID == f.CustomizationID
 	}
 }
 

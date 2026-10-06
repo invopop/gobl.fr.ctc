@@ -25,7 +25,7 @@ func TestTaxExchangeRate(t *testing.T) {
 	const fixture = "france-extended/invoice-tax-exchange-rate.json"
 
 	t.Run("french extended maps the VAT accounting currency exchange rate", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
 
 		require.NotNil(t, doc.TaxExchangeRate)
@@ -39,24 +39,24 @@ func TestTaxExchangeRate(t *testing.T) {
 		assert.Equal(t, "2024-06-13", *doc.TaxExchangeRate.Date)
 	})
 
-	t.Run("exchange rate is ignored outside the french extended context", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, ubl.ContextPeppol)
+	t.Run("exchange rate is ignored outside the french extended format", func(t *testing.T) {
+		doc, err := testInvoiceFromFormat(fixture, ubl.FormatPeppol)
 		require.NoError(t, err)
 
 		assert.Nil(t, doc.TaxExchangeRate)
 	})
 
 	t.Run("parse restores the exchange rate", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
-		data, err := ubl.Bytes(doc)
+		data, err := ubl.Encode(doc)
 		require.NoError(t, err)
 
-		parsed, err := ubl.Parse(data)
+		parsed, err := ubl.Decode(data)
 		require.NoError(t, err)
 		in, ok := parsed.(*ubl.Invoice)
 		require.True(t, ok)
-		env, err := in.Convert()
+		env, err := ubl.Import(in)
 		require.NoError(t, err)
 
 		inv, ok := env.Extract().(*bill.Invoice)
@@ -70,19 +70,19 @@ func TestTaxExchangeRate(t *testing.T) {
 		assert.Equal(t, "2024-06-13T00:00:00", rate.At.String())
 	})
 
-	t.Run("parse honors cac:TaxExchangeRate regardless of context", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+	t.Run("parse honors cac:TaxExchangeRate regardless of format", func(t *testing.T) {
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
-		data, err := ubl.Bytes(doc)
+		data, err := ubl.Encode(doc)
 		require.NoError(t, err)
 
-		parsed, err := ubl.Parse(data)
+		parsed, err := ubl.Decode(data)
 		require.NoError(t, err)
 		in, ok := parsed.(*ubl.Invoice)
 		require.True(t, ok)
-		// Force a non-French-extended context on parse; the element should
+		// Force a non-French-extended format on parse; the element should
 		// still be honored since the source document carries it explicitly.
-		env, err := in.Convert(ubl.WithContext(ubl.ContextPeppol))
+		env, err := ubl.Import(in, ubl.WithFormat(ubl.FormatPeppol))
 		require.NoError(t, err)
 
 		inv, ok := env.Extract().(*bill.Invoice)
@@ -95,12 +95,12 @@ func TestTaxExchangeRate(t *testing.T) {
 	})
 
 	t.Run("mismatched cac:TaxExchangeRate currencies are ignored", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
-		data, err := ubl.Bytes(doc)
+		data, err := ubl.Encode(doc)
 		require.NoError(t, err)
 
-		parsed, err := ubl.Parse(data)
+		parsed, err := ubl.Decode(data)
 		require.NoError(t, err)
 		in, ok := parsed.(*ubl.Invoice)
 		require.True(t, ok)
@@ -110,7 +110,7 @@ func TestTaxExchangeRate(t *testing.T) {
 		mismatched := "GBP"
 		in.TaxExchangeRate.SourceCurrencyCode = &mismatched
 
-		env, err := in.Convert()
+		env, err := ubl.Import(in)
 		require.NoError(t, err)
 
 		inv, ok := env.Extract().(*bill.Invoice)
@@ -127,7 +127,7 @@ func TestOrderingExtendedParties(t *testing.T) {
 	const fixture = "france-extended/invoice-addressee.json"
 
 	t.Run("french extended maps the addressee and the facturant", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
 
 		// EXT-FR-FE-BG-05 sits under the seller, EXT-FR-FE-BG-04 under the buyer.
@@ -151,8 +151,8 @@ func TestOrderingExtendedParties(t *testing.T) {
 		assert.Equal(t, "factures@adressee.fr", *addressee.Contact.ElectronicMail)
 	})
 
-	t.Run("addressee is ignored outside the french extended context", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, ubl.ContextPeppol)
+	t.Run("addressee is ignored outside the french extended format", func(t *testing.T) {
+		doc, err := testInvoiceFromFormat(fixture, ubl.FormatPeppol)
 		require.NoError(t, err)
 
 		assert.Nil(t, doc.AccountingCustomerParty.Party.ServiceProviderParty)
@@ -162,16 +162,16 @@ func TestOrderingExtendedParties(t *testing.T) {
 	})
 
 	t.Run("parse restores both parties", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
-		data, err := ubl.Bytes(doc)
+		data, err := ubl.Encode(doc)
 		require.NoError(t, err)
 
-		parsed, err := ubl.Parse(data)
+		parsed, err := ubl.Decode(data)
 		require.NoError(t, err)
 		in, ok := parsed.(*ubl.Invoice)
 		require.True(t, ok)
-		outEnv, err := in.Convert()
+		outEnv, err := ubl.Import(in)
 		require.NoError(t, err)
 		outInv, ok := outEnv.Extract().(*bill.Invoice)
 		require.True(t, ok)
@@ -189,7 +189,7 @@ func TestPartyAgent(t *testing.T) {
 	const fixture = "france-extended/invoice-addressee.json"
 
 	t.Run("french extended nests the buyer and seller agents", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
 
 		// EXT-FR-FE-BG-03 sits under the seller, EXT-FR-FE-BG-01 under the buyer.
@@ -205,8 +205,8 @@ func TestPartyAgent(t *testing.T) {
 		assert.Equal(t, "FR96552100554", buyerAgent.PartyTaxScheme[0].CompanyID.Value)
 	})
 
-	t.Run("agents are ignored outside the french extended context", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, ubl.ContextPeppol)
+	t.Run("agents are ignored outside the french extended format", func(t *testing.T) {
+		doc, err := testInvoiceFromFormat(fixture, ubl.FormatPeppol)
 		require.NoError(t, err)
 
 		assert.Nil(t, doc.AccountingSupplierParty.Party.AgentParty)
@@ -214,16 +214,16 @@ func TestPartyAgent(t *testing.T) {
 	})
 
 	t.Run("parse restores both agents", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
-		data, err := ubl.Bytes(doc)
+		data, err := ubl.Encode(doc)
 		require.NoError(t, err)
 
-		parsed, err := ubl.Parse(data)
+		parsed, err := ubl.Decode(data)
 		require.NoError(t, err)
 		in, ok := parsed.(*ubl.Invoice)
 		require.True(t, ok)
-		outEnv, err := in.Convert()
+		outEnv, err := ubl.Import(in)
 		require.NoError(t, err)
 		outInv, ok := outEnv.Extract().(*bill.Invoice)
 		require.True(t, ok)
@@ -240,7 +240,7 @@ func TestPaymentPayer(t *testing.T) {
 	const fixture = "france-extended/invoice-payer.json"
 
 	t.Run("french extended maps the payer to the payment mandate", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, doc.PaymentMeans)
@@ -268,7 +268,7 @@ func TestPaymentPayer(t *testing.T) {
 		require.True(t, ok)
 		inv.Payment.Instructions = nil
 
-		doc, err := ubl.ConvertInvoice(env, ubl.WithContext(frubl.ContextExtended))
+		doc, err := ubl.ExportInvoice(env, ubl.WithFormat(frubl.FormatExtended))
 		require.NoError(t, err)
 		require.NotEmpty(t, doc.PaymentMeans)
 		assert.Equal(t, "1", doc.PaymentMeans[0].PaymentMeansCode.Value)
@@ -277,8 +277,8 @@ func TestPaymentPayer(t *testing.T) {
 		assert.NotNil(t, doc.PaymentMeans[0].PaymentMandate.PayerParty)
 	})
 
-	t.Run("payer is ignored outside the french extended context", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, ubl.ContextPeppol)
+	t.Run("payer is ignored outside the french extended format", func(t *testing.T) {
+		doc, err := testInvoiceFromFormat(fixture, ubl.FormatPeppol)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, doc.PaymentMeans)
@@ -286,16 +286,16 @@ func TestPaymentPayer(t *testing.T) {
 	})
 
 	t.Run("parse restores the payer without inventing a direct debit", func(t *testing.T) {
-		doc, err := testInvoiceFromContext(fixture, frubl.ContextExtended)
+		doc, err := testInvoiceFromFormat(fixture, frubl.FormatExtended)
 		require.NoError(t, err)
-		data, err := ubl.Bytes(doc)
+		data, err := ubl.Encode(doc)
 		require.NoError(t, err)
 
-		parsed, err := ubl.Parse(data)
+		parsed, err := ubl.Decode(data)
 		require.NoError(t, err)
 		in, ok := parsed.(*ubl.Invoice)
 		require.True(t, ok)
-		env, err := in.Convert()
+		env, err := ubl.Import(in)
 		require.NoError(t, err)
 
 		inv, ok := env.Extract().(*bill.Invoice)
@@ -323,14 +323,14 @@ func TestLineTaxPoint(t *testing.T) {
 			End:   cal.NewDate(2024, 1, 31),
 		}
 
-		out, err := ubl.ConvertInvoice(env, ubl.WithContext(frubl.ContextExtended))
+		out, err := ubl.ExportInvoice(env, ubl.WithFormat(frubl.FormatExtended))
 		require.NoError(t, err)
 
 		require.NotNil(t, out.InvoiceLines[0].InvoicePeriod)
 		assert.Equal(t, "35", out.InvoiceLines[0].InvoicePeriod.DescriptionCode)
 
-		// Outside the France extended context the line period carries no code.
-		out, err = ubl.ConvertInvoice(env)
+		// Outside the France extended format the line period carries no code.
+		out, err = ubl.ExportInvoice(env)
 		require.NoError(t, err)
 
 		require.NotNil(t, out.InvoiceLines[0].InvoicePeriod)
@@ -419,7 +419,7 @@ func identityWithScheme(party *org.Party, scheme cbc.Code) cbc.Code {
 }
 
 // TestNewPartyTaxRegistration pins BT-32: the tax scheme code is the French
-// one under a French context, and the identity's own type elsewhere.
+// one under a French format, and the identity's own type elsewhere.
 func TestNewPartyTaxRegistration(t *testing.T) {
 	convert := func(t *testing.T, fixture string, id *org.Identity, opts ...ubl.Option) []PartyTaxSchemeView {
 		t.Helper()
@@ -429,7 +429,7 @@ func TestNewPartyTaxRegistration(t *testing.T) {
 		inv.Supplier.Identities = []*org.Identity{id}
 		require.NoError(t, env.Calculate())
 
-		doc, err := ubl.ConvertInvoice(env, opts...)
+		doc, err := ubl.ExportInvoice(env, opts...)
 		require.NoError(t, err)
 
 		out := make([]PartyTaxSchemeView, 0)
@@ -442,10 +442,10 @@ func TestNewPartyTaxRegistration(t *testing.T) {
 		return out
 	}
 
-	t.Run("french context pins the scheme", func(t *testing.T) {
+	t.Run("french format pins the scheme", func(t *testing.T) {
 		schemes := convert(t, "france-cius/invoice-fr-cius.json",
 			&org.Identity{Scope: org.IdentityScopeTax, Code: "483671517"},
-			ubl.WithContext(frubl.ContextCIUS))
+			ubl.WithFormat(frubl.FormatCIUS))
 
 		require.NotEmpty(t, schemes)
 		last := schemes[len(schemes)-1]
@@ -461,7 +461,7 @@ type PartyTaxSchemeView struct {
 }
 
 func TestConvertAddsRequiredAddons(t *testing.T) {
-	t.Run("injects missing addon from context", func(t *testing.T) {
+	t.Run("injects missing addon from format", func(t *testing.T) {
 		// Load a France CTC-shaped invoice, strip the ctc addon, and verify
 		// that Convert injects it back in before producing the UBL document.
 		env := loadTestEnvelope(t, "france-cius/invoice-fr-cius.json")
@@ -474,7 +474,7 @@ func TestConvertAddsRequiredAddons(t *testing.T) {
 		require.NotContains(t, inv.GetAddons(), flow2.V1,
 			"precondition: ctc addon must be absent before Convert runs")
 
-		_, err := ubl.Convert(env, ubl.WithContext(frubl.ContextCIUS))
+		_, err := ubl.Export(env, ubl.WithFormat(frubl.FormatCIUS))
 		require.NoError(t, err)
 
 		// After Convert the addon should have been appended in-place.
@@ -491,11 +491,11 @@ func TestConvertSurfacesValidationFaultsAfterAutoAddon(t *testing.T) {
 	// instead of a flattened string.
 
 	// Minimal DE invoice doesn't satisfy the France CTC rule set. Convert
-	// with the France CIUS context to force ensureAddons to add flow2.V1
+	// with the France CIUS format to force ensureAddons to add flow2.V1
 	// and then fail validation.
 	env := loadTestEnvelope(t, "invoice-minimal.json")
 
-	_, err := ubl.Convert(env, ubl.WithContext(frubl.ContextCIUS))
+	_, err := ubl.Export(env, ubl.WithFormat(frubl.FormatCIUS))
 	require.Error(t, err)
 
 	// Must be the GOBL validation error — not wrapped in anything ubl-specific.

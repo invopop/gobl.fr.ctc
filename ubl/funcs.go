@@ -1,6 +1,7 @@
 package ubl
 
 import (
+	"github.com/invopop/gobl"
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
@@ -21,62 +22,69 @@ const (
 // not defined.
 const paymentMeansNotDefined = "1"
 
-// LayerCIUS applies the French CIUS rules shared by the CIUS and Extended
-// contexts.
-var LayerCIUS = &goblubl.Layer{
-	ConvertInvoice: func(_ *goblubl.Context, inv *bill.Invoice, out *goblubl.Invoice) error {
-		// The UBL ProfileID carries the billing mode.
-		if profile := inv.Tax.GetExt(dgfip.ExtKeyBillingMode); profile != cbc.CodeEmpty {
-			out.ProfileID = &goblubl.IDType{Value: profile.String()}
-		}
-		return nil
-	},
-	ConvertParty: func(_ *goblubl.Context, p *org.Party, out *goblubl.Party) {
-		// BT-32: tax registrations use the LOC scheme, after the BT-31 VAT
-		// identifier when there is one.
-		i := 0
-		if p.TaxID != nil && p.TaxID.Code != "" {
-			i = 1
-		}
-		for _, id := range p.Identities {
-			if id.Scope != org.IdentityScopeTax {
-				continue
-			}
-			out.PartyTaxScheme[i].TaxScheme.ID.Value = goblubl.TaxSchemeTaxRegistration
-			i++
-		}
-	},
-	ParseInvoice: func(_ *goblubl.Context, in *goblubl.Invoice, out *bill.Invoice) error {
-		profileID := ""
-		if in.ProfileID != nil {
-			profileID = in.ProfileID.Value
-		}
-		out.Tax.Ext = out.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code(profileID))
-		return nil
-	},
+// invoices provides the GOBL and UBL invoices of an export or import, if
+// both are invoices.
+func invoices(env *gobl.Envelope, doc goblubl.Document) (*bill.Invoice, *goblubl.Invoice, bool) {
+	inv, ok := env.Extract().(*bill.Invoice)
+	out, ok2 := doc.(*goblubl.Invoice)
+	return inv, out, ok && ok2
 }
 
-// LayerExtended adds the parties and amounts that only the French Extended
+// exportCIUS applies the French CIUS rules shared by the CIUS and Extended
+// formats.
+func exportCIUS(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document) error {
+	inv, out, ok := invoices(env, doc)
+	if !ok {
+		return nil
+	}
+	// The UBL ProfileID carries the billing mode.
+	if profile := inv.Tax.GetExt(dgfip.ExtKeyBillingMode); profile != cbc.CodeEmpty {
+		out.ProfileID = &goblubl.IDType{Value: profile.String()}
+	}
+	for _, p := range goblubl.InvoiceParties(inv, out) {
+		taxRegistrationScheme(p.GOBL, p.UBL)
+	}
+	return nil
+}
+
+// taxRegistrationScheme sets the LOC scheme on the party's BT-32 tax
+// registrations, which follow the BT-31 VAT identifier when there is one.
+func taxRegistrationScheme(p *org.Party, out *goblubl.Party) {
+	i := 0
+	if p.TaxID != nil && p.TaxID.Code != "" {
+		i = 1
+	}
+	for _, id := range p.Identities {
+		if id.Scope != org.IdentityScopeTax {
+			continue
+		}
+		out.PartyTaxScheme[i].TaxScheme.ID.Value = goblubl.TaxSchemeTaxRegistration
+		i++
+	}
+}
+
+// importCIUS restores the billing mode from the ProfileID.
+func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) error {
+	inv, in, ok := invoices(env, doc)
+	if !ok {
+		return nil
+	}
+	profileID := ""
+	if in.ProfileID != nil {
+		profileID = in.ProfileID.Value
+	}
+	inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code(profileID))
+	return nil
+}
+
+// exportExtended adds the parties and amounts that only the French Extended
 // profile defines.
-var LayerExtended = &goblubl.Layer{
-	ConvertInvoice: convertExtendedInvoice,
-	ConvertParty: func(ctx *goblubl.Context, p *org.Party, out *goblubl.Party) {
-		// EXT-FR-FE-BG-01/BG-03: the agent acting for the buyer or the seller,
-		// which UBL nests inside the party it acts for. GOBL forbids an agent
-		// of an agent, so this recurses at most once.
-		if p.Agent != nil {
-			out.AgentParty = goblubl.NewParty(p.Agent, ctx)
-		}
-	},
-	ParseParty: func(ctx *goblubl.Context, in *goblubl.Party, out *org.Party) {
-		if in.AgentParty != nil {
-			out.Agent = goblubl.ParseParty(in.AgentParty, ctx)
-		}
-	},
-	ParseInvoice: parseExtendedInvoice,
-}
+func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document) error {
+	inv, out, ok := invoices(env, doc)
+	if !ok {
+		return nil
+	}
 
-func convertExtendedInvoice(ctx *goblubl.Context, inv *bill.Invoice, out *goblubl.Invoice) error {
 	// BT-167/BT-167-1/BT-167-2/EXT-FR-FE-192: the VAT accounting currency
 	// exchange rate, using the same rate gating as BT-6/BT-111.
 	taxCurrency := inv.RegimeDef().GetCurrency()
@@ -108,7 +116,7 @@ func convertExtendedInvoice(ctx *goblubl.Context, inv *bill.Invoice, out *goblub
 		// EXT-FR-FE-BG-04: the party the invoice is addressed to, which sits
 		// under the buyer just as the facturant sits under the seller.
 		if cp := out.AccountingCustomerParty.Party; o.Buyer != nil && cp != nil {
-			addressee := goblubl.NewParty(o.Buyer, ctx)
+			addressee := goblubl.NewParty(o.Buyer)
 			addressee.IndustryClassificationCode = partyRoleInvoicee
 			cp.ServiceProviderParty = &goblubl.ServiceProviderParty{
 				Party: addressee,
@@ -129,7 +137,15 @@ func convertExtendedInvoice(ctx *goblubl.Context, inv *bill.Invoice, out *goblub
 		if out.PaymentMeans[0].PaymentMandate == nil {
 			out.PaymentMeans[0].PaymentMandate = new(goblubl.PaymentMandate)
 		}
-		out.PaymentMeans[0].PaymentMandate.PayerParty = goblubl.NewParty(inv.Payment.Payer, ctx)
+		out.PaymentMeans[0].PaymentMandate.PayerParty = goblubl.NewParty(inv.Payment.Payer)
+	}
+
+	// EXT-FR-FE-BG-01/BG-03: the agent acting for a party, which UBL nests
+	// inside the party it acts for.
+	for _, p := range goblubl.InvoiceParties(inv, out) {
+		if p.GOBL.Agent != nil && p.UBL.AgentParty == nil {
+			p.UBL.AgentParty = goblubl.NewParty(p.GOBL.Agent)
+		}
 	}
 	return nil
 }
@@ -152,22 +168,36 @@ func addTaxExchangeRate(out *goblubl.Invoice, from, to cur.Code, rate *cur.Excha
 	}
 }
 
-func parseExtendedInvoice(ctx *goblubl.Context, in *goblubl.Invoice, out *bill.Invoice) error {
+// importExtended restores the parties that only the French Extended profile
+// defines.
+func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) error {
+	inv, in, ok := invoices(env, doc)
+	if !ok {
+		return nil
+	}
+
 	// EXT-FR-FE-BG-04: the party the invoice is addressed to.
 	if cp := in.AccountingCustomerParty.Party; cp != nil && cp.ServiceProviderParty != nil {
-		if out.Ordering == nil {
-			out.Ordering = new(bill.Ordering)
+		if inv.Ordering == nil {
+			inv.Ordering = new(bill.Ordering)
 		}
-		out.Ordering.Buyer = goblubl.ParseParty(cp.ServiceProviderParty.Party, ctx)
+		inv.Ordering.Buyer = goblubl.ParseParty(cp.ServiceProviderParty.Party)
 	}
 
 	// EXT-FR-FE-BG-02: the payer.
 	if len(in.PaymentMeans) > 0 {
 		if pm := in.PaymentMeans[0].PaymentMandate; pm != nil && pm.PayerParty != nil {
-			if out.Payment == nil {
-				out.Payment = new(bill.PaymentDetails)
+			if inv.Payment == nil {
+				inv.Payment = new(bill.PaymentDetails)
 			}
-			out.Payment.Payer = goblubl.ParseParty(pm.PayerParty, ctx)
+			inv.Payment.Payer = goblubl.ParseParty(pm.PayerParty)
+		}
+	}
+
+	// EXT-FR-FE-BG-01/BG-03: the agent acting for a party.
+	for _, p := range goblubl.InvoiceParties(inv, in) {
+		if p.UBL.AgentParty != nil && p.GOBL.Agent == nil {
+			p.GOBL.Agent = goblubl.ParseParty(p.UBL.AgentParty)
 		}
 	}
 	return nil

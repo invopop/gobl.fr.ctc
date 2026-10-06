@@ -34,24 +34,24 @@ func getParsePath() string {
 	return filepath.Join("testdata", "parse")
 }
 
-// exampleContexts lists the example directories and the context each one
+// exampleFormats lists the example directories and the format each one
 // is converted with.
-var exampleContexts = []struct {
-	dir     string
-	context ubl.Context
+var exampleFormats = []struct {
+	dir    string
+	format ubl.Format
 }{
-	{"france-cius", frubl.ContextCIUS},
-	{"france-extended", frubl.ContextExtended},
+	{"france-cius", frubl.FormatCIUS},
+	{"france-extended", frubl.FormatExtended},
 }
 
-// TestConvertExamples converts each GOBL example of a context into UBL and
+// TestConvertExamples converts each GOBL example of a format into UBL and
 // compares the result with its expected output.
 func TestConvertExamples(t *testing.T) {
 	var pc *phorm.Client
 	if *validate {
 		pc = phormClient(t)
 	}
-	for _, ec := range exampleContexts {
+	for _, ec := range exampleFormats {
 		t.Run(ec.dir, func(t *testing.T) {
 			examples, err := filepath.Glob(filepath.Join("testdata", "convert", ec.dir, "*.json"))
 			require.NoError(t, err)
@@ -59,9 +59,9 @@ func TestConvertExamples(t *testing.T) {
 			for _, example := range examples {
 				name := filepath.Base(example)
 				t.Run(name, func(t *testing.T) {
-					doc, err := testInvoiceFromContext(filepath.Join(ec.dir, name), ec.context)
+					doc, err := testInvoiceFromFormat(filepath.Join(ec.dir, name), ec.format)
 					require.NoError(t, err)
-					data, err := ubl.Bytes(doc)
+					data, err := ubl.Encode(doc)
 					require.NoError(t, err)
 
 					outPath := filepath.Join("testdata", "convert", ec.dir, "out", strings.Replace(name, ".json", ".xml", 1))
@@ -73,7 +73,7 @@ func TestConvertExamples(t *testing.T) {
 						require.NoError(t, err)
 						inv, ok := env.Extract().(*bill.Invoice)
 						require.True(t, ok, "Document should be an invoice")
-						validateXML(t, pc, ec.context.GetVESID(inv), data)
+						validateXML(t, pc, ec.format.GetVESID(inv), data)
 					}
 
 					output, err := os.ReadFile(outPath)
@@ -85,10 +85,10 @@ func TestConvertExamples(t *testing.T) {
 	}
 }
 
-// TestParseExamples parses each UBL example of a context into GOBL and
+// TestParseExamples parses each UBL example of a format into GOBL and
 // compares the invoice with its expected output.
 func TestParseExamples(t *testing.T) {
-	for _, ec := range exampleContexts {
+	for _, ec := range exampleFormats {
 		examples, err := filepath.Glob(filepath.Join("testdata", "parse", ec.dir, "*.xml"))
 		require.NoError(t, err)
 		if len(examples) == 0 {
@@ -129,14 +129,14 @@ func TestParseExamples(t *testing.T) {
 	}
 }
 
-// testInvoiceFromContext converts a GOBL example from testdata/convert into
-// a UBL invoice using the context.
-func testInvoiceFromContext(name string, ctx ubl.Context) (*ubl.Invoice, error) {
+// testInvoiceFromFormat converts a GOBL example from testdata/convert into
+// a UBL invoice using the format.
+func testInvoiceFromFormat(name string, f ubl.Format) (*ubl.Invoice, error) {
 	env, err := loadTestEnvelopeFromPath(filepath.Join("testdata", "convert", name))
 	if err != nil {
 		return nil, err
 	}
-	return ubl.ConvertInvoice(env, ubl.WithContext(ctx))
+	return ubl.ExportInvoice(env, ubl.WithFormat(f))
 }
 
 // loadTestEnvelope loads, calculates, and validates a GOBL example from
@@ -193,11 +193,11 @@ func parseXMLInvoice(t *testing.T, name string) *gobl.Envelope {
 	t.Helper()
 	data, err := testLoadXML(name)
 	require.NoError(t, err)
-	doc, err := ubl.Parse(data)
+	doc, err := ubl.Decode(data)
 	require.NoError(t, err)
 	inv, ok := doc.(*ubl.Invoice)
 	require.True(t, ok, "document is not an invoice")
-	env, err := inv.Convert()
+	env, err := ubl.Import(inv)
 	require.NoError(t, err)
 	return env
 }

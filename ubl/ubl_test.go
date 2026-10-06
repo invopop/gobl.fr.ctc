@@ -13,20 +13,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestContexts(t *testing.T) {
+func TestFormats(t *testing.T) {
 	for _, k := range []cbc.Key{frubl.KeyCIUS, frubl.KeyExtended} {
-		ctx := convert.ContextFor(k)
-		require.NotNil(t, ctx, k)
-		assert.Equal(t, cbc.Key("ubl"), ctx.Syntax)
-		assert.Contains(t, ctx.Addons, flow2.V1)
+		f := convert.FormatFor(k)
+		require.NotNil(t, f, k)
+		assert.Equal(t, cbc.Key("ubl"), f.Syntax)
+		assert.Contains(t, f.Addons, flow2.V1)
 	}
 
 	keys := make([]cbc.Key, 0)
-	for _, ctx := range convert.ContextsFor("FR") {
-		keys = append(keys, ctx.Key)
+	for _, f := range convert.FormatsFor("FR") {
+		keys = append(keys, f.Key)
 	}
 	assert.Contains(t, keys, frubl.KeyCIUS)
-	assert.Contains(t, keys, ubl.ContextEN16931.Key, "base contexts from gobl.ubl")
+	assert.Contains(t, keys, ubl.FormatEN16931.Key, "base formats from gobl.ubl")
 }
 
 func TestDetect(t *testing.T) {
@@ -41,9 +41,9 @@ func TestDetect(t *testing.T) {
 		t.Run(tt.file, func(t *testing.T) {
 			data, err := testLoadXML(tt.file)
 			require.NoError(t, err)
-			ctx, err := convert.Detect(data)
+			f, err := convert.Detect(data)
 			require.NoError(t, err)
-			assert.Equal(t, tt.key, ctx.Key)
+			assert.Equal(t, tt.key, f.Key)
 		})
 	}
 }
@@ -61,23 +61,23 @@ func TestImport(t *testing.T) {
 func TestExport(t *testing.T) {
 	t.Run("cius", func(t *testing.T) {
 		env := loadTestEnvelope(t, "france-cius/invoice-standard.json")
-		out, err := convert.Export(env, frubl.KeyCIUS, ubl.ContextEN16931.Key)
+		out, err := convert.Export(env, frubl.KeyCIUS, ubl.FormatEN16931.Key)
 		require.NoError(t, err)
-		assert.Equal(t, frubl.KeyCIUS, out.Context.Key)
+		assert.Equal(t, frubl.KeyCIUS, out.Format.Key)
 
-		ctx, err := convert.Detect(out.Data)
+		f, err := convert.Detect(out.Data)
 		require.NoError(t, err)
-		assert.Equal(t, frubl.KeyCIUS, ctx.Key, "detected again")
+		assert.Equal(t, frubl.KeyCIUS, f.Key, "detected again")
 	})
 	t.Run("extended", func(t *testing.T) {
 		env := loadTestEnvelope(t, "france-extended/invoice-standard.json")
 		out, err := convert.Export(env, frubl.KeyExtended)
 		require.NoError(t, err)
-		assert.Contains(t, string(out.Data), frubl.ContextExtended.OutputCustomizationID)
+		assert.Contains(t, string(out.Data), frubl.FormatExtended.OutputCustomizationID)
 
-		ctx, err := convert.Detect(out.Data)
+		f, err := convert.Detect(out.Data)
 		require.NoError(t, err)
-		assert.Equal(t, frubl.KeyExtended, ctx.Key, "detected again")
+		assert.Equal(t, frubl.KeyExtended, f.Key, "detected again")
 	})
 	t.Run("addon missing", func(t *testing.T) {
 		env := loadTestEnvelope(t, "invoice-minimal.json")
