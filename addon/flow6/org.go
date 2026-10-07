@@ -25,12 +25,10 @@ const (
 	inboxSchemeSIREN        cbc.Code = "0225"
 )
 
-// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format of
-// private-id identity codes (BR-FR-24).
+// Private-id (0224) identity code charset (BR-FR-24).
 var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
 
-// sirenInboxAddressRegex is BR-FR-23's charset for a 0225 address, which
-// allows `.` but not `/`.
+// 0225 address charset (BR-FR-23): unlike BR-FR-24, allows `.` but not `/`.
 var sirenInboxAddressRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
 
 // allowedFlow6IdentitySchemes is the ICD 6523 subset CDAR accepts on
