@@ -43,6 +43,22 @@ documents take on its weight.
   gobl.ubl and GOBL's `convert` register on import. Add
   `_ "github.com/invopop/gobl.fr.ctc/ubl"` to import and export French UBL
   documents through `ubl.Import`/`ubl.Export` or `convert.Import`/`convert.Export`.
+- `cii/` — the French CII formats, built on the base import and export of
+  [gobl.cii](https://github.com/invopop/gobl.cii) and registered with gobl.cii
+  and GOBL's `convert` register on import: Peppol France CIUS
+  (`cii+peppol+fr-cius-v1`), Extended (`cii+peppol+fr-extended-v1`) and
+  Factur-X (`cii+peppol+fr-facturx-v1`); the Factur-X profiles
+  (`cii+fr-facturx-v1`, `cii+fr-facturx-v1+basic`, `cii+fr-facturx-v1+extended`);
+  and Chorus Pro (`cii+fr-choruspro-v1`). Add
+  `_ "github.com/invopop/gobl.fr.ctc/cii"` to import and export French CII
+  documents through `cii.Import`/`cii.Export` or `convert.Import`/`convert.Export`.
+- `cdar/` — the Flow 6 lifecycle statuses and payments, mapped between
+  `bill.Status`/`bill.Payment` and the CDAR structures of gobl.cii, for the
+  end-party (`cdar+peppol+fr-cdv-v1`) and PPF (`cdar+fr-ppf-cdv-v1`) formats.
+  Use `cdar.Export`/`cdar.Import` directly, or add
+  `_ "github.com/invopop/gobl.fr.ctc/cdar"` to use them through GOBL's
+  `convert` register. [docs/cdar-mapping.md](docs/cdar-mapping.md) describes
+  the mapping.
 
 ## Usage
 
