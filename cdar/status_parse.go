@@ -128,17 +128,19 @@ func goblStatusLineFromCDAR(ref *cii.CDARReferencedDocument) *bill.StatusLine {
 		}
 	}
 
+	var descriptions []string
 	for _, ds := range ref.SpecifiedDocumentStatuses {
 		if ds == nil {
 			continue
 		}
 		var r *bill.Reason
+		desc := cdarReasonDescription(ds)
 		if ds.ReasonCode != "" {
 			// Reason.Key is recovered from the ext by flow6's
 			// prepareReasonKey at normalize-time.
 			r = &bill.Reason{
 				Ext:         tax.MakeExtensions().Set(flow6.ExtKeyReason, cbc.Code(ds.ReasonCode)),
-				Description: cii.CleanString(strings.Join(ds.Reason, "\n")),
+				Description: desc,
 			}
 		}
 		// Field-level corrections and amount markers
@@ -157,6 +159,16 @@ func goblStatusLineFromCDAR(ref *cii.CDARReferencedDocument) *bill.StatusLine {
 			}
 			r.Faults = append(r.Faults, f)
 		}
+		switch {
+		case r == nil && desc != "":
+			// Free text with no code of its own cannot become a reason —
+			// BR-FR-CDV-CL-09 admits only the coded motives for the
+			// constrained statuses — so it explains the line instead.
+			descriptions = append(descriptions, desc)
+		case r != nil && r.Description == "":
+			// The note explains the faults it travelled with.
+			r.Description = desc
+		}
 		if r != nil {
 			line.Reasons = append(line.Reasons, r)
 		}
@@ -172,7 +184,39 @@ func goblStatusLineFromCDAR(ref *cii.CDARReferencedDocument) *bill.StatusLine {
 			line.Actions = append(line.Actions, a)
 		}
 	}
+	line.Description = strings.Join(descriptions, "\n")
 	return line
+}
+
+// cdarReasonDescription collects the free text a SpecifiedDocumentStatus
+// carries for its motive: the Reason labels (MDT-114) first, then any
+// IncludedNote content (MDT-126) that adds something the Reason did not
+// already say. PPF makes the note mandatory on a Refusée / Suspendue and
+// some platforms send the motive only there, so a rejection whose Reason
+// element is absent still arrives with its explanation.
+func cdarReasonDescription(ds *cii.CDARDocumentStatus) string {
+	var parts []string
+	seen := make(map[string]bool)
+	add := func(s string) {
+		s = strings.TrimSpace(cii.CleanString(s))
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		parts = append(parts, s)
+	}
+	for _, reason := range ds.Reason {
+		add(reason)
+	}
+	for _, n := range ds.IncludedNotes {
+		if n == nil {
+			continue
+		}
+		for _, c := range n.Content {
+			add(c)
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 // goblFaultFromCDAR maps a SpecifiedDocumentCharacteristic onto a
