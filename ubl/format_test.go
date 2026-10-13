@@ -191,7 +191,7 @@ func TestFrenchBillingModeFallback(t *testing.T) {
 	})
 }
 
-func TestGetVESID(t *testing.T) {
+func TestVESID(t *testing.T) {
 	t.Run("France CIUS VESID", func(t *testing.T) {
 		env := loadTestEnvelope(t, "invoice-minimal.json")
 
@@ -199,7 +199,7 @@ func TestGetVESID(t *testing.T) {
 		require.True(t, ok)
 
 		// Get VESID for France CIUS format
-		vesid := frubl.FormatCIUS.GetVESID(inv)
+		vesid := frubl.FormatCIUS.VESID(inv)
 		assert.Equal(t, "fr.ctc:ubl-invoice:1.4.0-03", vesid)
 	})
 
@@ -210,7 +210,7 @@ func TestGetVESID(t *testing.T) {
 		require.True(t, ok)
 
 		// Get VESID for France Extended format
-		vesid := frubl.FormatExtended.GetVESID(inv)
+		vesid := frubl.FormatExtended.VESID(inv)
 		assert.Equal(t, "fr.ctc:extended-ubl-invoice:1.4.0-03", vesid)
 	})
 }
