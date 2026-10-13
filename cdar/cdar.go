@@ -22,8 +22,8 @@ import (
 
 // Format keys.
 const (
-	KeyFlow6    cbc.Key = "cdar+peppol+fr-cdv-v1"
-	KeyFlow6PPF cbc.Key = "cdar+fr-ppf-cdv-v1"
+	KeyFlow6    cbc.Key = "cdar+fr-ctc-cdv-v1"
+	KeyFlow6PPF cbc.Key = "cdar+fr-ctc-cdv-v1+ppf"
 )
 
 // ProfileIDPeppolFranceBilling is the Peppol France business process.

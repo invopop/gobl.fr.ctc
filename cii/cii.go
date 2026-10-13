@@ -20,9 +20,9 @@ import (
 
 // Format keys.
 const (
-	KeyPeppolFranceCIUS     cbc.Key = "cii+peppol+fr-cius-v1"
-	KeyPeppolFranceExtended cbc.Key = "cii+peppol+fr-extended-v1"
-	KeyPeppolFranceFacturX  cbc.Key = "cii+peppol+fr-facturx-v1"
+	KeyPeppolFranceCIUS     cbc.Key = "cii+fr-ctc-cius-v1"
+	KeyPeppolFranceExtended cbc.Key = "cii+fr-ctc-extended-v1"
+	KeyPeppolFranceFacturX  cbc.Key = "cii+fr-ctc-facturx-v1"
 	KeyFacturX              cbc.Key = "cii+fr-facturx-v1"
 	KeyFacturXBasic         cbc.Key = "cii+fr-facturx-v1+basic"
 	KeyFacturXExtended      cbc.Key = "cii+fr-facturx-v1+extended"

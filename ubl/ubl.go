@@ -17,8 +17,8 @@ import (
 
 // Format keys.
 const (
-	KeyCIUS     cbc.Key = "ubl+peppol+fr-cius-v1"
-	KeyExtended cbc.Key = "ubl+peppol+fr-extended-v1"
+	KeyCIUS     cbc.Key = "ubl+fr-ctc-cius-v1"
+	KeyExtended cbc.Key = "ubl+fr-ctc-extended-v1"
 )
 
 // Peppol France process IDs.
