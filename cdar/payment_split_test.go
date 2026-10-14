@@ -99,7 +99,7 @@ func TestCDARPaymentVATSplitRoundTrip(t *testing.T) {
 			}
 
 			// --- generate: one MEN characteristic per rate ---
-			cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+			cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 			require.NoError(t, err)
 			ref := cdar.AcknowledgementDocuments[0].ReferenceReferencedDocument[0]
 			require.Len(t, ref.SpecifiedDocumentStatuses, 1)
@@ -146,7 +146,7 @@ func TestCDARPaymentAmountDerivedFromRates(t *testing.T) {
 		}}},
 	}
 
-	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 	require.NoError(t, err)
 	chars := cdar.AcknowledgementDocuments[0].ReferenceReferencedDocument[0].
 		SpecifiedDocumentStatuses[0].SpecifiedDocumentCharacteristics
@@ -175,7 +175,7 @@ func TestCDARPaymentRefundRoundTrip(t *testing.T) {
 			}}},
 		}
 
-		cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+		cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 		require.NoError(t, err)
 		chars := cdar.AcknowledgementDocuments[0].ReferenceReferencedDocument[0].
 			SpecifiedDocumentStatuses[0].SpecifiedDocumentCharacteristics
@@ -211,7 +211,7 @@ func TestCDARPaymentRefundRoundTrip(t *testing.T) {
 		pmt.Lines[0].Refund = true
 		pmt.Lines[0].Tax = nil
 
-		cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+		cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 		require.NoError(t, err)
 		chars := cdar.AcknowledgementDocuments[0].ReferenceReferencedDocument[0].
 			SpecifiedDocumentStatuses[0].SpecifiedDocumentCharacteristics

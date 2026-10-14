@@ -30,7 +30,7 @@ const (
 // FormatCIUS defines the format for France UBL Invoice CIUS.
 var FormatCIUS = goblubl.Format{
 	Key:                   KeyCIUS,
-	Name:                  i18n.NewString("UBL Peppol France CIUS"),
+	Name:                  i18n.NewString("UBL France CTC CIUS"),
 	Countries:             []l10n.Code{l10n.FR},
 	Schemas:               []schema.ID{schema.Lookup(bill.Invoice{})},
 	CustomizationID:       "urn:cen.eu:en16931:2017#compliant#urn:peppol:france:billing:cius:1.0",
@@ -48,7 +48,7 @@ var FormatCIUS = goblubl.Format{
 // FormatExtended defines the format for France UBL Invoice Extended.
 var FormatExtended = goblubl.Format{
 	Key:                   KeyExtended,
-	Name:                  i18n.NewString("UBL Peppol France Extended"),
+	Name:                  i18n.NewString("UBL France CTC Extended"),
 	Countries:             []l10n.Code{l10n.FR},
 	Schemas:               []schema.ID{schema.Lookup(bill.Invoice{})},
 	CustomizationID:       "urn:cen.eu:en16931:2017#conformant#urn:peppol:france:billing:extended:1.0",

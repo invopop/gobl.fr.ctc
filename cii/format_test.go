@@ -28,7 +28,7 @@ func TestExportFormats(t *testing.T) {
 
 	t.Run("with France Extended context", func(t *testing.T) {
 		env := loadEnvelope(t, "peppol-france-extended/invoice-standard.json")
-		out, err := goblcii.ExportInvoice(env, goblcii.WithFormat(frcii.FormatPeppolFranceExtended))
+		out, err := goblcii.ExportInvoice(env, goblcii.WithFormat(frcii.FormatCTCExtended))
 		require.NoError(t, err)
 
 		// BT-24 carries the extended-ctc-fr guideline, BT-23 the billing mode.
@@ -41,49 +41,49 @@ func TestFindFormat(t *testing.T) {
 	t.Run("find France CIUS by full GuidelineID", func(t *testing.T) {
 		ctx := goblcii.FindFormat("urn:cen.eu:en16931:2017#compliant#urn:peppol:france:billing:cius:1.0", "urn:peppol:france:billing:regulated")
 		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatPeppolFranceCIUS.GuidelineID, ctx.GuidelineID)
+		assert.Equal(t, frcii.FormatCTCCIUS.GuidelineID, ctx.GuidelineID)
 	})
 
 	t.Run("find France CIUS by billing mode BusinessID", func(t *testing.T) {
 		// France CIUS documents use EN16931 GuidelineID but have a billing mode as BusinessID
 		ctx := goblcii.FindFormat("urn:cen.eu:en16931:2017", "B1")
 		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatPeppolFranceCIUS.GuidelineID, ctx.GuidelineID)
+		assert.Equal(t, frcii.FormatCTCCIUS.GuidelineID, ctx.GuidelineID)
 
 		ctx = goblcii.FindFormat("urn:cen.eu:en16931:2017", "S1")
 		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatPeppolFranceCIUS.GuidelineID, ctx.GuidelineID)
+		assert.Equal(t, frcii.FormatCTCCIUS.GuidelineID, ctx.GuidelineID)
 
 		ctx = goblcii.FindFormat("urn:cen.eu:en16931:2017", "M4")
 		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatPeppolFranceCIUS.GuidelineID, ctx.GuidelineID)
+		assert.Equal(t, frcii.FormatCTCCIUS.GuidelineID, ctx.GuidelineID)
 	})
 
 	t.Run("find the French contexts by their spec-level GuidelineID", func(t *testing.T) {
 		// Some senders put the identifier that names the profile on the network
 		// into the document instead of the guideline the profile emits.
 		for _, mode := range []string{"B1", "S1", "M4"} {
-			ctx := goblcii.FindFormat(frcii.FormatPeppolFranceCIUS.GuidelineID, mode)
+			ctx := goblcii.FindFormat(frcii.FormatCTCCIUS.GuidelineID, mode)
 			require.NotNil(t, ctx, "mode %s", mode)
-			assert.Equal(t, frcii.FormatPeppolFranceCIUS.GuidelineID, ctx.GuidelineID)
-			assert.Equal(t, frcii.FormatPeppolFranceCIUS.VESID, ctx.VESID)
+			assert.Equal(t, frcii.FormatCTCCIUS.GuidelineID, ctx.GuidelineID)
+			assert.Equal(t, frcii.FormatCTCCIUS.VESID, ctx.VESID)
 
-			ctx = goblcii.FindFormat(frcii.FormatPeppolFranceFacturX.GuidelineID, mode)
+			ctx = goblcii.FindFormat(frcii.FormatCTCFacturX.GuidelineID, mode)
 			require.NotNil(t, ctx, "mode %s", mode)
-			assert.Equal(t, frcii.FormatPeppolFranceFacturX.GuidelineID, ctx.GuidelineID)
-			assert.Equal(t, frcii.FormatPeppolFranceFacturX.VESID, ctx.VESID)
+			assert.Equal(t, frcii.FormatCTCFacturX.GuidelineID, ctx.GuidelineID)
+			assert.Equal(t, frcii.FormatCTCFacturX.VESID, ctx.VESID)
 
-			ctx = goblcii.FindFormat(frcii.FormatPeppolFranceExtended.GuidelineID, mode)
+			ctx = goblcii.FindFormat(frcii.FormatCTCExtended.GuidelineID, mode)
 			require.NotNil(t, ctx, "mode %s", mode)
-			assert.Equal(t, frcii.FormatPeppolFranceExtended.GuidelineID, ctx.GuidelineID)
-			assert.Equal(t, frcii.FormatPeppolFranceExtended.VESID, ctx.VESID)
+			assert.Equal(t, frcii.FormatCTCExtended.GuidelineID, ctx.GuidelineID)
+			assert.Equal(t, frcii.FormatCTCExtended.VESID, ctx.VESID)
 		}
 	})
 
 	t.Run("find France Extended by full GuidelineID", func(t *testing.T) {
 		ctx := goblcii.FindFormat("urn:cen.eu:en16931:2017#conformant#urn:peppol:france:billing:extended:1.0", "urn:peppol:france:billing:regulated")
 		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatPeppolFranceExtended.GuidelineID, ctx.GuidelineID)
+		assert.Equal(t, frcii.FormatCTCExtended.GuidelineID, ctx.GuidelineID)
 	})
 
 	t.Run("find France Extended by the guideline it emits", func(t *testing.T) {
@@ -91,11 +91,11 @@ func TestFindFormat(t *testing.T) {
 		// resolves both with and without a billing mode BusinessID.
 		ctx := goblcii.FindFormat("urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr", "B1")
 		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatPeppolFranceExtended.GuidelineID, ctx.GuidelineID)
+		assert.Equal(t, frcii.FormatCTCExtended.GuidelineID, ctx.GuidelineID)
 
 		ctx = goblcii.FindFormat("urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr", "")
 		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatPeppolFranceExtended.GuidelineID, ctx.GuidelineID)
+		assert.Equal(t, frcii.FormatCTCExtended.GuidelineID, ctx.GuidelineID)
 	})
 
 	t.Run("find France Factur-X by the guideline it emits", func(t *testing.T) {
@@ -103,7 +103,7 @@ func TestFindFormat(t *testing.T) {
 		// guideline is the plain Factur-X EXTENDED profile.
 		ctx := goblcii.FindFormat(frcii.FormatFacturXExtended.GuidelineID, "B1")
 		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatPeppolFranceFacturX.GuidelineID, ctx.GuidelineID)
+		assert.Equal(t, frcii.FormatCTCFacturX.GuidelineID, ctx.GuidelineID)
 
 		ctx = goblcii.FindFormat(frcii.FormatFacturXExtended.GuidelineID, "")
 		require.NotNil(t, ctx)
@@ -123,29 +123,29 @@ func TestFrenchBillingModeFallback(t *testing.T) {
 			// Seen in the wild: "urn.eu:" for "urn:cen.eu:", no suffix.
 			"mangled extended URN",
 			"urn.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0",
-			&frcii.FormatPeppolFranceExtended,
+			&frcii.FormatCTCExtended,
 		},
 		{
 			"unsuffixed cpro URN",
 			"urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0",
-			&frcii.FormatPeppolFranceExtended,
+			&frcii.FormatCTCExtended,
 		},
 		{
 			"mangled EN16931 URN",
 			"urn.eu:en16931:2017",
-			&frcii.FormatPeppolFranceExtended,
+			&frcii.FormatCTCExtended,
 		},
 		{
 			// BT-24 absent: the billing mode is all there is.
 			"absent guideline",
 			"",
-			&frcii.FormatPeppolFranceExtended,
+			&frcii.FormatCTCExtended,
 		},
 		{
 			// Every other profile's BusinessProcessParameter is a long URN.
 			"unrelated guideline still follows the billing mode",
 			"urn:peppol:pint:billing-1@sg-1",
-			&frcii.FormatPeppolFranceExtended,
+			&frcii.FormatCTCExtended,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -195,16 +195,16 @@ func TestHybridProfileGuidelines(t *testing.T) {
 func TestPeppolFranceFacturXEmitsFacturXGuideline(t *testing.T) {
 	assert.Equal(t,
 		frcii.FormatFacturXExtended.GuidelineID,
-		frcii.FormatPeppolFranceFacturX.OutputGuidelineID,
+		frcii.FormatCTCFacturX.OutputGuidelineID,
 	)
 }
 
 // TestPeppolFranceExtendedGuidelines pins the extended context's external
 // identification and the extended-ctc-fr guideline it emits in BT-24.
 func TestPeppolFranceExtendedGuidelines(t *testing.T) {
-	assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn:peppol:france:billing:extended:1.0", frcii.FormatPeppolFranceExtended.GuidelineID)
-	assert.Equal(t, "urn:peppol:france:billing:regulated", frcii.FormatPeppolFranceExtended.BusinessID)
-	assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr", frcii.FormatPeppolFranceExtended.OutputGuidelineID)
+	assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn:peppol:france:billing:extended:1.0", frcii.FormatCTCExtended.GuidelineID)
+	assert.Equal(t, "urn:peppol:france:billing:regulated", frcii.FormatCTCExtended.BusinessID)
+	assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr", frcii.FormatCTCExtended.OutputGuidelineID)
 }
 
 func TestExtendedParties(t *testing.T) {
@@ -218,7 +218,7 @@ func TestExtendedParties(t *testing.T) {
 	}
 
 	t.Run("french extended maps the facturant, the addressee and the payer", func(t *testing.T) {
-		stlm := convert(t, frcii.FormatPeppolFranceExtended).Transaction.Settlement
+		stlm := convert(t, frcii.FormatCTCExtended).Transaction.Settlement
 
 		// EXT-FR-FE-BG-05, pinned to UNCL 3035 "II" by EXT-FR-FE-113.
 		require.NotNil(t, stlm.Invoicer)
@@ -242,7 +242,7 @@ func TestExtendedParties(t *testing.T) {
 	})
 
 	t.Run("french extended maps the seller and buyer agents", func(t *testing.T) {
-		agmt := convert(t, frcii.FormatPeppolFranceExtended).Transaction.Agreement
+		agmt := convert(t, frcii.FormatCTCExtended).Transaction.Agreement
 
 		// CII keeps the agents beside the parties, not nested in them.
 		require.NotNil(t, agmt.SalesAgent)
@@ -258,7 +258,7 @@ func TestExtendedParties(t *testing.T) {
 		// ContextPeppolFranceFacturXV1 declares the Factur-X EXTENDED
 		// guideline in BT-24 but is checked by the same EXTENDED-CTC-FR
 		// rule set, so it carries the same parties.
-		tr := convert(t, frcii.FormatPeppolFranceFacturX).Transaction
+		tr := convert(t, frcii.FormatCTCFacturX).Transaction
 
 		require.NotNil(t, tr.Settlement.Invoicee)
 		require.NotNil(t, tr.Settlement.Payer)
@@ -269,7 +269,7 @@ func TestExtendedParties(t *testing.T) {
 
 	t.Run("extended-only parties are ignored outside the french extended contexts", func(t *testing.T) {
 		// The CIUS profile is the closest neighbour that must not carry them.
-		for _, ctx := range []goblcii.Format{goblcii.FormatEN16931, frcii.FormatPeppolFranceCIUS} {
+		for _, ctx := range []goblcii.Format{goblcii.FormatEN16931, frcii.FormatCTCCIUS} {
 			tr := convert(t, ctx).Transaction
 			assert.Nil(t, tr.Settlement.Invoicee)
 			assert.Nil(t, tr.Settlement.Payer)
@@ -281,7 +281,7 @@ func TestExtendedParties(t *testing.T) {
 	})
 
 	t.Run("parse restores every extended party", func(t *testing.T) {
-		data, err := goblcii.Encode(convert(t, frcii.FormatPeppolFranceExtended))
+		data, err := goblcii.Encode(convert(t, frcii.FormatCTCExtended))
 		require.NoError(t, err)
 
 		env, err := parseCII(data)
@@ -312,8 +312,8 @@ func TestSubLinesRoundTrip(t *testing.T) {
 		fixture string
 		format  goblcii.Format
 	}{
-		{"peppol-france-facturx/invoice-hierarchy.json", frcii.FormatPeppolFranceFacturX},
-		{"peppol-france-extended/invoice-sub-lines.json", frcii.FormatPeppolFranceExtended},
+		{"peppol-france-facturx/invoice-hierarchy.json", frcii.FormatCTCFacturX},
+		{"peppol-france-extended/invoice-sub-lines.json", frcii.FormatCTCExtended},
 	} {
 		t.Run(tt.fixture, func(t *testing.T) {
 			env := loadEnvelope(t, tt.fixture)
@@ -340,7 +340,7 @@ func TestSubLinesRoundTrip(t *testing.T) {
 func TestConvertRegister(t *testing.T) {
 	t.Run("formats", func(t *testing.T) {
 		for _, k := range []cbc.Key{
-			frcii.KeyPeppolFranceCIUS, frcii.KeyPeppolFranceExtended, frcii.KeyPeppolFranceFacturX,
+			frcii.KeyCTCCIUS, frcii.KeyCTCExtended, frcii.KeyCTCFacturX,
 			frcii.KeyFacturX, frcii.KeyFacturXBasic, frcii.KeyFacturXExtended, frcii.KeyChorusPro,
 		} {
 			f := convert.FormatFor(k)
@@ -354,7 +354,7 @@ func TestConvertRegister(t *testing.T) {
 		require.NoError(t, err)
 		f, err := convert.Detect(data)
 		require.NoError(t, err)
-		assert.Equal(t, frcii.KeyPeppolFranceExtended, f.Key)
+		assert.Equal(t, frcii.KeyCTCExtended, f.Key)
 
 		env, err := convert.Import(data)
 		require.NoError(t, err)
@@ -365,11 +365,11 @@ func TestConvertRegister(t *testing.T) {
 
 	t.Run("export", func(t *testing.T) {
 		env := loadEnvelope(t, "peppol-france-cius/invoice-standard.json")
-		out, err := convert.Export(env, frcii.KeyPeppolFranceCIUS)
+		out, err := convert.Export(env, frcii.KeyCTCCIUS)
 		require.NoError(t, err)
 
 		f, err := convert.Detect(out.Data)
 		require.NoError(t, err)
-		assert.Equal(t, frcii.KeyPeppolFranceCIUS, f.Key, "detected again")
+		assert.Equal(t, frcii.KeyCTCCIUS, f.Key, "detected again")
 	})
 }

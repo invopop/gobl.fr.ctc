@@ -12,7 +12,7 @@ import (
 
 func TestConvertRegister(t *testing.T) {
 	t.Run("formats", func(t *testing.T) {
-		for _, k := range []cbc.Key{frcdar.KeyFlow6, frcdar.KeyFlow6PPF} {
+		for _, k := range []cbc.Key{frcdar.KeyCDV, frcdar.KeyCDVPPF} {
 			f := convert.FormatFor(k)
 			require.NotNil(t, f, k)
 			assert.Equal(t, cbc.Key("cdar"), f.Syntax)
@@ -21,8 +21,8 @@ func TestConvertRegister(t *testing.T) {
 
 	t.Run("detect", func(t *testing.T) {
 		for file, key := range map[string]cbc.Key{
-			"UC1_F202500003_04-CDV-204_Prise_en_charge.xml":  frcdar.KeyFlow6,
-			"UC1_F202500003_01-CDV-200_Deposee_POUR_PPF.xml": frcdar.KeyFlow6PPF,
+			"UC1_F202500003_04-CDV-204_Prise_en_charge.xml":  frcdar.KeyCDV,
+			"UC1_F202500003_01-CDV-200_Deposee_POUR_PPF.xml": frcdar.KeyCDVPPF,
 		} {
 			data, err := readParse(file)
 			require.NoError(t, err)
@@ -38,10 +38,10 @@ func TestConvertRegister(t *testing.T) {
 		env, err := convert.Import(data)
 		require.NoError(t, err)
 
-		out, err := convert.Export(env, frcdar.KeyFlow6)
+		out, err := convert.Export(env, frcdar.KeyCDV)
 		require.NoError(t, err)
 		f, err := convert.Detect(out.Data)
 		require.NoError(t, err)
-		assert.Equal(t, frcdar.KeyFlow6, f.Key, "detected again")
+		assert.Equal(t, frcdar.KeyCDV, f.Key, "detected again")
 	})
 }

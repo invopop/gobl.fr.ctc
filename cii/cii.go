@@ -1,4 +1,4 @@
-// Package cii adds the French CII invoice formats — Peppol France CTC,
+// Package cii adds the French CII invoice formats — French CTC,
 // Factur-X and Chorus Pro — on top of the gobl.cii base import and export,
 // and registers them with gobl.cii and the GOBL convert register. Import it
 // for its side effects:
@@ -20,17 +20,17 @@ import (
 
 // Format keys.
 const (
-	KeyPeppolFranceCIUS     cbc.Key = "cii+fr-ctc-cius-v1"
-	KeyPeppolFranceExtended cbc.Key = "cii+fr-ctc-extended-v1"
-	KeyPeppolFranceFacturX  cbc.Key = "cii+fr-ctc-facturx-v1"
-	KeyFacturX              cbc.Key = "cii+fr-facturx-v1"
-	KeyFacturXBasic         cbc.Key = "cii+fr-facturx-v1+basic"
-	KeyFacturXExtended      cbc.Key = "cii+fr-facturx-v1+extended"
-	KeyChorusPro            cbc.Key = "cii+fr-choruspro-v1"
+	KeyCTCCIUS         cbc.Key = "cii+fr-ctc-cius-v1"
+	KeyCTCExtended     cbc.Key = "cii+fr-ctc-extended-v1"
+	KeyCTCFacturX      cbc.Key = "cii+fr-ctc-facturx-v1"
+	KeyFacturX         cbc.Key = "cii+fr-facturx-v1"
+	KeyFacturXBasic    cbc.Key = "cii+fr-facturx-v1+basic"
+	KeyFacturXExtended cbc.Key = "cii+fr-facturx-v1+extended"
+	KeyChorusPro       cbc.Key = "cii+fr-choruspro-v1"
 )
 
-// ProfileIDPeppolFranceBilling is the Peppol France business process.
-const ProfileIDPeppolFranceBilling = "urn:peppol:france:billing:regulated"
+// ProcessIDRegulated is the Peppol France regulated billing process.
+const ProcessIDRegulated = "urn:peppol:france:billing:regulated"
 
 // Hybrid-PDF guideline IDs. BT-24 is checked against a closed codelist per
 // profile (FX-SCH-A-000026), so these are not interchangeable. MINIMUM and
@@ -81,16 +81,16 @@ var FormatFacturXExtended = goblcii.Format{
 	ExportFuncs: []goblcii.ExportFunc{exportSubLines},
 }
 
-// FormatPeppolFranceFacturX is used for Peppol France Factur-X documents.
+// FormatCTCFacturX is used for French CTC Factur-X documents.
 // BT-24 carries the Factur-X EXTENDED guideline: Factur-X only accepts its own
 // per-profile values, and the CTC rules don't check BT-24 at all.
-var FormatPeppolFranceFacturX = goblcii.Format{
-	Key:               KeyPeppolFranceFacturX,
-	Name:              i18n.NewString("CII Peppol France Factur-X"),
+var FormatCTCFacturX = goblcii.Format{
+	Key:               KeyCTCFacturX,
+	Name:              i18n.NewString("CII France CTC Factur-X"),
 	Countries:         countriesFR,
 	Schemas:           []schema.ID{invoiceSchema},
 	GuidelineID:       goblcii.GuidelineIDEN16931 + "#conformant#urn:peppol:france:billing:Factur-X:1.0",
-	BusinessID:        ProfileIDPeppolFranceBilling,
+	BusinessID:        ProcessIDRegulated,
 	OutputGuidelineID: GuidelineIDFacturXExtended,
 	Version:           goblcii.VersionD16B,
 	Addons:            []cbc.Key{flow2.V1},
@@ -99,14 +99,14 @@ var FormatPeppolFranceFacturX = goblcii.Format{
 	ImportFuncs:       []goblcii.ImportFunc{importBillingMode, importExtended},
 }
 
-// FormatPeppolFranceCIUS is used for Peppol France CIUS documents.
-var FormatPeppolFranceCIUS = goblcii.Format{
-	Key:               KeyPeppolFranceCIUS,
-	Name:              i18n.NewString("CII Peppol France CIUS"),
+// FormatCTCCIUS is used for French CTC CIUS documents.
+var FormatCTCCIUS = goblcii.Format{
+	Key:               KeyCTCCIUS,
+	Name:              i18n.NewString("CII France CTC CIUS"),
 	Countries:         countriesFR,
 	Schemas:           []schema.ID{invoiceSchema},
 	GuidelineID:       goblcii.GuidelineIDEN16931 + "#compliant#urn:peppol:france:billing:cius:1.0",
-	BusinessID:        ProfileIDPeppolFranceBilling,
+	BusinessID:        ProcessIDRegulated,
 	OutputGuidelineID: goblcii.GuidelineIDEN16931,
 	Version:           goblcii.VersionD22B,
 	Addons:            []cbc.Key{flow2.V1},
@@ -115,15 +115,15 @@ var FormatPeppolFranceCIUS = goblcii.Format{
 	ImportFuncs:       []goblcii.ImportFunc{importBillingMode},
 }
 
-// FormatPeppolFranceExtended is used for Peppol France Extended documents,
+// FormatCTCExtended is used for French CTC Extended documents,
 // which emit the extended-ctc-fr guideline in BT-24.
-var FormatPeppolFranceExtended = goblcii.Format{
-	Key:               KeyPeppolFranceExtended,
-	Name:              i18n.NewString("CII Peppol France Extended"),
+var FormatCTCExtended = goblcii.Format{
+	Key:               KeyCTCExtended,
+	Name:              i18n.NewString("CII France CTC Extended"),
 	Countries:         countriesFR,
 	Schemas:           []schema.ID{invoiceSchema},
 	GuidelineID:       goblcii.GuidelineIDEN16931 + "#conformant#urn:peppol:france:billing:extended:1.0",
-	BusinessID:        ProfileIDPeppolFranceBilling,
+	BusinessID:        ProcessIDRegulated,
 	OutputGuidelineID: goblcii.GuidelineIDEN16931 + "#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr",
 	Version:           goblcii.VersionD22B,
 	Addons:            []cbc.Key{flow2.V1},
@@ -154,12 +154,12 @@ var FormatChorusPro = goblcii.Format{
 func init() {
 	// France CIUS documents use the same GuidelineID as EN 16931, but can be
 	// identified by their BusinessID carrying a billing mode code.
-	FormatPeppolFranceFacturX.Match = matchBillingMode(FormatPeppolFranceFacturX)
-	FormatPeppolFranceCIUS.Match = matchBillingMode(FormatPeppolFranceCIUS)
-	FormatPeppolFranceExtended.Match = matchBillingMode(FormatPeppolFranceExtended)
+	FormatCTCFacturX.Match = matchBillingMode(FormatCTCFacturX)
+	FormatCTCCIUS.Match = matchBillingMode(FormatCTCCIUS)
+	FormatCTCExtended.Match = matchBillingMode(FormatCTCExtended)
 	goblcii.RegisterFormats(
 		FormatFacturX, FormatFacturXBasic, FormatFacturXExtended,
-		FormatPeppolFranceFacturX, FormatPeppolFranceCIUS, FormatPeppolFranceExtended,
+		FormatCTCFacturX, FormatCTCCIUS, FormatCTCExtended,
 		FormatChorusPro,
 	)
 }

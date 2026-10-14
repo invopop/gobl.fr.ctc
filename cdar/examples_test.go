@@ -59,8 +59,8 @@ var cdarConvertContexts = []struct {
 	dir    string
 	format frcdar.Format
 }{
-	{"CDARFlow6", dirCDAR, frcdar.FormatFlow6},
-	{"CDARFlow6PPF", dirCDARPPF, frcdar.FormatFlow6PPF},
+	{"CDARCDV", dirCDAR, frcdar.FormatCDV},
+	{"CDARCDVPPF", dirCDARPPF, frcdar.FormatCDVPPF},
 }
 
 // cdarConvertFixtures lists the synthetic CDAR status fixtures used to

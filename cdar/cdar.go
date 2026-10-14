@@ -22,12 +22,12 @@ import (
 
 // Format keys.
 const (
-	KeyFlow6    cbc.Key = "cdar+fr-ctc-cdv-v1"
-	KeyFlow6PPF cbc.Key = "cdar+fr-ctc-cdv-v1+ppf"
+	KeyCDV    cbc.Key = "cdar+fr-ctc-cdv-v1"
+	KeyCDVPPF cbc.Key = "cdar+fr-ctc-cdv-v1+ppf"
 )
 
-// ProfileIDPeppolFranceBilling is the Peppol France business process.
-const ProfileIDPeppolFranceBilling = "urn:peppol:france:billing:regulated"
+// ProcessIDRegulated is the Peppol France regulated billing process.
+const ProcessIDRegulated = "urn:peppol:france:billing:regulated"
 
 // Format defines a CDAR format: the identifiers its documents carry.
 type Format struct {
@@ -49,14 +49,14 @@ type Format struct {
 	VESID string
 }
 
-// FormatFlow6 is used for French CTC Flow 6 CDARs addressed to an
+// FormatCDV is used for French CTC Flow 6 CDARs addressed to an
 // end-party: the GuidelineID is the "invoice" URN (BR-FR-CDV-02) with
 // the REGULATED BusinessProcessParameter. The ack TypeCode (23 vs 305)
 // is independent of the format — it follows the ProcessConditionCode's
 // phase (see cdarAckTypeForCode).
-var FormatFlow6 = Format{
-	Key:  KeyFlow6,
-	Name: i18n.NewString("CDAR Peppol France CDV"),
+var FormatCDV = Format{
+	Key:  KeyCDV,
+	Name: i18n.NewString("CDAR France CTC CDV"),
 	// GuidelineID is the Peppol document-type customization used for the
 	// busdox SMP lookup / SBD (the receiver registers this exact id);
 	// OutputGuidelineID keeps the internal CDV guideline (BR-FR-CDV-02) in
@@ -67,18 +67,18 @@ var FormatFlow6 = Format{
 	// BusinessID is the busdox SBD/SMP process id the receiver registers its
 	// CDV service under (cenbii-procid-ubl scheme); OutputBusinessID keeps the
 	// CDAR XML's BusinessProcessParameter at the CDV MDT-2 "REGULATED" value.
-	BusinessID:       ProfileIDPeppolFranceBilling,
+	BusinessID:       ProcessIDRegulated,
 	OutputBusinessID: "REGULATED",
 	VESID:            "fr.ctc:cdar:1.4.0-03",
 }
 
-// FormatFlow6PPF is used for French CTC Flow 6 CDAR copies sent to
+// FormatCDVPPF is used for French CTC Flow 6 CDAR copies sent to
 // the PPF: the GuidelineID is the einvoicingF2 URN per BR-FR-CDV-02, no
 // BusinessProcessParameter is emitted, and the single recipient is the
 // PPF party (0000 / 0238 / DFH).
-var FormatFlow6PPF = Format{
-	Key:         KeyFlow6PPF,
-	Name:        i18n.NewString("CDAR France PPF CDV"),
+var FormatCDVPPF = Format{
+	Key:         KeyCDVPPF,
+	Name:        i18n.NewString("CDAR France CTC CDV for the PPF"),
 	GuidelineID: CDARGuidelinePPF,
 	VESID:       "fr.ctc:cdar:1.4.0-03",
 }
@@ -230,7 +230,7 @@ type converter struct{}
 
 func (converter) Formats() []*convert.Format {
 	list := make([]*convert.Format, 0, 2)
-	for _, f := range []Format{FormatFlow6, FormatFlow6PPF} {
+	for _, f := range []Format{FormatCDV, FormatCDVPPF} {
 		list = append(list, &convert.Format{
 			Key:       f.Key,
 			Name:      f.Name,
@@ -252,10 +252,10 @@ func (converter) Detect(in *convert.Input) cbc.Key {
 	if h.Err != nil || h.Namespace != cii.NamespaceCDARRSM {
 		return cbc.KeyEmpty
 	}
-	if h.GuidelineID == FormatFlow6PPF.GuidelineID {
-		return KeyFlow6PPF
+	if h.GuidelineID == FormatCDVPPF.GuidelineID {
+		return KeyCDVPPF
 	}
-	return KeyFlow6
+	return KeyCDV
 }
 
 func (converter) Import(_ cbc.Key, data []byte) (*gobl.Envelope, error) {
@@ -275,9 +275,9 @@ func (converter) Accepts(_ cbc.Key, _ *gobl.Envelope) bool {
 }
 
 func (converter) Export(key cbc.Key, env *gobl.Envelope) ([]byte, error) {
-	f := FormatFlow6
-	if key == KeyFlow6PPF {
-		f = FormatFlow6PPF
+	f := FormatCDV
+	if key == KeyCDVPPF {
+		f = FormatCDVPPF
 	}
 	doc, err := Export(env, f)
 	if err != nil {

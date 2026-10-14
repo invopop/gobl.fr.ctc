@@ -29,10 +29,10 @@ choosing the format.
 
 ```go
 // Treatment phase (ack TypeCode 23) — end-party CDV
-cdar.Export(env, cdar.FormatFlow6)
+cdar.Export(env, cdar.FormatCDV)
 
 // Transmission phase (ack TypeCode 305) — to the PPF
-cdar.Export(env, cdar.FormatFlow6PPF)
+cdar.Export(env, cdar.FormatCDVPPF)
 ```
 
 ---
@@ -333,5 +333,5 @@ st := &bill.Status{
     },
     Lines:     []*bill.StatusLine{{Key: bill.StatusEventIssued, Doc: ...}},
 }
-cdar.Export(env, cdar.FormatFlow6PPF)
+cdar.Export(env, cdar.FormatCDVPPF)
 ```

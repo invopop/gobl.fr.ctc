@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFormatPeppolFranceCIUS(t *testing.T) {
+func TestFormatCTCCIUS(t *testing.T) {
 	t.Run("basic conversion", func(t *testing.T) {
 		env := loadTestEnvelope(t, "france-cius/invoice-fr-cius.json")
 
@@ -40,7 +40,7 @@ func TestFormatPeppolFranceCIUS(t *testing.T) {
 	})
 }
 
-func TestFormatPeppolFranceExtended(t *testing.T) {
+func TestFormatCTCExtended(t *testing.T) {
 	t.Run("basic conversion", func(t *testing.T) {
 		env := loadTestEnvelope(t, "france-extended/invoice-standard.json")
 

@@ -55,7 +55,7 @@ func mdt129Issuer(t *testing.T, docType cbc.Code, docIDs []*org.Identity) string
 		}},
 	}
 
-	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 	require.NoError(t, err)
 	require.NotEmpty(t, cdar.AcknowledgementDocuments)
 	refs := cdar.AcknowledgementDocuments[0].ReferenceReferencedDocument
@@ -99,7 +99,7 @@ func TestCDARReferencedIssuerMDT129(t *testing.T) {
 func TestCDARPaymentVATRoundTrip(t *testing.T) {
 	pmt := buildSyntheticPayment(t, num.Amount{})
 
-	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 	require.NoError(t, err)
 	data, err := cii.Encode(cdar)
 	require.NoError(t, err)

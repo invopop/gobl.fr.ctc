@@ -124,9 +124,9 @@ func partyWithEndpointURI(uri cbc.URI, parties ...*org.Party) *org.Party {
 //   - The ack TypeCode (MDT-77) follows the ProcessConditionCode's
 //     phase — see cdarAckTypeForCode — together with the issuer slot
 //     (business party for 23, platform for 305).
-//   - The caller-supplied Format picks the destination: FormatFlow6
+//   - The caller-supplied Format picks the destination: FormatCDV
 //     (end-party copy, "invoice" guideline + REGULATED) or
-//     FormatFlow6PPF ("einvoicingF2" guideline, single PPF
+//     FormatCDVPPF ("einvoicingF2" guideline, single PPF
 //     recipient).
 //
 // from / to carry the envelope's Head.From / Head.To routing URIs: on
@@ -392,10 +392,10 @@ func cdarXMLGuideline(f Format) string {
 	if f.GuidelineID != "" {
 		return f.GuidelineID
 	}
-	if FormatFlow6.OutputGuidelineID != "" {
-		return FormatFlow6.OutputGuidelineID
+	if FormatCDV.OutputGuidelineID != "" {
+		return FormatCDV.OutputGuidelineID
 	}
-	return FormatFlow6.GuidelineID
+	return FormatCDV.GuidelineID
 }
 
 // cdarBusinessProcessID resolves the BusinessProcessParameter.ID written into

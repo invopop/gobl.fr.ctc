@@ -116,8 +116,8 @@ func TestProbeAllProcessCodes(t *testing.T) {
 		ctx     frcdar.Format
 	}
 	contexts := []combo{
-		{"23", frcdar.FormatFlow6},
-		{"305", frcdar.FormatFlow6PPF},
+		{"23", frcdar.FormatCDV},
+		{"305", frcdar.FormatCDVPPF},
 	}
 
 	for _, code := range statusProcessCodes {
@@ -163,22 +163,22 @@ func TestProbeMinimumStatuses(t *testing.T) {
 	pc := phormClient(t)
 
 	cases := []probeCase{
-		{"205-Approved", frcdar.FormatFlow6, func() any {
+		{"205-Approved", frcdar.FormatCDV, func() any {
 			return minStatus(t, "205")
 		}},
-		{"207-Disputed", frcdar.FormatFlow6, func() any {
+		{"207-Disputed", frcdar.FormatCDV, func() any {
 			return minStatus(t, "207")
 		}},
-		{"210-Refused", frcdar.FormatFlow6, func() any {
+		{"210-Refused", frcdar.FormatCDV, func() any {
 			return minStatus(t, "210")
 		}},
-		{"212-Paid", frcdar.FormatFlow6, func() any {
+		{"212-Paid", frcdar.FormatCDV, func() any {
 			return buildSyntheticPayment(t, num.Amount{})
 		}},
-		{"212-PaidPartial", frcdar.FormatFlow6, func() any {
+		{"212-PaidPartial", frcdar.FormatCDV, func() any {
 			return buildSyntheticPayment(t, num.MakeAmount(25000, 2))
 		}},
-		{"200-Deposited", frcdar.FormatFlow6PPF, func() any {
+		{"200-Deposited", frcdar.FormatCDVPPF, func() any {
 			return minDepositedStatus(t)
 		}},
 	}
@@ -269,7 +269,7 @@ func TestProbeDumpXML(t *testing.T) {
 	if err := env.Validate(); err != nil {
 		t.Fatalf("GOBL Validate: %v", err)
 	}
-	cdar, err := frcdar.Export(env, frcdar.FormatFlow6)
+	cdar, err := frcdar.Export(env, frcdar.FormatCDV)
 	if err != nil {
 		t.Fatal(err)
 	}
