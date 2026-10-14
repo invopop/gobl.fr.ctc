@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "b4d3a1d87b7db960a95a09392a889bcc90a81f6738055567983e958bebdf7c14"
+			"val": "0851f321f6625359620e3584a3e7b870076a7ff69c70f35cd6e68ae060c4bf2c"
 		},
 		"from": "iso6523-actorid-upis::0225:324872211",
 		"to": "iso6523-actorid-upis::0225:439368049"
@@ -175,6 +175,7 @@
 				"item": {
 					"name": "REMBOURSEMENT",
 					"description": "Description du remboursement",
+					"list": "60.0000",
 					"price": "60.0000",
 					"unit": "one",
 					"ext": {
@@ -234,6 +235,8 @@
 						}
 					],
 					"description": "Description de l'article",
+					"list": "0.8000",
+					"discount": "0.1000",
 					"price": "0.7000",
 					"unit": "one",
 					"origin": "FR",
@@ -310,7 +313,9 @@
 						}
 					],
 					"description": "Description du moule",
-					"price": "10.00000",
+					"list": "30.0000",
+					"price": "30.0000",
+					"per": "3.0000",
 					"unit": "one",
 					"ext": {
 						"untdid-unit": "C62"
@@ -341,6 +346,8 @@
 				"item": {
 					"name": "SUPPORT TEL",
 					"description": "Description de la prestation de support associée",
+					"list": "10.0000",
+					"discount": "3.0000",
 					"price": "7.0000",
 					"unit": "h",
 					"ext": {
@@ -570,6 +577,12 @@
 			]
 		},
 		"payment": {
+			"advances": [
+				{
+					"description": "Prepaid Amount",
+					"amount": "0.00"
+				}
+			],
 			"terms": {
 				"due_dates": [
 					{
@@ -580,12 +593,6 @@
 				],
 				"notes": "PAIEMENT 30 JOURS NET"
 			},
-			"advances": [
-				{
-					"description": "Prepaid Amount",
-					"amount": "0.00"
-				}
-			],
 			"instructions": {
 				"key": "credit-transfer",
 				"detail": "Virement",
