@@ -59,6 +59,7 @@ var FormatExtended = goblubl.Format{
 		Invoice:    "fr.ctc:extended-ubl-invoice:1.4.0-03",
 		CreditNote: "fr.ctc:extended-ubl-creditnote:1.4.0-03",
 	},
+	SubLines: true,
 	// The CTC schematron never checks BT-24, so a mangled CustomizationID
 	// arrives validated and the billing mode is all that is left to trust.
 	// Extended because its extra mappings are additive: a CIUS document
