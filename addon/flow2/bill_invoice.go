@@ -8,6 +8,7 @@ import (
 
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/currency"
@@ -290,6 +291,9 @@ func billInvoiceRules() *rules.Set {
 					rules.Assert("43", "invoice ordering period is required for global credit notes (BG-14, BR-FR-CO-03)",
 						is.Present,
 					),
+					rules.Assert("48", "invoice ordering period needs both a start and an end for global credit notes (BT-73/BT-74, BR-FR-CO-03)",
+						is.Func("period has both dates", periodHasBothDates),
+					),
 				),
 				rules.Field("contracts",
 					rules.Assert("25", "invoice ordering contracts is required for global credit notes (BR-FR-CO-03)",
@@ -372,6 +376,16 @@ func billInvoiceRules() *rules.Set {
 // invoiceTaxExtIn returns a Test that passes when bill.Invoice.Tax.Ext[key]
 // matches one of the provided codes. Used to gate per-document-type or
 // per-billing-mode branches without writing a dedicated predicate.
+// periodHasBothDates reports whether the period carries a start and an end.
+// cal.Period requires only one of the two, but BR-FR-CO-03 asks for both.
+func periodHasBothDates(val any) bool {
+	period, ok := val.(*cal.Period)
+	if !ok || period == nil {
+		return true
+	}
+	return period.Start != nil && period.End != nil
+}
+
 func invoiceTaxExtIn(key cbc.Key, codes ...cbc.Code) rules.Test {
 	return is.Func(
 		fmt.Sprintf("invoice tax ext %s in [%s]", key, joinCodes(codes)),
