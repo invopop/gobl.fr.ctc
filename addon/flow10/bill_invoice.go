@@ -120,6 +120,10 @@ func billInvoiceRules() *rules.Set {
 					),
 				),
 			),
+			// G2.33 scopes the VAT-number requirement to the Vendeur (seller) and Acheteur (buyer) roles.
+			rules.Assert("19", "invoice supplier tax_id is required when legal identity scheme is SIREN (0002) or EU VAT (0223) (G2.33)",
+				is.Func("party has TaxID when required", partyHasTaxIDWhenRequired),
+			),
 		),
 		rules.Field("customer",
 			rules.Field("addresses",
@@ -130,6 +134,9 @@ func billInvoiceRules() *rules.Set {
 						),
 					),
 				),
+			),
+			rules.Assert("20", "invoice customer tax_id is required when legal identity scheme is SIREN (0002) or EU VAT (0223) (G2.33)",
+				is.Func("party has TaxID when required", partyHasTaxIDWhenRequired),
 			),
 		),
 		// B2C invoices — no Customer party.
