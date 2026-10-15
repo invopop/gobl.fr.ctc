@@ -28,8 +28,9 @@ func TestSubLinesRoundTrip(t *testing.T) {
 
 	res, err := convert.Export(env, frubl.KeyExtended)
 	require.NoError(t, err)
-	penv, err := convert.Import(res.Data)
+	imported, err := convert.Import(res.Data)
 	require.NoError(t, err)
+	penv := imported.Envelope
 	out, ok := penv.Extract().(*bill.Invoice)
 	require.True(t, ok)
 
