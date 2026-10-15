@@ -372,6 +372,25 @@ func TestConvertRegister(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, frcii.KeyCTCCIUS, f.Key, "detected again")
 	})
+	t.Run("attachments", func(t *testing.T) {
+		for _, k := range []cbc.Key{
+			frcii.KeyCTCCIUS, frcii.KeyCTCExtended, frcii.KeyCTCFacturX,
+			frcii.KeyFacturX, frcii.KeyFacturXExtended, frcii.KeyChorusPro,
+		} {
+			assert.True(t, convert.FormatFor(k).Attachments, k)
+		}
+		assert.False(t, convert.FormatFor(frcii.KeyFacturXBasic).Attachments)
+
+		env := loadEnvelope(t, "facturx/invoice-complete.json")
+		pdf := &convert.Attachment{Name: "invoice.pdf", MIME: "application/pdf", Data: []byte("%PDF")}
+		out, err := convert.Export(env, frcii.KeyFacturX, convert.WithAttachments(pdf))
+		require.NoError(t, err)
+		doc, err := goblcii.Decode(out.Data)
+		require.NoError(t, err)
+		atts := doc.(*goblcii.Invoice).ExtractBinaryAttachments()
+		require.Len(t, atts, 1)
+		assert.Equal(t, "invoice.pdf", atts[0].Filename)
+	})
 	t.Run("factur-x en 16931 is export-only", func(t *testing.T) {
 		f := convert.FormatFor(frcii.KeyFacturX)
 		require.NotNil(t, f)

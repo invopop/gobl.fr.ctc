@@ -62,7 +62,7 @@ func TestImport(t *testing.T) {
 func TestExport(t *testing.T) {
 	t.Run("cius", func(t *testing.T) {
 		env := loadTestEnvelope(t, "france-cius/invoice-standard.json")
-		out, err := convert.Export(env, frubl.KeyCIUS, ubl.FormatEN16931.Key)
+		out, err := convert.Export(env, frubl.KeyCIUS, convert.WithAlternatives(ubl.FormatEN16931.Key))
 		require.NoError(t, err)
 		assert.Equal(t, frubl.KeyCIUS, out.Format.Key)
 
@@ -82,7 +82,7 @@ func TestExport(t *testing.T) {
 	})
 	t.Run("addon missing", func(t *testing.T) {
 		env := loadTestEnvelope(t, "invoice-minimal.json")
-		_, err := convert.Export(env, frubl.KeyCIUS, frubl.KeyExtended)
+		_, err := convert.Export(env, frubl.KeyCIUS, convert.WithAlternatives(frubl.KeyExtended))
 		assert.ErrorIs(t, err, convert.ErrNotSupported)
 	})
 }

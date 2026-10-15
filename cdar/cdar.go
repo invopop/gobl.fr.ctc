@@ -282,7 +282,7 @@ func (converter) Accepts(key cbc.Key, env *gobl.Envelope) error {
 	return nil
 }
 
-func (converter) Export(key cbc.Key, env *gobl.Envelope) ([]byte, error) {
+func (converter) Export(key cbc.Key, env *gobl.Envelope, _ *convert.ExportOptions) ([]byte, error) {
 	f := FormatCDV
 	if key == KeyCDVPPF {
 		f = FormatCDVPPF

@@ -56,6 +56,7 @@ var FormatFacturX = goblcii.Format{
 	Version:     goblcii.VersionD22B,
 	Addons:      []cbc.Key{facturx.V1},
 	VESID:       "fr.factur-x:en16931:1.0.8",
+	Attachments: true,
 }
 
 // FormatFacturXBasic is the Factur-X BASIC profile, a CIUS of EN 16931.
@@ -83,6 +84,7 @@ var FormatFacturXExtended = goblcii.Format{
 	Addons:      []cbc.Key{facturx.V1},
 	VESID:       "fr.factur-x:extended:1.0.8",
 	ExportFuncs: []goblcii.ExportFunc{exportSubLines},
+	Attachments: true,
 }
 
 // FormatCTCFacturX is used for French CTC Factur-X documents.
@@ -102,6 +104,7 @@ var FormatCTCFacturX = goblcii.Format{
 	VESID:             "fr.ctc:extended-cii:1.4.0-03",
 	ExportFuncs:       []goblcii.ExportFunc{exportBillingMode, exportExtended, exportSubLines},
 	ImportFuncs:       []goblcii.ImportFunc{importBillingMode, importExtended},
+	Attachments:       true,
 }
 
 // FormatCTCCIUS is used for French CTC CIUS documents.
@@ -119,6 +122,7 @@ var FormatCTCCIUS = goblcii.Format{
 	VESID:             "fr.ctc:cii:1.4.0-03",
 	ExportFuncs:       []goblcii.ExportFunc{exportBillingMode},
 	ImportFuncs:       []goblcii.ImportFunc{importBillingMode},
+	Attachments:       true,
 }
 
 // FormatCTCExtended is used for French CTC Extended documents,
@@ -144,6 +148,7 @@ var FormatCTCExtended = goblcii.Format{
 	},
 	ExportFuncs: []goblcii.ExportFunc{exportBillingMode, exportExtended, exportSubLines},
 	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importExtended},
+	Attachments: true,
 }
 
 // FormatChorusPro is used for Chorus Pro V1 documents.
@@ -157,6 +162,7 @@ var FormatChorusPro = goblcii.Format{
 	Version:     goblcii.VersionD16B,
 	Addons:      []cbc.Key{choruspro.V1},
 	ExportFuncs: []goblcii.ExportFunc{exportChorusPro},
+	Attachments: true,
 }
 
 func init() {
