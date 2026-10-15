@@ -8,9 +8,9 @@ package cii
 
 import (
 	goblcii "github.com/invopop/gobl.cii"
+	"github.com/invopop/gobl.fr.ctc/addon/facturx"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	"github.com/invopop/gobl/addons/fr/choruspro"
-	"github.com/invopop/gobl/addons/fr/facturx"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/i18n"
