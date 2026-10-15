@@ -9,6 +9,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/convert"
+	"github.com/invopop/gobl/l10n"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,7 @@ func TestFormats(t *testing.T) {
 		f := convert.FormatFor(k)
 		require.NotNil(t, f, k)
 		assert.Equal(t, cbc.Key("ubl"), f.Syntax)
-		assert.Contains(t, f.Addons, flow2.V1)
+		assert.Contains(t, f.Countries, l10n.FR)
 	}
 
 	keys := make([]cbc.Key, 0)

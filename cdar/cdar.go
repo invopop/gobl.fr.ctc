@@ -17,6 +17,7 @@ import (
 	"github.com/invopop/gobl/i18n"
 	"github.com/invopop/gobl/l10n"
 	"github.com/invopop/gobl/org"
+	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/schema"
 )
 
@@ -237,7 +238,6 @@ func (converter) Formats() []*convert.Format {
 			MIME:      "application/xml",
 			Syntax:    "cdar",
 			Countries: []l10n.Code{l10n.FR},
-			Addons:    []cbc.Key{flow6.V1},
 			Import:    []schema.ID{statusSchema, paymentSchema},
 			Export:    []schema.ID{statusSchema, paymentSchema},
 		})
@@ -270,8 +270,16 @@ func (converter) Import(_ cbc.Key, data []byte) (*gobl.Envelope, error) {
 	return Import(cdar)
 }
 
-func (converter) Accepts(_ cbc.Key, _ *gobl.Envelope) bool {
-	return true
+// Accepts checks the status or payment includes the Flow 6 addon.
+func (converter) Accepts(key cbc.Key, env *gobl.Envelope) error {
+	set := convert.Rules(key,
+		rules.For(new(bill.Status), convert.RequireAddons("01", flow6.V1)),
+		rules.For(new(bill.Payment), convert.RequireAddons("01", flow6.V1)),
+	)
+	if fs := set.Validate(env.Extract()); fs != nil {
+		return fs
+	}
+	return nil
 }
 
 func (converter) Export(key cbc.Key, env *gobl.Envelope) ([]byte, error) {
