@@ -30,7 +30,7 @@ require (
 	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/invopop/gobl.cii v0.70.0
+	github.com/invopop/gobl.cii v0.72.1-0.20261015104547-8116b073549c
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/magefile/mage v1.15.0 // indirect

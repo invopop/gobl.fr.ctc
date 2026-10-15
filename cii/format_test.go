@@ -372,4 +372,16 @@ func TestConvertRegister(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, frcii.KeyCTCCIUS, f.Key, "detected again")
 	})
+	t.Run("factur-x en 16931 is export-only", func(t *testing.T) {
+		f := convert.FormatFor(frcii.KeyFacturX)
+		require.NotNil(t, f)
+		assert.Empty(t, f.Import)
+
+		env := loadEnvelope(t, "facturx/invoice-complete.json")
+		out, err := convert.Export(env, frcii.KeyFacturX)
+		require.NoError(t, err)
+		d, err := convert.Detect(out.Data)
+		require.NoError(t, err)
+		assert.Equal(t, goblcii.FormatEN16931.Key, d.Key, "imported as EN 16931")
+	})
 }
