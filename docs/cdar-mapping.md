@@ -1,182 +1,269 @@
 # GOBL ↔ CDAR (Flow 6) mapping reference
 
-This document describes how `bill.Status` documents in GOBL with the
-`fr-ctc-flow6-v1` addon round-trip to and from the French CDAR
-(*Compte Rendu d'Avis et de Réception* — XP Z12-012 Annex A v1.3) XML
-exchanged between *Plateformes Agréées* (PAs).
+How GOBL documents with the `fr-ctc-flow6-v1` addon round-trip to and from
+the French CDAR (*Compte rendu d'Avis et de Réception*, XP Z12-012 v1.4)
+lifecycle messages (CDV) exchanged between *Plateformes Agréées* and the
+PPF.
 
-The mapping is bidirectional: the same convention drives the export
-(`cdar.Export`) on the way out and the import (`cdar.Import`) on the way
-back in. Both live in the `cdar` package, on top of the CDAR structures
-in `gobl.cii`.
+Two GOBL documents carry a CDV:
 
----
+| GOBL document | Process codes (MDT-105) |
+|---|---|
+| `bill.Status` | 200–210, 213 |
+| `bill.Payment` | 211 (Paiement transmis), 212 (Encaissée) |
 
-## 1. Format vs lifecycle category
-
-Two independent axes:
-
-| Axis | Lives in | Values | Drives |
-|---|---|---|---|
-| **GOBL lifecycle category** | `bill.Status.Type` | `response` / `update` / `system` | The flow6 process-code lookup (`ctc.CDARProcessCodeFor(key, type)`) |
-| **CDAR phase / wire ack** | `cdar.Format.OutputGuidelineID` | `urn.cpro.gouv.fr:1p0:CDV:invoice` (treatment, ack 23) or `…einvoicingF2` (transmission, ack 305) | `<ram:TypeCode>` and the trade-party shape |
-
-`bill.Status.Type` and the ack TypeCode are **not the same thing** —
-any (key, type) status can be exported under either format. The
-flow6 process table happens to align them by convention, but the wire
-phase is a per-message authoring decision the caller makes by
-choosing the format.
+The `cdar` package converts both ways, on top of the CDAR XML structures in
+`gobl.cii`. Importing the package registers it with the GOBL `convert`
+register:
 
 ```go
-// Treatment phase (ack TypeCode 23) — end-party CDV
-cdar.Export(env, cdar.FormatCDV)
-
-// Transmission phase (ack TypeCode 305) — to the PPF
-cdar.Export(env, cdar.FormatCDVPPF)
+import _ "github.com/invopop/gobl.fr.ctc/cdar"
 ```
 
 ---
 
-## 2. Party slot mapping
+## 1. API and formats
 
-### Wire slots
+```go
+cdar.Export(env, cdar.FormatCDV, opts...)  // envelope → *cii.CDAR
+cdar.ExportStatus(st, format, opts...)
+cdar.ExportPayment(pmt, format, opts...)
 
-The CDAR `<rsm:ExchangedDocument>` carries four party slots and the
-referenced-document block one more:
+cdar.Import(doc, opts...)                   // *cii.CDAR → envelope
+cdar.ImportStatus(doc)
+cdar.ImportPayment(doc)
+```
 
-| MDT / MDG | Wire path | Required? |
-|---|---|---|
-| MDT-21 (`SenderTradeParty/RoleCode`) | `ExchangedDocument/SenderTradeParty` | yes |
-| MDG-16 (`IssuerTradeParty`) | `ExchangedDocument/IssuerTradeParty` | yes |
-| MDG-23 (`RecipientTradeParty`) | `ExchangedDocument/RecipientTradeParty` | yes |
-| MDT-129 (`IssuerAssignedID` of ref.) | `ReferenceReferencedDocument/IssuerTradeParty/GlobalID` | yes (BR-FR-CDV-13) |
+`Import` returns a `bill.Payment` when the process code is 211 or 212, and a
+`bill.Status` otherwise. `ImportStatus` and `ImportPayment` return the
+document with only the CDAR codes on its extensions: calculate it (or insert
+it in an envelope) to let the flow6 normalizer derive the GOBL keys.
 
-### `bill.Status` source
-
-| Wire slot | `bill.Status` field | Notes |
-|---|---|---|
-| `SenderTradeParty` (MDT-21) | bare `WK` party by default; `WithSender(p)` on `Export` to override | The platform identity is anonymous in the UC1 corpus; the option lets a caller put their identified PA on the wire (Name + GlobalID + Inbox + Role) when needed. |
-| `IssuerTradeParty` (MDG-16) | `Issuer` | Direct, by-name. The role on this party tells the schematron which side is reporting (BY/SE for ack 23; WK for ack 305). |
-| `RecipientTradeParty` (MDG-23) | `Recipient` | Direct, by-name. URIID required if role ≠ WK/DFH (BR-FR-CDV-08). |
-| `ref.IssuerTradeParty/GlobalID` (MDT-129) | `Supplier`'s SIREN identity | The seller of the referenced invoice. Carries only the SIREN on the wire. |
-
-### Required `bill.Status` fields
-
-- `Supplier` — direct source for `ref.IssuerTradeParty/GlobalID`
-  (MDT-129, BR-FR-CDV-13). Must carry an identity with
-  `iso-scheme-id = 0002` (SIREN).
-- `Issuer` — direct source for `IssuerTradeParty`. Must carry
-  `ext[fr-ctc-flow6-role]` (BR-FR-CDV-CL-03 list).
-- `Recipient` — direct source for `RecipientTradeParty`. Must carry
-  `ext[fr-ctc-flow6-role]` plus an `inboxes` entry when role ≠ WK / DFH
-  (BR-FR-CDV-08).
-- `Lines[0]` — exactly one (CDAR carries one status per CDV).
-
-`Customer` is optional invoice metadata. The flow6 addon does **not**
-auto-derive any of these fields — the caller writes them explicitly.
-
-### Import fallback
-
-The parser populates `Supplier` from `ref.IssuerTradeParty` (the
-seller's canonical SIREN slot per MDT-129) when the JSON document
-doesn't already carry one. That keeps a parsed status round-trippable
-through the writer without forcing the caller to repeat the seller in
-the JSON when they only want what was on the wire. (Auto-fill of the
-*JSON* fields from each other has been removed — only the
-`ref → Supplier` extraction at parse time remains.)
-
-### Allowed roles per slot
-
-| Slot | Ack 23 (treatment) | Ack 305 (PPF) | Source |
-|---|---|---|---|
-| `SenderTradeParty.RoleCode` (MDT-21) | one of `BY, DL, SE, AB, SR, WK, PE, PR, II, IV` | must be `WK` | BR-FR-CDV-CL-02 |
-| `IssuerTradeParty.RoleCode` (MDT-40) | one of `BY, AB, DL, SE, SR, PE, PR, II, IV` (no WK) | must be `WK` | BR-FR-CDV-CL-03 |
-| `RecipientTradeParty.RoleCode` (MDT-59) | one of `BY, DL, SE, AB, SR, PE, PR, II, IV, WK, DFH` | `DFH` (the PPF) | BR-FR-CDV-CL-04 |
-
-### PPF identity
-
-The Public Portal (PPF) is the unique recipient on ack 305 messages.
-Its identity is fixed by the spec — `SIREN 9998`, scheme `0238`,
-role `DFH`, name `PPF`. The `flow6` addon does not ship a constructor
-for it; downstream French integrations supply the party (or build it
-inline) when they construct an ack 305 status.
-
----
-
-## 3. (`StatusLine.Key`, `Status.Type`) → `ProcessConditionCode`
-
-Each Flow 6 process code (MDT-105) maps 1:1 to a (key, type) pair.
-The key set is partly drawn from GOBL's `bill.Status*` constants; the
-ones not in stock GOBL are exported by `flow6` itself.
-
-| `bill.StatusLine.Key` | `bill.Status.Type` | Process code | Libellé | Source const |
+| Format | Key | XML GuidelineParameter (MDT-3) | BusinessProcess (MDT-2) | Recipient |
 |---|---|---|---|---|
-| `issued` | `update` | **200** | Déposée | `bill.StatusEventIssued` |
-| `issued` | `response` | **201** | Émise par la plateforme | `bill.StatusEventIssued` |
-| `acknowledged` | `response` | **202** | Reçue | `bill.StatusEventAcknowledged` |
-| `made-available` | `response` | **203** | Mise à disposition | `ctc.StatusEventMadeAvailable` |
-| `processing` | `response` | **204** | Prise en charge | `bill.StatusEventProcessing` |
-| `accepted` | `response` | **205** | Approuvée | `bill.StatusEventAccepted` |
-| `partially-accepted` | `response` | **206** | Approuvée Partiellement | `ctc.StatusEventPartiallyAccepted` |
-| `disputed` | `response` | **207** | En litige | `ctc.StatusEventDisputed` |
-| `querying` | `response` | **208** | Suspendue | `bill.StatusEventQuerying` |
-| `completed` | `response` | **209** | Complétée | `ctc.StatusEventCompleted` |
-| `rejected` | `response` | **210** | Refusée | `bill.StatusEventRejected` |
-| `paid` | `update` | **211** | Paiement transmis | `bill.StatusEventPaid` (shared) |
-| `paid` | `response` | **212** | Encaissée | `bill.StatusEventPaid` (shared) |
-| `error` | `response` | **213** | Rejetée (sémantique) | `bill.StatusEventError` |
+| `FormatCDV` | `cdar+fr-ctc-cdv-v1` | `urn.cpro.gouv.fr:1p0:CDV:invoice` | `REGULATED` | the counterparty |
+| `FormatCDVPPF` | `cdar+fr-ctc-cdv-v1+ppf` | `urn.cpro.gouv.fr:1p0:CDV:einvoicingF2` | none | the PPF |
 
-`paid` is the only key that pairs with both `Status.Type` values: the
-same payment event is reported under different CDAR codes depending
-on whether it travels in the transmission phase (PA→PPF, code 211) or
-the treatment phase (seller-side confirms receipt, code 212). When
-the caller uses the `paid` key, `Type` must be set explicitly — the
-flow6 normaliser cannot default it because the key alone is
-ambiguous.
+`FormatCDV` is identified on the Peppol network by the document type
+`urn:peppol:france:billing:cdv:1.0` and the process
+`urn:peppol:france:billing:regulated`; the XML keeps the CDV guideline.
+Both formats validate against the `fr.ctc:cdar:1.4.0-03` schematron.
 
-Helpers:
+On import, a CDAR with the PPF guideline is detected as `FormatCDVPPF`, and
+any other CDAR as `FormatCDV`.
 
-```go
-flow6.CDARProcessCodeFor(line.Key, st.Type)  // → "212", true
-flow6.StatusKeyFor("212")                     // → "paid", "response", true
-```
+Options:
+
+| Option | Effect |
+|---|---|
+| `WithSender(p)` | Export: the `SenderTradeParty` (MDT-21). Defaults to a bare `WK` party. Use `cdar.PPFPlatformParty(matricule)` for copies to the PPF, which rejects a sender without a GlobalID. |
+| `WithRouting(from, to)` | Import: the Peppol SBD addresses the document arrived with. Recorded on `Head.From` / `Head.To`, and used to fill a party inbox the CDV body omits (see §2). |
+
+On export, the envelope's `Head.From` / `Head.To` can also pick the issuer
+and recipient slots (see §2).
+
+### Ack type (MDT-77)
+
+The acknowledgement `TypeCode` follows the process code, not the format:
+
+| Process codes | Phase | `TypeCode` |
+|---|---|---|
+| 200, 201, 202, 203, 213 | transmission (platform-issued) | 305 |
+| 204–212 | treatment (business-issued) | 23 |
 
 ---
 
-## 4. Status line content mapping
+## 2. Parties
 
-| CDAR slot | `bill.StatusLine` field | Notes |
+GOBL holds only the two business parties, `Supplier` (role `SE`) and
+`Customer` (role `BY`). The platform (`WK`) and PPF (`DFH`) parties are
+transport detail: the exporter adds them and the importer drops them.
+
+### Export
+
+| CDAR slot | Source |
+|---|---|
+| `SenderTradeParty` (MDT-21) | `WithSender`, or a bare `WK` party |
+| `IssuerTradeParty` (MDG-16) | by process code, below |
+| `RecipientTradeParty` (MDG-23) | by process code, below; always the PPF under `FormatCDVPPF` |
+| referenced `IssuerTradeParty/GlobalID` (MDT-129) | the line document's SIREN identity, else the `Supplier`'s SIREN |
+
+| Document | Issuer | Recipient |
 |---|---|---|
-| `ProcessConditionCode` (MDT-105) | derived from `Key` + `Status.Type` | See table §3 |
-| `IssuerAssignedID` (MDT-87) | `Doc.Code` | The referenced invoice's BT-1 |
-| `FormattedIssueDateTime` (MDG-35) | `Doc.IssueDate` | BT-2 |
-| `TypeCode` (MDT-91) | `Doc.Type` | UNTDID 1001 invoice type |
-| `ReceiptDateTime` | not currently mapped | |
-| `SpecifiedDocumentStatus[]` | one entry per `(Reason × Action)` pair, then characteristic-only entries | See §5 |
+| Status 204–208, 210 (declared by the buyer) | `Customer` | `Supplier` |
+| Status 209 (declared by the seller) | `Supplier` | `Customer` |
+| Status 200–203, 213 (platform phase) | the sender | `Supplier` |
+| Payment `receipt` (212) | `Supplier` | `Customer` |
+| Payment `advice` (211) | `Customer` | `Supplier` |
 
-### Status-required Reasons (BR-FR-CDV-15)
+For treatment-phase codes, an envelope `Head.From` / `Head.To` that matches
+one of the business parties' endpoints overrides these defaults.
 
-A `bill.StatusLine` whose key is one of `rejected`, `error`,
-`disputed`, `partially-accepted`, `suspended` MUST carry at least one
-`Reason`.
+The PPF party is fixed: GlobalID `0000` under scheme `0238`, role `DFH`.
+MDT-129 always names the invoice's seller, also for self-billed invoices
+(confirmed against PPF).
 
-### Per-status allowed `ReasonCode` (BR-FR-CDV-CL-09)
+Each party is written as:
 
-| Process code | Status | Allowed `fr-ctc-flow6-reason` values |
+| CDAR field | `org.Party` |
+|---|---|
+| `Name` | `Name` |
+| `RoleCode` | `ext[fr-ctc-flow6-role]` |
+| `GlobalID[@schemeID]` | each identity with an `iso-scheme-id` extension |
+| `URIUniversalCommunication/URIID[@schemeID]` | first inbox (`scheme`, `code`) |
+
+### Import
+
+Trade parties are assigned by role: `SE` → `Supplier`, `BY` → `Customer`.
+Other roles are dropped.
+
+- With no `SE` party, the MDT-129 issuer becomes the `Supplier`; an `SE`
+  party without a SIREN gets the MDT-129 one.
+- The MDT-129 SIREN is also kept on the line document's identities, so the
+  invoice resolves by its seller even when the buyer issued the status.
+- A CDV need not repeat a party's electronic address, which travels in the
+  SBD. With `WithRouting`, each address fills the inbox of the party whose
+  SIREN it carries, then any party still missing one, so the result meets
+  BR-FR-CDV-08.
+
+### Normalizer defaults
+
+The flow6 normalizer sets `fr-ctc-flow6-role` to `SE` on the `Supplier` and
+`BY` on the `Customer` when it is empty.
+
+---
+
+## 3. Process codes
+
+The process code lives on `fr-ctc-flow6-status`: on the status line for a
+`bill.Status`, and on the payment for a `bill.Payment`. The normalizer
+derives it from the GOBL keys, or derives the keys from it when only the
+code is set (as after an import).
+
+### `bill.Status`
+
+| `Status.Type` | `StatusLine.Key` | Code | Label (MDT-106) |
+|---|---|---|---|
+| `update` | `issued` | **200** | Déposée |
+| `response` | `issued` | **201** | Émise par la plateforme |
+| `response` | `acknowledged` | **202** | Reçue |
+| `response` | `other` | **203** | Mise à disposition |
+| `response` | `processing` | **204** | Prise en charge |
+| `response` | `accepted` | **205** | Approuvée |
+| `response` | `rejected` | **206** | Approuvée partiellement |
+| `response` | `rejected` | **207** | En litige |
+| `response` | `querying` | **208** | Suspendue |
+| `update` | `other` | **209** | Complétée |
+| `response` | `rejected` | **210** (default for `rejected`) | Refusée |
+| `response` | `error` | **213** | Rejetée |
+
+`rejected` covers 206, 207 and 210: set the code explicitly for 206 or 207.
+With no `Type` and no code, `issued` defaults to `update`, and the other
+keys to `response`.
+
+### `bill.Payment`
+
+| `Payment.Type` | Code | Condition (MDT-207) default |
 |---|---|---|
-| 200 | Déposée | `NON_TRANSMISE` |
-| 206 | Approuvée Part. | `AUTRE`, `CMD_ERR`, `SIRET_ERR`, `CODE_ROUTAGE_ERR`, `REF_CT_ABSENT`, `REF_ERR`, `PU_ERR`, `REM_ERR`, `QTE_ERR`, `ART_ERR`, `MODPAI_ERR`, `QUALITE_ERR`, `LIVR_INCOMP` |
-| 207 | En litige | `AUTRE`, `COORD_BANC_ERR`, `TX_TVA_ERR`, `MONTANTTOTAL_ERR`, `CALCUL_ERR`, `NON_CONFORME`, `DOUBLON`, `DEST_ERR`, `TRANSAC_INC`, `EMMET_INC`, `CONTRAT_TERM`, `DOUBLE_FACT`, `CMD_ERR`, `ADR_ERR`, `SIRET_ERR`, `CODE_ROUTAGE_ERR`, `REF_CT_ABSENT`, `REF_ERR`, `PU_ERR`, `REM_ERR`, `QTE_ERR`, `ART_ERR`, `MODPAI_ERR`, `QUALITE_ERR`, `LIVR_INCOMP` |
-| 208 | Suspendue | `JUSTIF_ABS`, `COORD_BANC_ERR`, `CMD_ERR`, `SIRET_ERR`, `CODE_ROUTAGE_ERR`, `REF_CT_ABSENT`, `REF_ERR` |
-| 210 | Refusée | `TX_TVA_ERR`, `MONTANTTOTAL_ERR`, `CALCUL_ERR`, `NON_CONFORME`, `DOUBLON`, `DEST_ERR`, `TRANSAC_INC`, `EMMET_INC`, `CONTRAT_TERM`, `DOUBLE_FACT`, `CMD_ERR`, `ADR_ERR`, `REF_CT_ABSENT` |
-| 213 | Rejetée sém. | `MONTANTTOTAL_ERR`, `CALCUL_ERR`, `DOUBLON`, `ADR_ERR`, `REJ_SEMAN`, `REJ_UNI`, `REJ_COH`, `REJ_ADR`, `REJ_CONT_B2G`, `REJ_REF_PJ`, `REJ_ASS_PJ` |
+| `advice` | **211** | `MPA` |
+| `receipt` | **212** | `MEN` |
 
-Other process codes do not constrain the reason set (the rule is
-silent for them in Annexe A).
+`request` is not a Flow 6 event.
 
-### Action codes (UNCL CDAR-style, MDT-121)
+### Referenced document status (MDT-88)
 
-| `bill.Action.Key` | CDAR `RequestedActionCode` |
+Written only for the pairings attested in the official corpus:
+
+| Code | 200 | 202 | 203 | 204 | 205 | 207 | 211 | 212 |
+|---|---|---|---|---|---|---|---|---|
+| `StatusCode` | 10 | 43 | 48 | 45 | 1 | 46 | 47 | 47 |
+
+---
+
+## 4. Status line content
+
+Each `AcknowledgementDocument/ReferenceReferencedDocument` maps to one
+status line.
+
+| CDAR field | `bill.StatusLine` |
+|---|---|
+| `ProcessConditionCode` (MDT-105) | `ext[fr-ctc-flow6-status]` |
+| `ProcessCondition` (MDT-106) | label from §3, written on export |
+| `IssuerAssignedID` (MDT-87) | `Doc.Series` + `Doc.Code` |
+| `FormattedIssueDateTime` (MDT-100) | `Doc.IssueDate` |
+| `TypeCode` (MDT-91) | `Doc.ext[untdid-document-type]` |
+| `ReceiptDateTime` (MDT-95) | `Date` |
+| `SpecifiedDocumentStatus[]` | `Reasons` × `Actions`, below |
+
+`SpecifiedDocumentStatus` entries pair every reason with every action; a
+line with only reasons or only actions gets one entry each.
+
+| CDAR field | GOBL |
+|---|---|
+| `ReasonCode` (MDT-113) | `Reason.ext[fr-ctc-flow6-reason]` |
+| `Reason` (MDT-114) | `Reason.Description` |
+| `IncludedNote/Content` (MDT-126) | `Reason.Description`, written on export only |
+| `SpecifiedDocumentCharacteristic[]` | `Reason.Faults` |
+| `RequestedActionCode` (MDT-121) | `Action.ext[fr-ctc-flow6-action]` |
+| `RequestedAction` | `Action.Description` |
+
+Each fault is one `SpecifiedDocumentCharacteristic`:
+
+| CDAR field | `bill.Fault` |
+|---|---|
+| `TypeCode` (MDT-207) | `Code`, when it is a status condition code (§5) |
+| `Name` (MDT-211) | `Message` (or the `Code`, when it is not a condition code and the message is empty) |
+| `Location` (MDT-213) | first `Paths` entry |
+
+On import, the characteristic's data name, business-term ID and typed value
+compose the fault message, e.g. `Taux TVA (BT-152): 10.00%`. A
+characteristic in an entry with no `ReasonCode` is attached to a reason
+with key `other`.
+
+PPF requires a free-text comment (MDT-126) on 208 and 210, so those need a
+reason description.
+
+---
+
+## 5. Reasons, actions and conditions
+
+### Reasons
+
+`fr-ctc-flow6-reason` holds the exact CDAR reason code. Each
+`bill.Reason.Key` covers a set of codes: the normalizer defaults to the first
+one and keeps a caller-set code from the same set. On import, the key is
+derived from the code.
+
+| `Reason.Key` | CDAR reason codes (first is the default) |
+|---|---|
+| `finance-terms` | `COORD_BANC_ERR` |
+| `other` | `AUTRE` |
+| `legal` | `NON_CONFORME`, `TX_TVA_ERR`, `REJ_SEMAN`, `REJ_COH`, `REJ_CONT_B2G`, `IRR_VIDE_F`, `IRR_TYPE_F`, `IRR_SYNTAX`, `IRR_TAILLE_PJ`, `IRR_NOM_PJ`, `IRR_VID_PJ`, `IRR_EXT_DOC`, `IRR_TAILLE_F`, `IRR_ANTIVIRUS` |
+| `not-recognized` | `DOUBLON`, `TRANSAC_INC`, `EMMET_INC`, `CONTRAT_TERM`, `DOUBLE_FACT`, `REJ_UNI` |
+| `unknown-receiver` | `DEST_INC`, `NON_TRANSMISE`, `ROUTAGE_ERR` |
+| `references` | `CMD_ERR`, `JUSTIF_ABS`, `DEST_ERR`, `ADR_ERR`, `SIRET_ERR`, `CODE_ROUTAGE_ERR`, `REF_CT_ABSENT`, `REF_ERR`, `REJ_ADR`, `REJ_REF_PJ`, `REJ_ASS_PJ` |
+| `prices` | `PU_ERR`, `MONTANTTOTAL_ERR`, `CALCUL_ERR`, `REM_ERR` |
+| `quantity` | `QTE_ERR` |
+| `items` | `ART_ERR` |
+| `payment-terms` | `MODPAI_ERR` |
+| `quality` | `QUALITE_ERR` |
+| `delivery` | `LIVR_INCOMP` |
+
+Allowed reason codes per process code (BR-FR-CDV-CL-09); other codes don't
+restrict them:
+
+| Code | Allowed `fr-ctc-flow6-reason` |
+|---|---|
+| 200 | `NON_TRANSMISE` |
+| 206 | `AUTRE`, `CMD_ERR`, `SIRET_ERR`, `CODE_ROUTAGE_ERR`, `REF_CT_ABSENT`, `REF_ERR`, `PU_ERR`, `REM_ERR`, `QTE_ERR`, `ART_ERR`, `MODPAI_ERR`, `QUALITE_ERR`, `LIVR_INCOMP` |
+| 207 | `AUTRE`, `COORD_BANC_ERR`, `TX_TVA_ERR`, `MONTANTTOTAL_ERR`, `CALCUL_ERR`, `NON_CONFORME`, `DOUBLON`, `DEST_INC`, `DEST_ERR`, `TRANSAC_INC`, `EMMET_INC`, `CONTRAT_TERM`, `DOUBLE_FACT`, `CMD_ERR`, `ADR_ERR`, `SIRET_ERR`, `CODE_ROUTAGE_ERR`, `REF_CT_ABSENT`, `REF_ERR`, `PU_ERR`, `REM_ERR`, `QTE_ERR`, `ART_ERR`, `MODPAI_ERR`, `QUALITE_ERR`, `LIVR_INCOMP` |
+| 208 | `JUSTIF_ABS`, `COORD_BANC_ERR`, `CMD_ERR`, `SIRET_ERR`, `CODE_ROUTAGE_ERR`, `REF_CT_ABSENT`, `REF_ERR` |
+| 210 | `TX_TVA_ERR`, `MONTANTTOTAL_ERR`, `CALCUL_ERR`, `NON_CONFORME`, `DOUBLON`, `DEST_ERR`, `TRANSAC_INC`, `EMMET_INC`, `CONTRAT_TERM`, `DOUBLE_FACT`, `CMD_ERR`, `ADR_ERR`, `REF_CT_ABSENT` |
+| 213 | `MONTANTTOTAL_ERR`, `CALCUL_ERR`, `DOUBLON`, `DEST_INC`, `ADR_ERR`, `REJ_SEMAN`, `REJ_UNI`, `REJ_COH`, `REJ_ADR`, `REJ_CONT_B2G`, `REJ_REF_PJ`, `REJ_ASS_PJ` |
+
+### Actions (MDT-121)
+
+| `Action.Key` | `fr-ctc-flow6-action` |
 |---|---|
 | `none` | `NOA` |
 | `provide` | `PIN` |
@@ -186,152 +273,178 @@ silent for them in Annexe A).
 | `credit-amount` | `CNA` |
 | `other` | `OTH` |
 
-### Characteristics — `<ram:SpecifiedDocumentCharacteristic>`
+### Conditions (MDT-207)
 
-A `ctc.Characteristic` complement on a status line maps to one
-`SpecifiedDocumentCharacteristic`:
+`fr-ctc-flow6-condition` holds a CDAR characteristic type code.
 
-| CDAR field | Characteristic field |
+| Where | Codes |
 |---|---|
-| `ID` | `ID` |
-| `TypeCode` (MDT-207) | `TypeCode` (one of MEN, MPA, RAP, ESC, RAB, REM, MAP, MAPTTC, MNA, MNATTC, CBB, DIV, DVA, MAJ) |
-| `Name` | `Name` |
-| `Location` | `Location` |
-| `ValueAmount` (with `currencyID`) | `Amount` (`currency.Amount`) |
-| `ValuePercent` | `Percent` |
-| `ValueChangedIndicator` | `Changed` (bool) |
+| `bill.Reason` under a status | `CBB`, `DIV`, `DVA`, `MAJ` (field corrections), `MAP`, `MAPTTC`, `MNA`, `MNATTC` (approved / rejected amounts), `ESC`, `RAB`, `REM` (discounts) |
+| `bill.Payment` | `MEN` (encaissé), `MPA` (payé), `RAP` (reste à payer) |
 
-Special rule (BR-FR-CDV-14): a `paid` (212) status line MUST carry a
-characteristic with `TypeCode = MEN` (Montant Encaissé) and
-`Amount.{Value, Currency}` populated.
-
-Refunds: a payment line with `Refund` set emits its MEN / MPA amounts
-(and per-rate grosses) negated in the CDV; parsing maps negative cashed
-amounts back to a positive `Amount` with `Refund = true`.
-
-When a Reason and a Characteristic are linked by their CDAR ReasonCode
-the writer keeps them in the same `SpecifiedDocumentStatus` entry; the
-`Characteristic.ReasonCode` field, when set, must match the
-`fr-ctc-flow6-reason` of some sibling Reason on the same line.
+On a reason, the condition classifies its main characteristic, defaulting
+to `CBB` for `finance-terms` and `DIV` otherwise. The characteristics
+themselves are the reason's faults (§4): a `DIV` fault with the wrong value
+and a `DVA` fault with the expected one, for example.
 
 ---
 
-## 5. Validations enforced by `flow6` (mirror of the schematron)
+## 6. Payments
 
-The `fr-ctc-flow6-v1` addon validates everything that the deployed
-schematron currently *warns* about (warnings are treated as errors —
-they will become hard errors in future spec releases):
+A `bill.Payment` has one line, for the invoice it settles. Its amount is one
+`SpecifiedDocumentStatus` whose characteristics carry the payment's
+condition (`MEN` by default):
 
-| Rule ID (gobl) | Schematron / spec | What it checks |
+| `bill.PaymentLine` | CDAR |
+|---|---|
+| `Document` | referenced document, as in §4 |
+| `Tax` VAT rates | one characteristic per rate: `ValueAmount` = rate base + tax (MDT-215), `ValuePercent` (MDT-224) |
+| `Amount`, when there is no tax breakdown | one characteristic with `ValueAmount` only |
+| `Refund` | amounts negated |
+| `Due` | not exported |
+
+PPF rejects a cashed amount that isn't split by VAT rate
+(`REJ_ENCAISSEMENT`), so a `receipt` must carry the VAT breakdown. An exempt
+rate is written as `0.00`, like a zero rate, since the CDV can't tell them
+apart.
+
+On import, `MEN` / `MPA` amounts become the line `Amount` (a negative one
+sets `Refund`), `RAP` becomes `Due`, and the condition found is set on the
+payment. A CDV carries no payment method, so the importer adds a bare
+record for the line amount.
+
+---
+
+## 7. PPF copies
+
+Under `FormatCDVPPF`, the exporter also applies the corrections PPF enforces
+beyond the schematron:
+
+- `ReferenceTypeCode` (MDT-97) set to the einvoicingF2 guideline on every
+  referenced document.
+- `ExchangedDocument/Name` (MDT-5) defaults to the status label.
+- `FormattedIssueDateTime` (MDT-100) written in format 204 (`CCYYMMDDHHMMSS`).
+- `ReceiptDateTime` (MDG-34) defaults to the acknowledgement's issue date.
+
+---
+
+## 8. Validation
+
+Rules run when the document declares `fr-ctc-flow6-v1`. Their codes are
+prefixed with `GOBL-FR-CTC-FLOW6-`, e.g. `GOBL-FR-CTC-FLOW6-BILL-STATUS-03`.
+The converter's `Accepts` rejects a document without the addon.
+
+### `BILL-STATUS`
+
+| Rule | Spec | Checks |
 |---|---|---|
-| BILL-STATUS-01 | — | `Type ∈ {response, update}` |
-| BILL-STATUS-02 | BR-FR-CDV-13 | `Supplier` present (after normalisation) |
-| BILL-STATUS-03 | — | `Supplier` carries SIREN identity |
-| BILL-STATUS-04 | — | exactly one status line |
-| BILL-STATUS-05 | BR-FR-CDV-10 | each line has `Doc` |
-| BILL-STATUS-06 | — | line key is a known Flow 6 event |
-| BILL-STATUS-07 | BR-FR-CDV-14 | `paid` (212) line has MEN characteristic with Amount |
-| BILL-STATUS-08 | — | `Status.Type` consistent with line keys |
-| BILL-STATUS-09 | — | `Characteristic.ReasonCode` resolves to sibling Reason |
-| BILL-STATUS-10 | BR-FR-CDV-CL-11 | `Characteristic.TypeCode` is in the MDT-207 set |
-| BILL-STATUS-11 | BR-FR-CDV-10 | `Doc.Code` present |
-| BILL-STATUS-12 | BR-FR-CDV-11 | `Doc.IssueDate` present |
-| BILL-STATUS-13 | BR-FR-CDV-15 | reasons mandatory for 206/207/208/210/213 |
-| BILL-STATUS-14 | BR-FR-CDV-CL-03 | `Issuer` present (MDG-16) |
-| BILL-STATUS-15 | BR-FR-CDV-CL-03 | `Issuer.ext.fr-ctc-flow6-role` present |
-| BILL-STATUS-16 | BR-FR-CDV-CL-04 | `Recipient` present (MDG-23) |
-| BILL-STATUS-17 | BR-FR-CDV-CL-04 | `Recipient.ext.fr-ctc-flow6-role` present |
-| BILL-STATUS-18 | BR-FR-CDV-08 | `Recipient` has inbox when role ≠ WK / DFH |
-| BILL-STATUS-19 | BR-FR-CDV-CL-09 | reason codes allowed for the line's process code |
-| BILL-REASON-01 | — | `Reason.Key` is a known `bill.ReasonKey` |
-| BILL-REASON-02 | — | `fr-ctc-flow6-reason` known and matches `Reason.Key` bucket |
-| BILL-ACTION-01 | — | `Action.Key` is a known `bill.ActionKey` |
-| ORG-PARTY-01 | BR-FR-CDV-CL-02..04 | `fr-ctc-flow6-role` is in the UNCL 3035 subset |
-| ORG-PARTY-02 | — | identity scheme is in the ICD 6523 subset |
+| 01 | | `Type` is `response` or `update` |
+| 02 | | `fr-ctc-flow6-status` on the status is a status code (not 211/212) |
+| 26 | BR-FR-CDV-03 | `Code` present (MDT-4) |
+| 03 | BR-FR-CDV-13 | `Supplier` present |
+| 04 / 08 | BR-FR-CDV-08 | `Supplier` / `Customer` has an inbox unless its role is `WK` or `DFH` |
+| 05 / 09 | BR-FR-CDV-CL-03/04 | `Supplier` / `Customer` has a role |
+| 06 | | `Supplier` has a SIREN identity (0002) |
+| 07 | BR-FR-CDV-CL-04 | `Customer` present on 204–210 |
+| 10 | | `Customer` has an identity in the Flow 6 scheme list |
+| 11 | | exactly one line |
+| 12–14 | BR-FR-CDV-10/11 | line `Doc` with code and issue date |
+| 25 | MDT-91 | line `Doc` has a valid `untdid-document-type` |
+| 15 | | line key is a Flow 6 event |
+| 16 | BR-FR-CDV-15 | reasons present for `rejected`, `querying`, `error` |
+| 17–22 | BR-FR-CDV-CL-09 | reason codes allowed for 200, 206, 207, 208, 210, 213 |
+| 27 | MDT-126 | reason description present on 208 and 210 |
+| 23 / 24 | | line key consistent with `response` / `update` |
+
+### `BILL-PAYMENT`
+
+| Rule | Spec | Checks |
+|---|---|---|
+| 01 | | `Type` is `advice` or `receipt` |
+| 19 | BR-FR-CDV-03 | `Code` present (MDT-4) |
+| 02 / 05 | BR-FR-CDV-13, CL-04 | `Supplier` / `Customer` present |
+| 03 / 06 | | `Supplier` / `Customer` has a SIREN identity (0002) |
+| 04 / 07 / 08 | | supplier, customer and payee identities in the Flow 6 scheme list |
+| 09 | | exactly one line |
+| 10–12 | BR-FR-CDV-10/11 | line document with code and issue date |
+| 17 | MDT-91 | line document has a valid `untdid-document-type` |
+| 18 | P1.18 | a `receipt` line has a VAT breakdown (exempt allowed) |
+| 13 / 15 / 16 | | `fr-ctc-flow6-status` is 211 for `advice`, 212 for `receipt` |
+| 14 | | `fr-ctc-flow6-condition` is `MEN`, `MPA` or `RAP` |
+
+### Reasons, actions, parties
+
+| Rule | Spec | Checks |
+|---|---|---|
+| `BILL-REASON-01` | | `fr-ctc-flow6-reason` is a known code |
+| `BILL-REASON-02` | | `fr-ctc-flow6-condition` is a status condition code |
+| `BILL-ACTION-01` | MDT-121 | `fr-ctc-flow6-action` is a known code |
+| `ORG-PARTY-01` | | `fr-ctc-flow6-role` is in the UNCL 3035 subset (`SE`, `BY`, `WK`, `DFH`, `AB`, `SR`, `DL`, `PE`, `PR`, `II`, `IV`) |
+| `ORG-PARTY-02` | BR-FR-09/10 | SIRET and SIREN identities agree |
+| `ORG-PARTY-03`–`05` | BR-FR-CO-10 | identities have a unique `iso-scheme-id` from 0002, 0009, 0223, 0224, 0226–0229, 0238 |
+| `ORG-PARTY-06` / `07` | BR-FR-26 / 24 | private ID (0224) is at most 100 characters of `A-Z a-z 0-9 + - _ /` |
+| `ORG-PARTY-08` | BR-FR-23 | 0225 inbox code format |
 
 ---
 
-## 6. Worked examples
+## 9. Examples
 
-### Buyer-issued ack 23 (CDV-205, "Approuvée")
+`cdar/testdata/convert` holds a GOBL input and the exported XML for each
+case: `cdar/` for end-party copies (204–208, 210, 212, 213) and `cdar-PPF/`
+for PPF copies (200, 212).
 
-```yaml
-$schema: "https://gobl.org/draft-0/bill/status"
-$addons: ["fr-ctc-flow6-v1"]
-issue_date: "2026-04-16"
-code: "STA-2026-0001"
+A buyer disputing an invoice's VAT rate (207), from
+`cdar/status-207-litige.json`:
 
-supplier:
-  name: "VENDEUR SARL"
-  identities: [{type: "SIREN", code: "732829320", ext: {iso-scheme-id: "0002"}}]
-  ext: {fr-ctc-flow6-role: "SE"}
-
-issuer:
-  name: "ACHETEUR SARL"
-  identities: [{type: "SIREN", code: "200000008", ext: {iso-scheme-id: "0002"}}]
-  ext: {fr-ctc-flow6-role: "BY"}
-
-recipient:
-  name: "VENDEUR SARL"
-  identities: [{type: "SIREN", code: "732829320", ext: {iso-scheme-id: "0002"}}]
-  inboxes: [{scheme: "0225", code: "732829320_PEP"}]
-  ext: {fr-ctc-flow6-role: "SE"}
-
-lines:
-  - key: "accepted"
-    doc: {code: "2026-00042", issue_date: "2026-04-15"}
-```
-
-### Seller-issued ack 23 (CDV-212, "Encaissée")
-
-Same parties, swapped roles: `Issuer` = the seller (SE), `Recipient` =
-the buyer (BY).
-
-```yaml
-supplier:
-  name: "VENDEUR SARL"
-  identities: [{type: "SIREN", code: "732829320", ext: {iso-scheme-id: "0002"}}]
-  ext: {fr-ctc-flow6-role: "SE"}
-
-issuer:
-  name: "VENDEUR SARL"
-  identities: [{type: "SIREN", code: "732829320", ext: {iso-scheme-id: "0002"}}]
-  ext: {fr-ctc-flow6-role: "SE"}
-
-recipient:
-  name: "ACHETEUR SARL"
-  identities: [{type: "SIREN", code: "200000008", ext: {iso-scheme-id: "0002"}}]
-  inboxes: [{scheme: "0225", code: "200000008_PEP"}]
-  ext: {fr-ctc-flow6-role: "BY"}
-
-lines:
-  - key: "paid"
-    doc: {code: "2026-00042", issue_date: "2026-04-15"}
-    complements:
-      - $schema: "https://gobl.org/draft-0/addons/fr/ctc/characteristic"
-        type_code: "MEN"
-        amount: {currency: "EUR", value: "1200.00"}
-```
-
-### PPF transmission (CDV-200, "Déposée")
-
-`Issuer` is the WK platform; `Recipient` is the PPF; `Supplier` is the
-seller of the referenced invoice (no SE party in `Issuer`/`Recipient`,
-so the caller must set it explicitly).
-
-```go
-st := &bill.Status{
-    Type:      bill.StatusTypeUpdate,
-    Code:      "STATUS-200",
-    IssueDate: cal.MakeDate(2026, time.May, 2),
-    Supplier:  &org.Party{Name: "VENDEUR", Identities: ..., Ext: SE},
-    Issuer:    &org.Party{Name: "PA-FR", Identities: ..., Ext: WK},
-    Recipient: &org.Party{
-        Name:       "PPF",
-        Identities: []*org.Identity{{Code: "9998", Ext: ...0238}},
-        Ext:        ...flow6.RoleDFH,
-    },
-    Lines:     []*bill.StatusLine{{Key: bill.StatusEventIssued, Doc: ...}},
+```json
+{
+  "$schema": "https://gobl.org/draft-0/bill/status",
+  "$addons": ["fr-ctc-flow6-v1"],
+  "type": "response",
+  "issue_date": "2025-07-01",
+  "code": "STATUS-207",
+  "supplier": {
+    "name": "VENDEUR",
+    "identities": [{ "code": "100000009", "ext": { "iso-scheme-id": "0002" } }],
+    "inboxes": [{ "key": "peppol", "scheme": "0225", "code": "100000009_PEP" }],
+    "ext": { "fr-ctc-flow6-role": "SE" }
+  },
+  "customer": {
+    "name": "ACHETEUR",
+    "identities": [{ "code": "200000008", "ext": { "iso-scheme-id": "0002" } }],
+    "inboxes": [{ "key": "peppol", "scheme": "0225", "code": "200000008_PEP" }],
+    "ext": { "fr-ctc-flow6-role": "BY" }
+  },
+  "lines": [
+    {
+      "key": "rejected",
+      "date": "2025-07-01",
+      "doc": {
+        "code": "F202500003",
+        "issue_date": "2025-07-01",
+        "ext": { "untdid-document-type": "380" }
+      },
+      "reasons": [
+        {
+          "key": "legal",
+          "description": "Motif TX_TVA_ERR",
+          "faults": [
+            { "code": "DIV", "message": "Taux TVA (BT-152): 10.00%", "paths": ["/rsm:CrossIndustryInvoice/ram:ApplicableTradeTax/ram:RateApplicablePercent"] },
+            { "code": "DVA", "message": "Taux TVA (BT-152): 20.00%", "paths": ["/rsm:CrossIndustryInvoice/ram:ApplicableTradeTax/ram:RateApplicablePercent"] }
+          ],
+          "ext": { "fr-ctc-flow6-reason": "TX_TVA_ERR" }
+        }
+      ],
+      "actions": [{ "key": "reissue", "description": "Créer une facture rectificative" }],
+      "ext": { "fr-ctc-flow6-status": "207" }
+    }
+  ]
 }
-cdar.Export(env, cdar.FormatCDVPPF)
 ```
+
+It exports with ack `TypeCode` 23, the buyer as issuer and the seller as
+recipient, and one `SpecifiedDocumentStatus` carrying `TX_TVA_ERR`, `NIN`
+and the `DIV` / `DVA` characteristics.
+
+A seller confirming payment (212) is a `bill.Payment` of type `receipt`
+with the invoice on its single line; see `cdar/payment-212-encaissee.json`.
