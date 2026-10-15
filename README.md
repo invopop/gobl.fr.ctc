@@ -37,6 +37,28 @@ documents take on its weight.
   light so importing it never pulls in conversion tooling.
 - the module root (and future subpackages) is reserved for converters and other
   CTC logic that build on the addon.
+- `ubl/` — the French CTC CIUS (`ubl+fr-ctc-cius-v1`) and Extended
+  (`ubl+fr-ctc-extended-v1`) UBL formats, built on the base import and
+  export of [gobl.ubl](https://github.com/invopop/gobl.ubl) and registered with
+  gobl.ubl and GOBL's `convert` register on import. Add
+  `_ "github.com/invopop/gobl.fr.ctc/ubl"` to import and export French UBL
+  documents through `ubl.Import`/`ubl.Export` or `convert.Import`/`convert.Export`.
+- `cii/` — the French CII formats, built on the base import and export of
+  [gobl.cii](https://github.com/invopop/gobl.cii) and registered with gobl.cii
+  and GOBL's `convert` register on import: French CTC CIUS
+  (`cii+fr-ctc-cius-v1`), Extended (`cii+fr-ctc-extended-v1`) and
+  Factur-X (`cii+fr-ctc-facturx-v1`); the Factur-X profiles
+  (`cii+fr-facturx-v1`, `cii+fr-facturx-v1+basic`, `cii+fr-facturx-v1+extended`);
+  and Chorus Pro (`cii+fr-choruspro-v1`). Add
+  `_ "github.com/invopop/gobl.fr.ctc/cii"` to import and export French CII
+  documents through `cii.Import`/`cii.Export` or `convert.Import`/`convert.Export`.
+- `cdar/` — the Flow 6 lifecycle statuses and payments, mapped between
+  `bill.Status`/`bill.Payment` and the CDAR structures of gobl.cii, for the
+  end-party (`cdar+fr-ctc-cdv-v1`) and PPF (`cdar+fr-ctc-cdv-v1+ppf`) formats.
+  Use `cdar.Export`/`cdar.Import` directly, or add
+  `_ "github.com/invopop/gobl.fr.ctc/cdar"` to use them through GOBL's
+  `convert` register. [docs/cdar-mapping.md](docs/cdar-mapping.md) describes
+  the mapping.
 
 ## Usage
 
