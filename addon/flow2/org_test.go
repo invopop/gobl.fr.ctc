@@ -8,6 +8,7 @@ import (
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/regimes/fr"
+	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -354,63 +355,46 @@ func TestIdentitiesSIRETSIRENCoherent(t *testing.T) {
 	assert.False(t, identitiesSIRETSIRENCoherent(incoherent))
 }
 
-func TestIdentitiesSchemeFormatValid(t *testing.T) {
-	assert.NoError(t, identitiesSchemeFormatValid("wrong-type"))
-	assert.NoError(t, identitiesSchemeFormatValid([]*org.Identity{}))
+func TestIdentitiesSchemesUnique(t *testing.T) {
+	assert.True(t, identitiesSchemesUnique("wrong-type"))
+	assert.True(t, identitiesSchemesUnique([]*org.Identity{}))
+	// nil and scheme-less entries skipped
+	assert.True(t, identitiesSchemesUnique([]*org.Identity{nil, {Code: "1"}}))
 
-	t.Run("missing scheme errors", func(t *testing.T) {
-		err := identitiesSchemeFormatValid([]*org.Identity{{Code: "1"}})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "ISO scheme ID")
-	})
-	t.Run("duplicate scheme errors", func(t *testing.T) {
+	t.Run("duplicate scheme rejected", func(t *testing.T) {
 		ids := []*org.Identity{unscopedSIREN("1"), unscopedSIREN("2")}
-		err := identitiesSchemeFormatValid(ids)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "duplicate")
-	})
-	t.Run("tax registration without scheme allowed", func(t *testing.T) {
-		ids := []*org.Identity{{Code: "828701557", Scope: org.IdentityScopeTax}}
-		assert.NoError(t, identitiesSchemeFormatValid(ids))
-	})
-	t.Run("legal registration without scheme allowed", func(t *testing.T) {
-		ids := []*org.Identity{{Code: "356000000", Scope: org.IdentityScopeLegal}}
-		assert.NoError(t, identitiesSchemeFormatValid(ids))
+		assert.False(t, identitiesSchemesUnique(ids))
 	})
 	t.Run("scoped identity does not collide with party identifier", func(t *testing.T) {
 		ids := []*org.Identity{
 			sirenIdentity("356000000"),
 			{Code: "356000000", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDSIREN})},
 		}
-		assert.NoError(t, identitiesSchemeFormatValid(ids))
+		assert.True(t, identitiesSchemesUnique(ids))
 	})
-	t.Run("valid private-id", func(t *testing.T) {
+}
+
+func TestIdentitiesSchemesPresent(t *testing.T) {
+	assert.True(t, identitiesSchemesPresent("wrong-type"))
+	assert.True(t, identitiesSchemesPresent([]*org.Identity{}))
+	assert.True(t, identitiesSchemesPresent([]*org.Identity{nil}))
+
+	t.Run("party identifier without a scheme rejected", func(t *testing.T) {
+		assert.False(t, identitiesSchemesPresent([]*org.Identity{{Code: "1"}}))
+	})
+	t.Run("tax registration without a scheme allowed", func(t *testing.T) {
+		ids := []*org.Identity{{Code: "828701557", Scope: org.IdentityScopeTax}}
+		assert.True(t, identitiesSchemesPresent(ids))
+	})
+	t.Run("legal registration without a scheme allowed", func(t *testing.T) {
+		ids := []*org.Identity{{Code: "356000000", Scope: org.IdentityScopeLegal}}
+		assert.True(t, identitiesSchemesPresent(ids))
+	})
+	t.Run("private-id carrying its scheme allowed", func(t *testing.T) {
 		ids := []*org.Identity{
 			{Code: "ABC-123", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate})},
 		}
-		assert.NoError(t, identitiesSchemeFormatValid(ids))
-	})
-	t.Run("empty private-id code allowed", func(t *testing.T) {
-		ids := []*org.Identity{
-			{Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate})},
-		}
-		assert.NoError(t, identitiesSchemeFormatValid(ids))
-	})
-	t.Run("private-id too long errors", func(t *testing.T) {
-		ids := []*org.Identity{
-			{Code: cbc.Code(strings.Repeat("A", 101)), Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate})},
-		}
-		err := identitiesSchemeFormatValid(ids)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "100 characters")
-	})
-	t.Run("private-id bad format errors", func(t *testing.T) {
-		ids := []*org.Identity{
-			{Code: "bad code!", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate})},
-		}
-		err := identitiesSchemeFormatValid(ids)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "alphanumeric")
+		assert.True(t, identitiesSchemesPresent(ids))
 	})
 }
 
@@ -431,11 +415,31 @@ func TestSchemeGuards(t *testing.T) {
 	assert.True(t, inboxSchemeIs0225(&org.Inbox{Scheme: inboxSchemeSIREN}))
 }
 
+func TestOrgIdentityValidate(t *testing.T) {
+	ctx := tax.AddonContext(V1)
+	privateID := func(code string) *org.Identity {
+		return &org.Identity{
+			Code: cbc.Code(code),
+			Ext:  tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: identitySchemeIDPrivate}),
+		}
+	}
+
+	t.Run("valid private-id", func(t *testing.T) {
+		assert.NoError(t, rules.Validate(privateID("ABC-123"), ctx))
+	})
+	t.Run("private-id longer than 100 characters (BR-FR-26)", func(t *testing.T) {
+		err := rules.Validate(privateID(strings.Repeat("A", 101)), ctx)
+		assert.ErrorContains(t, err, "must not exceed 100 characters")
+	})
+	t.Run("private-id outside the permitted charset (BR-FR-24)", func(t *testing.T) {
+		err := rules.Validate(privateID("bad code!"), ctx)
+		assert.ErrorContains(t, err, "alphanumeric characters")
+	})
+}
+
 func TestMetaNoBlankValues(t *testing.T) {
-	assert.NoError(t, metaNoBlankValues("wrong-type"))
-	assert.NoError(t, metaNoBlankValues(cbc.Meta{}))
-	assert.NoError(t, metaNoBlankValues(cbc.Meta{"k": "v"}))
-	err := metaNoBlankValues(cbc.Meta{"k": "   "})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot be blank")
+	assert.True(t, metaNoBlankValues("wrong-type"))
+	assert.True(t, metaNoBlankValues(cbc.Meta{}))
+	assert.True(t, metaNoBlankValues(cbc.Meta{"k": "v"}))
+	assert.False(t, metaNoBlankValues(cbc.Meta{"k": "   "}))
 }
