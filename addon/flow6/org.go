@@ -25,9 +25,11 @@ const (
 	inboxSchemeSIREN        cbc.Code = "0225"
 )
 
-// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
-// shared by SIREN-scope inboxes and private-id identity codes.
+// Private-id (0224) identity code charset (BR-FR-24).
 var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
+
+// 0225 address charset (BR-FR-23): unlike BR-FR-24, allows `.` but not `/`.
+var sirenInboxAddressRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
 
 // allowedFlow6IdentitySchemes is the ICD 6523 subset CDAR accepts on
 // Flow 6 (CDV lifecycle) party identities. STC (0231 — assujetti
@@ -258,7 +260,7 @@ func inboxCodeValid(val any) bool {
 	if len(code) > 125 {
 		return false
 	}
-	return sirenInboxFormatRegex.MatchString(code)
+	return sirenInboxAddressRegex.MatchString(code)
 }
 
 // migrateDocRefType moves a legacy type code from Type onto the
