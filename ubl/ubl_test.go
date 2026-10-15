@@ -52,8 +52,9 @@ func TestDetect(t *testing.T) {
 func TestImport(t *testing.T) {
 	data, err := testLoadXML("france-cius/b2b-reg.xml")
 	require.NoError(t, err)
-	env, err := convert.Import(data)
+	imported, err := convert.Import(data)
 	require.NoError(t, err)
+	env := imported.Envelope
 	inv, ok := env.Extract().(*bill.Invoice)
 	require.True(t, ok)
 	assert.Contains(t, inv.GetAddons(), flow2.V1)

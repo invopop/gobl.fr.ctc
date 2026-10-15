@@ -258,7 +258,7 @@ func (converter) Detect(in *convert.Input) cbc.Key {
 	return KeyCDV
 }
 
-func (converter) Import(_ cbc.Key, data []byte) (*gobl.Envelope, error) {
+func (converter) Import(_ cbc.Key, data []byte) (*convert.ImportResult, error) {
 	doc, err := cii.Decode(data)
 	if err != nil {
 		return nil, err
@@ -267,7 +267,11 @@ func (converter) Import(_ cbc.Key, data []byte) (*gobl.Envelope, error) {
 	if !ok {
 		return nil, cii.ErrUnsupportedDocumentType
 	}
-	return Import(cdar)
+	env, err := Import(cdar)
+	if err != nil {
+		return nil, err
+	}
+	return &convert.ImportResult{Envelope: env}, nil
 }
 
 // Accepts checks the status or payment includes the Flow 6 addon.

@@ -356,8 +356,9 @@ func TestConvertRegister(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, frcii.KeyCTCExtended, f.Key)
 
-		env, err := convert.Import(data)
+		imported, err := convert.Import(data)
 		require.NoError(t, err)
+		env := imported.Envelope
 		inv, ok := env.Extract().(*bill.Invoice)
 		require.True(t, ok)
 		assert.Contains(t, inv.GetAddons(), flow2.V1)
@@ -390,6 +391,11 @@ func TestConvertRegister(t *testing.T) {
 		atts := doc.(*goblcii.Invoice).ExtractBinaryAttachments()
 		require.Len(t, atts, 1)
 		assert.Equal(t, "invoice.pdf", atts[0].Filename)
+
+		imported, err := convert.Import(out.Data)
+		require.NoError(t, err)
+		require.Len(t, imported.Attachments, 1)
+		assert.Equal(t, pdf.Data, imported.Attachments[0].Data)
 	})
 	t.Run("factur-x en 16931 is export-only", func(t *testing.T) {
 		f := convert.FormatFor(frcii.KeyFacturX)
