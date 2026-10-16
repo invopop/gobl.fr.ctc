@@ -5,9 +5,11 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	cur "github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/org"
+	"github.com/invopop/gobl/tax"
 )
 
 // UNCL 3035 role codes the French extended profile pins on the parties it
@@ -63,7 +65,8 @@ func taxRegistrationScheme(p *org.Party, out *goblubl.Party) {
 	}
 }
 
-// importCIUS restores the billing mode from the ProfileID.
+// importCIUS restores the billing mode from the ProfileID and the document
+// type from BT-3.
 func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) error {
 	inv, in, ok := invoices(env, doc)
 	if !ok {
@@ -74,7 +77,72 @@ func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) err
 		profileID = in.ProfileID.Value
 	}
 	inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code(profileID))
+	importDocumentType(inv, in)
 	return nil
+}
+
+// documentType pairs an UNTDID 1001 code with the GOBL invoice type and tags
+// that stand for it.
+type documentType struct {
+	typ  cbc.Key
+	tags []cbc.Key
+}
+
+// documentTypes inverts the Flow 2 scenarios: every UNTDID 1001 code the
+// French profiles accept, against the type and tags whose scenario
+// regenerates that same code on the way out. The base import only knows the
+// codes EN 16931 itself defines, so the rest arrive as a plain "other".
+var documentTypes = map[cbc.Code]documentType{
+	// Simple invoices.
+	"380": {bill.InvoiceTypeStandard, nil},
+	"389": {bill.InvoiceTypeStandard, []cbc.Key{tax.TagSelfBilled}},
+	"393": {bill.InvoiceTypeStandard, []cbc.Key{tax.TagFactoring}},
+	"501": {bill.InvoiceTypeStandard, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+	// Deposit invoices.
+	"386": {bill.InvoiceTypeStandard, []cbc.Key{tax.TagPrepayment}},
+	"500": {bill.InvoiceTypeStandard, []cbc.Key{tax.TagSelfBilled, tax.TagPrepayment}},
+	// Corrective invoices.
+	"384": {bill.InvoiceTypeCorrective, nil},
+	"471": {bill.InvoiceTypeCorrective, []cbc.Key{tax.TagSelfBilled}},
+	"472": {bill.InvoiceTypeCorrective, []cbc.Key{tax.TagFactoring}},
+	"473": {bill.InvoiceTypeCorrective, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+	// Credit notes.
+	"381": {bill.InvoiceTypeCreditNote, nil},
+	"261": {bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagSelfBilled}},
+	"396": {bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagFactoring}},
+	"502": {bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+	"503": {bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagPrepayment}},
+}
+
+// importDocumentType restores BT-3, which the scenarios can only derive back
+// from the invoice type and tags.
+func importDocumentType(inv *bill.Invoice, in *goblubl.Invoice) {
+	code := documentTypeCode(in)
+	if code == cbc.CodeEmpty {
+		return
+	}
+	if dt, ok := documentTypes[code]; ok {
+		inv.Type = dt.typ
+		inv.SetTags(dt.tags...)
+		return
+	}
+	// A code with no type of its own, such as 262 for the consolidated credit
+	// note, is kept as stated so the addon can report it for what it is.
+	if inv.Type == bill.InvoiceTypeOther {
+		inv.Tax.Ext = inv.Tax.Ext.Set(untdid.ExtKeyDocumentType, code)
+	}
+}
+
+// documentTypeCode provides BT-3, whichever element the document carries it in.
+func documentTypeCode(in *goblubl.Invoice) cbc.Code {
+	tc := in.InvoiceTypeCode
+	if tc == nil {
+		tc = in.CreditNoteTypeCode
+	}
+	if tc == nil {
+		return cbc.CodeEmpty
+	}
+	return cbc.Code(tc.Value)
 }
 
 // exportExtended adds the parties and amounts that only the French Extended
