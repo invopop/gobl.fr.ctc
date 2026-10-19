@@ -167,7 +167,7 @@ func newCDAR(st *bill.Status, f Format, sender *org.Party, from, to cbc.URI) (*c
 	// injected here:
 	//
 	//   SenderTradeParty (MDT-21): bare <RoleCode>WK</RoleCode> by
-	//     default; overridden by the WithSenderTradeParty option.
+	//     default; overridden by the WithSender option.
 	//   IssuerTradeParty (MDG-16): the business party declaring the
 	//     event on 23-phase codes (Customer for 204-210, Supplier for
 	//     209); the sending platform on 305-phase codes.
@@ -420,7 +420,7 @@ func bareWKParty() *org.Party {
 // party for a CDV transmitted to the PPF: role WK with the platform's PA
 // matricule as a GlobalID under the 0238 scheme. PPF rejects a CDV whose
 // SenderTradeParty has no GlobalID (MDT-19). Pass it via
-// WithSenderTradeParty; an empty matricule returns the bare WK party.
+// WithSender; an empty matricule returns the bare WK party.
 func PPFPlatformParty(matricule string) *org.Party {
 	p := bareWKParty()
 	if matricule == "" {
