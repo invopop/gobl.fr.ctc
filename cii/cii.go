@@ -8,7 +8,6 @@ package cii
 
 import (
 	goblcii "github.com/invopop/gobl.cii"
-	"github.com/invopop/gobl.fr.ctc/addon/facturx"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	"github.com/invopop/gobl/addons/fr/choruspro"
 	"github.com/invopop/gobl/bill"
@@ -20,82 +19,55 @@ import (
 
 // Format keys.
 const (
-	KeyCTCCIUS         cbc.Key = "cii+fr-ctc-cius-v1"
-	KeyCTCExtended     cbc.Key = "cii+fr-ctc-extended-v1"
-	KeyCTCFacturX      cbc.Key = "cii+fr-ctc-facturx-v1"
-	KeyFacturX         cbc.Key = "cii+fr-facturx-v1"
-	KeyFacturXBasic    cbc.Key = "cii+fr-facturx-v1+basic"
-	KeyFacturXExtended cbc.Key = "cii+fr-facturx-v1+extended"
-	KeyChorusPro       cbc.Key = "cii+fr-choruspro-v1"
+	KeyCTCCIUS            cbc.Key = "cii+fr-ctc-cius-v1"
+	KeyCTCExtended        cbc.Key = "cii+fr-ctc-extended-v1"
+	KeyCTCFacturXCIUS     cbc.Key = "cii+fr-ctc-facturx-cius-v1"
+	KeyCTCFacturXExtended cbc.Key = "cii+fr-ctc-facturx-extended-v1"
+	KeyChorusPro          cbc.Key = "cii+fr-choruspro-v1"
 )
 
 // ProcessIDRegulated is the Peppol France regulated billing process.
 const ProcessIDRegulated = "urn:peppol:france:billing:regulated"
 
-// Hybrid-PDF guideline IDs. BT-24 is checked against a closed codelist per
-// profile (FX-SCH-A-000026), so these are not interchangeable. MINIMUM and
-// BASIC WL are omitted: not EN 16931 conformant, so out of scope here.
-const (
-	GuidelineIDFacturXBasic    = goblcii.GuidelineIDEN16931 + "#compliant#urn:factur-x.eu:1p0:basic"
-	GuidelineIDFacturXExtended = goblcii.GuidelineIDEN16931 + "#conformant#urn:factur-x.eu:1p0:extended"
-)
+// GuidelineIDFacturXExtended is the BT-24 of a Factur-X EXTENDED document,
+// checked against a closed codelist per profile (FX-SCH-A-000026). Factur-X
+// EN 16931 carries the plain EN 16931 guideline.
+const GuidelineIDFacturXExtended = goblcii.GuidelineIDEN16931 + "#conformant#urn:factur-x.eu:1p0:extended"
 
 var invoiceSchema = schema.Lookup(bill.Invoice{})
 
 var countriesFR = []l10n.Code{l10n.FR}
 
-// FormatFacturX is the Factur-X EN 16931 (COMFORT) profile.
-var FormatFacturX = goblcii.Format{
-	Key:       KeyFacturX,
-	Name:      i18n.NewString("CII Factur-X EN 16931"),
-	Countries: countriesFR,
-	// Only the PDF container tells its documents apart from EN 16931 ones,
-	// so they're never detected as Factur-X: a caller that took the CII out
-	// of a Factur-X PDF imports it by asking for this format.
+// The Factur-X profiles of Flux 2 (XP Z12-012), each validated with its
+// Factur-X schematron and the French Flux 2 rules. BASIC and MINIMUM are not
+// Flux 2 profiles.
+
+// FormatCTCFacturXCIUS is used for French CTC Factur-X EN 16931 documents.
+// Their CII only differs from a CIUS one by the PDF it travels in, so the
+// format is never detected: it imports when asked for by key.
+var FormatCTCFacturXCIUS = goblcii.Format{
+	Key:         KeyCTCFacturXCIUS,
+	Name:        i18n.NewString("CII France CTC Factur-X CIUS"),
+	Countries:   countriesFR,
 	Import:      []schema.ID{invoiceSchema},
 	Export:      []schema.ID{invoiceSchema},
-	OnRequest:   true,
 	GuidelineID: goblcii.GuidelineIDEN16931,
+	BusinessID:  ProcessIDRegulated,
 	Version:     goblcii.VersionD22B,
-	Addons:      []cbc.Key{facturx.V1},
-	VESID:       "fr.factur-x:en16931:1.0.8",
+	Addons:      []cbc.Key{flow2.V1},
+	VESID:       "fr.ctc:facturx-en16931:1.4.0-04",
+	ExportFuncs: []goblcii.ExportFunc{exportBillingMode},
+	ImportFuncs: []goblcii.ImportFunc{importBillingMode},
 	Attachments: true,
+	OnRequest:   true,
 }
 
-// FormatFacturXBasic is the Factur-X BASIC profile, a CIUS of EN 16931.
-var FormatFacturXBasic = goblcii.Format{
-	Key:         KeyFacturXBasic,
-	Name:        i18n.NewString("CII Factur-X BASIC"),
-	Countries:   countriesFR,
-	Import:      []schema.ID{invoiceSchema},
-	Export:      []schema.ID{invoiceSchema},
-	GuidelineID: GuidelineIDFacturXBasic,
-	Version:     goblcii.VersionD22B,
-	Addons:      []cbc.Key{facturx.V1},
-	VESID:       "fr.factur-x:basic:1.0.8",
-}
-
-// FormatFacturXExtended is the Factur-X EXTENDED profile.
-var FormatFacturXExtended = goblcii.Format{
-	Key:         KeyFacturXExtended,
-	Name:        i18n.NewString("CII Factur-X EXTENDED"),
-	Countries:   countriesFR,
-	Import:      []schema.ID{invoiceSchema},
-	Export:      []schema.ID{invoiceSchema},
-	GuidelineID: GuidelineIDFacturXExtended,
-	Version:     goblcii.VersionD22B,
-	Addons:      []cbc.Key{facturx.V1},
-	VESID:       "fr.factur-x:extended:1.0.8",
-	ExportFuncs: []goblcii.ExportFunc{exportSubLines},
-	Attachments: true,
-}
-
-// FormatCTCFacturX is used for French CTC Factur-X documents.
+// FormatCTCFacturXExtended is used for French CTC Factur-X EXTENDED documents.
 // BT-24 carries the Factur-X EXTENDED guideline: Factur-X only accepts its own
 // per-profile values, and the CTC rules don't check BT-24 at all.
-var FormatCTCFacturX = goblcii.Format{
-	Key:               KeyCTCFacturX,
-	Name:              i18n.NewString("CII France CTC Factur-X"),
+var FormatCTCFacturXExtended = goblcii.Format{
+	Key:               KeyCTCFacturXExtended,
+	Name:              i18n.NewString("CII France CTC Factur-X EXTENDED"),
 	Countries:         countriesFR,
 	Import:            []schema.ID{invoiceSchema},
 	Export:            []schema.ID{invoiceSchema},
@@ -104,7 +76,7 @@ var FormatCTCFacturX = goblcii.Format{
 	OutputGuidelineID: GuidelineIDFacturXExtended,
 	Version:           goblcii.VersionD16B,
 	Addons:            []cbc.Key{flow2.V1},
-	VESID:             "fr.ctc:extended-cii:1.4.0-03",
+	VESID:             "fr.ctc:facturx-extended:1.4.0-04",
 	ExportFuncs:       []goblcii.ExportFunc{exportBillingMode, exportExtended, exportSubLines},
 	ImportFuncs:       []goblcii.ImportFunc{importBillingMode, importExtended},
 	Attachments:       true,
@@ -171,12 +143,11 @@ var FormatChorusPro = goblcii.Format{
 func init() {
 	// France CIUS documents use the same GuidelineID as EN 16931, but can be
 	// identified by their BusinessID carrying a billing mode code.
-	FormatCTCFacturX.Match = matchBillingMode(FormatCTCFacturX)
+	FormatCTCFacturXExtended.Match = matchBillingMode(FormatCTCFacturXExtended)
 	FormatCTCCIUS.Match = matchBillingMode(FormatCTCCIUS)
 	FormatCTCExtended.Match = matchBillingMode(FormatCTCExtended)
 	goblcii.RegisterFormats(
-		FormatFacturX, FormatFacturXBasic, FormatFacturXExtended,
-		FormatCTCFacturX, FormatCTCCIUS, FormatCTCExtended,
+		FormatCTCFacturXCIUS, FormatCTCFacturXExtended, FormatCTCCIUS, FormatCTCExtended,
 		FormatChorusPro,
 	)
 }

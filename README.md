@@ -51,15 +51,14 @@ documents take on its weight.
   [gobl.cii](https://github.com/invopop/gobl.cii) and registered with gobl.cii
   and GOBL's `convert` register on import: French CTC CIUS
   (`cii+fr-ctc-cius-v1`), Extended (`cii+fr-ctc-extended-v1`) and
-  Factur-X (`cii+fr-ctc-facturx-v1`); the Factur-X profiles
-  (`cii+fr-facturx-v1`, `cii+fr-facturx-v1+basic`, `cii+fr-facturx-v1+extended`);
-  and Chorus Pro (`cii+fr-choruspro-v1`). Add
-  `_ "github.com/invopop/gobl.fr.ctc/cii"` to import and export French CII
-  documents through `cii.Import`/`cii.Export` or `convert.Import`/`convert.Export`.
-  `cii+fr-facturx-v1` is export-only: Factur-X EN 16931 XML declares exactly
-  the EN 16931 guideline, as only its PDF tells it apart, so it is imported as
-  `cii+en16931-v2017`. Add the `fr-facturx-v1` addon to export it back as
-  Factur-X.
+  the Factur-X CTC profiles, EN 16931 (`cii+fr-ctc-facturx-cius-v1`) and
+  EXTENDED (`cii+fr-ctc-facturx-extended-v1`); and Chorus Pro
+  (`cii+fr-choruspro-v1`). Add `_ "github.com/invopop/gobl.fr.ctc/cii"` to
+  import and export French CII documents through `cii.Import`/`cii.Export` or
+  `convert.Import`/`convert.Export`. Factur-X EN 16931 XML reads exactly like
+  the CTC CIUS, as only its PDF tells it apart, so it is detected as
+  `cii+fr-ctc-cius-v1` and imported as `cii+fr-ctc-facturx-cius-v1` only when
+  asked for.
 - `cdar/` — the Flow 6 lifecycle statuses and payments, mapped between
   `bill.Status`/`bill.Payment` and the CDAR structures of gobl.cii, for the
   end-party (`cdar+fr-ctc-cdv-v1`) and PPF (`cdar+fr-ctc-cdv-v1+ppf`) formats.

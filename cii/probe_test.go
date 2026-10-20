@@ -28,8 +28,8 @@ type franceInvoiceProbe struct {
 var franceInvoiceProbes = []franceInvoiceProbe{
 	{"CIUS/380", "peppol-france-cius", "invoice-standard.json", frcii.FormatCTCCIUS},
 	{"CIUS/381", "peppol-france-cius", "credit-note.json", frcii.FormatCTCCIUS},
-	{"FacturX/380", "peppol-france-facturx", "invoice-standard.json", frcii.FormatCTCFacturX},
-	{"FacturX/381", "peppol-france-facturx", "credit-note.json", frcii.FormatCTCFacturX},
+	{"FacturX/380", "peppol-france-facturx", "invoice-standard.json", frcii.FormatCTCFacturXExtended},
+	{"FacturX/381", "peppol-france-facturx", "credit-note.json", frcii.FormatCTCFacturXExtended},
 	{"Extended/380", "peppol-france-extended", "invoice-standard.json", frcii.FormatCTCExtended},
 	{"Extended/381", "peppol-france-extended", "credit-note.json", frcii.FormatCTCExtended},
 }
