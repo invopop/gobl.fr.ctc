@@ -325,7 +325,9 @@ func TestConvertRegister(t *testing.T) {
 			f := convert.FormatFor(k)
 			require.NotNil(t, f, k)
 			assert.Equal(t, cbc.Key("cii"), f.Syntax)
-			assert.NotEmpty(t, f.Import, k)
+			if k != frcii.KeyCTCFacturXCIUS {
+				assert.NotEmpty(t, f.Import, k)
+			}
 			assert.True(t, f.Attachments, k)
 		}
 	})
@@ -372,20 +374,13 @@ func TestConvertRegister(t *testing.T) {
 		assert.Equal(t, pdf.Data, imported.Attachments[0].Data)
 	})
 
-	t.Run("factur-x cius is imported only when asked for", func(t *testing.T) {
+	t.Run("factur-x cius is export-only", func(t *testing.T) {
 		env := loadEnvelope(t, "peppol-france-cius/invoice-standard.json")
 		out, err := convert.Export(env, frcii.KeyCTCFacturXCIUS)
 		require.NoError(t, err)
 		d, err := convert.Detect(out.Data)
 		require.NoError(t, err)
-		assert.Equal(t, frcii.KeyCTCCIUS, d.Key, "its CII reads as CIUS on its own")
-
-		imported, err := convert.Import(out.Data, convert.WithFormats(frcii.KeyCTCFacturXCIUS))
-		require.NoError(t, err)
-		assert.Equal(t, frcii.KeyCTCFacturXCIUS, imported.Format.Key)
-		inv, ok := imported.Envelope.Extract().(*bill.Invoice)
-		require.True(t, ok)
-		assert.Contains(t, inv.GetAddons(), flow2.V1)
+		assert.Equal(t, frcii.KeyCTCCIUS, d.Key, "its CII reads as CIUS")
 	})
 
 	t.Run("factur-x extended is detected", func(t *testing.T) {

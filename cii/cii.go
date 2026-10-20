@@ -44,12 +44,11 @@ var countriesFR = []l10n.Code{l10n.FR}
 
 // FormatCTCFacturXCIUS is used for French CTC Factur-X EN 16931 documents.
 // Their CII only differs from a CIUS one by the PDF it travels in, so the
-// format is never detected: it imports when asked for by key.
+// format is export-only: its CII imports as CIUS.
 var FormatCTCFacturXCIUS = goblcii.Format{
 	Key:         KeyCTCFacturXCIUS,
 	Name:        i18n.NewString("CII France CTC Factur-X CIUS"),
 	Countries:   countriesFR,
-	Import:      []schema.ID{invoiceSchema},
 	Export:      []schema.ID{invoiceSchema},
 	GuidelineID: goblcii.GuidelineIDEN16931,
 	BusinessID:  ProcessIDRegulated,
@@ -57,9 +56,7 @@ var FormatCTCFacturXCIUS = goblcii.Format{
 	Addons:      []cbc.Key{flow2.V1},
 	VESID:       "fr.ctc:facturx-en16931:1.4.0-04",
 	ExportFuncs: []goblcii.ExportFunc{exportBillingMode},
-	ImportFuncs: []goblcii.ImportFunc{importBillingMode},
 	Attachments: true,
-	OnRequest:   true,
 }
 
 // FormatCTCFacturXExtended is used for French CTC Factur-X EXTENDED documents.
