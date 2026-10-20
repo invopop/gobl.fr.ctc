@@ -50,8 +50,11 @@ var FormatFacturX = goblcii.Format{
 	Name:      i18n.NewString("CII Factur-X EN 16931"),
 	Countries: countriesFR,
 	// Only the PDF container tells its documents apart from EN 16931 ones,
-	// so the format is export-only and they import as EN 16931.
+	// so they're never detected as Factur-X: a caller that took the CII out
+	// of a Factur-X PDF imports it by asking for this format.
+	Import:      []schema.ID{invoiceSchema},
 	Export:      []schema.ID{invoiceSchema},
+	OnRequest:   true,
 	GuidelineID: goblcii.GuidelineIDEN16931,
 	Version:     goblcii.VersionD22B,
 	Addons:      []cbc.Key{facturx.V1},

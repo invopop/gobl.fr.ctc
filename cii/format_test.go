@@ -3,9 +3,11 @@ package cii_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	goblcii "github.com/invopop/gobl.cii"
+	"github.com/invopop/gobl.fr.ctc/addon/facturx"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	frcii "github.com/invopop/gobl.fr.ctc/cii"
 	"github.com/invopop/gobl/bill"
@@ -397,16 +399,35 @@ func TestConvertRegister(t *testing.T) {
 		require.Len(t, imported.Attachments, 1)
 		assert.Equal(t, pdf.Data, imported.Attachments[0].Data)
 	})
-	t.Run("factur-x en 16931 is export-only", func(t *testing.T) {
-		f := convert.FormatFor(frcii.KeyFacturX)
-		require.NotNil(t, f)
-		assert.Empty(t, f.Import)
-
+	t.Run("factur-x en 16931 is imported only when asked for", func(t *testing.T) {
 		env := loadEnvelope(t, "facturx/invoice-complete.json")
 		out, err := convert.Export(env, frcii.KeyFacturX)
 		require.NoError(t, err)
 		d, err := convert.Detect(out.Data)
 		require.NoError(t, err)
-		assert.Equal(t, goblcii.FormatEN16931.Key, d.Key, "imported as EN 16931")
+		assert.Equal(t, goblcii.FormatEN16931.Key, d.Key, "detected as EN 16931 on its own")
+
+		imported, err := convert.Import(out.Data, convert.WithFormats(frcii.KeyFacturX))
+		require.NoError(t, err)
+		assert.Equal(t, frcii.KeyFacturX, imported.Format.Key)
+		inv, ok := imported.Envelope.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		assert.Contains(t, inv.GetAddons(), facturx.V1)
+	})
+
+	t.Run("factur-x extended asked for over the CTC match", func(t *testing.T) {
+		env := loadEnvelope(t, "facturx/invoice-complete.json")
+		out, err := convert.Export(env, frcii.KeyFacturXExtended)
+		require.NoError(t, err)
+		// A French billing mode makes the CTC Factur-X match claim it.
+		data := strings.Replace(string(out.Data), "<ram:GuidelineSpecifiedDocumentContextParameter>",
+			"<ram:BusinessProcessSpecifiedDocumentContextParameter><ram:ID>B1</ram:ID></ram:BusinessProcessSpecifiedDocumentContextParameter><ram:GuidelineSpecifiedDocumentContextParameter>", 1)
+		d, err := convert.Detect([]byte(data))
+		require.NoError(t, err)
+		assert.Equal(t, frcii.KeyCTCFacturX, d.Key)
+
+		imported, err := convert.Import([]byte(data), convert.WithFormats(frcii.KeyFacturXExtended))
+		require.NoError(t, err)
+		assert.Equal(t, frcii.KeyFacturXExtended, imported.Format.Key)
 	})
 }
