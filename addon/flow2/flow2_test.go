@@ -639,3 +639,25 @@ func TestInvoiceGlobalCreditNote(t *testing.T) {
 		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-43")
 	})
 }
+
+// Every code Flow 2 accepts restores a type and tags that calculate back to
+// the same code.
+func TestDocumentType(t *testing.T) {
+	for _, code := range allowedInvoiceDocumentTypes {
+		t.Run(code.String(), func(t *testing.T) {
+			typ, tags, ok := DocumentType(code)
+			require.True(t, ok)
+			inv := testInvoiceB2BStandard(t)
+			inv.Type = typ
+			inv.SetTags(tags...)
+			inv.Tax.Ext = inv.Tax.Ext.Delete(untdid.ExtKeyDocumentType)
+			require.NoError(t, inv.Calculate())
+			assert.Equal(t, code, inv.Tax.Ext.Get(untdid.ExtKeyDocumentType))
+		})
+	}
+
+	t.Run("a code with no scenario", func(t *testing.T) {
+		_, _, ok := DocumentType("999")
+		assert.False(t, ok)
+	})
+}

@@ -550,6 +550,7 @@ func TestImportDocumentType(t *testing.T) {
 		{"396", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagFactoring}},
 		{"502", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
 		{"503", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagPrepayment}},
+		{"262", bill.InvoiceTypeCreditNote, []cbc.Key{flow2.TagGlobal}},
 	}
 
 	for _, tt := range tests {
@@ -562,15 +563,6 @@ func TestImportDocumentType(t *testing.T) {
 				"the scenario must regenerate the stated code")
 		})
 	}
-
-	t.Run("a code with no type of its own is kept as stated", func(t *testing.T) {
-		// 262 is the consolidated credit note, which the caller sets
-		// explicitly because no scenario drives it.
-		inv := importWithDocumentType(t, "262")
-
-		assert.Equal(t, bill.InvoiceTypeOther, inv.Type)
-		assert.Equal(t, cbc.Code("262"), inv.Tax.Ext.Get(untdid.ExtKeyDocumentType))
-	})
 
 	t.Run("a code the profile forbids is reported, not dropped", func(t *testing.T) {
 		// 875 is a German construction invoice, so BR-FR-04 must reject it
