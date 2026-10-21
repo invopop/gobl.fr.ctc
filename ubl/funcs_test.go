@@ -596,9 +596,9 @@ func importWithDocumentType(t *testing.T, code string) *bill.Invoice {
 		[]byte("<cbc:InvoiceTypeCode>"+code+"</cbc:InvoiceTypeCode>"), 1)
 	require.NotEqual(t, string(raw), string(data), "BT-3 was not replaced")
 
-	env, err := convert.Import(data)
+	imported, err := convert.Import(data)
 	require.NoError(t, err)
-	inv, ok := env.Extract().(*bill.Invoice)
+	inv, ok := imported.Envelope.Extract().(*bill.Invoice)
 	require.True(t, ok)
 	return inv
 }
