@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "9f3998e954f50ac917e30f706c691e4394a4e9f907015327b897ad6ce5009333"
+			"val": "998186ed5d5e48c5d9c66114ed057fa1c58f828dc489cba18ae00f7d7617f2a5"
 		},
 		"from": "iso6523-actorid-upis::0225:341200068",
 		"to": "iso6523-actorid-upis::0225:572013583_57201358347049_SERVICE_PUBLIQUE_3_57201358347049"
@@ -168,6 +168,7 @@
 				"item": {
 					"name": "SERVICE_FOURNI1",
 					"description": "Description",
+					"list": "40.0000",
 					"price": "40.0000",
 					"unit": "h",
 					"ext": {
@@ -193,6 +194,7 @@
 				"item": {
 					"name": "SERVICE_FOURNI2",
 					"description": "Description",
+					"list": "400.0000",
 					"price": "400.0000",
 					"unit": "day",
 					"ext": {
@@ -253,6 +255,12 @@
 			]
 		},
 		"payment": {
+			"advances": [
+				{
+					"description": "Prepaid Amount",
+					"amount": "0.00"
+				}
+			],
 			"terms": {
 				"due_dates": [
 					{
@@ -263,12 +271,6 @@
 				],
 				"notes": "PAIEMENT 30 JOURS NET"
 			},
-			"advances": [
-				{
-					"description": "Prepaid Amount",
-					"amount": "0.00"
-				}
-			],
 			"instructions": {
 				"key": "credit-transfer",
 				"detail": "Virement",
