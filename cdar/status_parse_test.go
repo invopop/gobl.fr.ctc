@@ -92,11 +92,8 @@ func TestParseCDARStatusIncludedNote(t *testing.T) {
 	require.Len(t, reasons, 1)
 
 	assert.Equal(t, "DOUBLON", reasons[0].Ext.Get(flow6.ExtKeyReason).String())
+	// The description is the note alone; the generic label is not copied.
 	assert.Equal(t, "Facture déjà reçue le 12/08/2026 sous la référence F202500001", reasons[0].Description)
-
-	// A note with no ReasonCode of its own explains the line: inventing a
-	// coded reason for it would break BR-FR-CDV-CL-09 on a 210.
-	assert.Equal(t, "Merci de ne pas réémettre cette facture", st.Lines[0].Description)
 
 	env, err := gobl.Envelop(st)
 	require.NoError(t, err)

@@ -58,7 +58,7 @@
       </ram:IssuerTradeParty>
       <ram:SpecifiedDocumentStatus>
         <ram:ReasonCode>TX_TVA_ERR</ram:ReasonCode>
-        <ram:Reason>Motif TX_TVA_ERR</ram:Reason>
+        <ram:Reason>Erreur de taux de TVA</ram:Reason>
         <ram:RequestedActionCode>NIN</ram:RequestedActionCode>
         <ram:RequestedAction>Créer une facture rectificative</ram:RequestedAction>
         <ram:SequenceNumeric>1</ram:SequenceNumeric>

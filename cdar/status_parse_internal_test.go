@@ -52,36 +52,16 @@ func TestSupplierWithReferencedSIREN(t *testing.T) {
 	})
 }
 
-func TestCDARReasonDescription(t *testing.T) {
+func TestCDARNoteText(t *testing.T) {
 	note := func(content ...string) *cii.CDARNote { return &cii.CDARNote{Content: content} }
 
-	t.Run("label first, then what the note adds", func(t *testing.T) {
-		ds := &cii.CDARDocumentStatus{
-			Reason:        []string{"Doublon"},
-			IncludedNotes: []*cii.CDARNote{note("Facture déjà reçue le 12/08/2026")},
-		}
-		assert.Equal(t, "Doublon\nFacture déjà reçue le 12/08/2026", cdarReasonDescription(ds))
+	t.Run("joins every content line", func(t *testing.T) {
+		notes := []*cii.CDARNote{note("Facture déjà reçue", "le 12/08/2026"), note("sous la référence F202500001")}
+		assert.Equal(t, "Facture déjà reçue\nle 12/08/2026\nsous la référence F202500001", cdarNoteText(notes))
 	})
 
-	t.Run("our own output: label and note repeat each other", func(t *testing.T) {
-		ds := &cii.CDARDocumentStatus{
-			Reason:        []string{"Motif TX_TVA_ERR"},
-			IncludedNotes: []*cii.CDARNote{note("Motif TX_TVA_ERR")},
-		}
-		assert.Equal(t, "Motif TX_TVA_ERR", cdarReasonDescription(ds))
-	})
-
-	t.Run("padding from a pretty-printed CDAR is neither kept nor counted as new", func(t *testing.T) {
-		ds := &cii.CDARDocumentStatus{
-			Reason:        []string{"\n  Doublon\n"},
-			IncludedNotes: []*cii.CDARNote{note("Doublon", "  ", "")},
-		}
-		assert.Equal(t, "Doublon", cdarReasonDescription(ds))
-	})
-
-	t.Run("nil and empty notes are skipped", func(t *testing.T) {
-		ds := &cii.CDARDocumentStatus{IncludedNotes: []*cii.CDARNote{nil, note()}}
-		assert.Equal(t, "", cdarReasonDescription(ds))
+	t.Run("nil and empty notes give no text", func(t *testing.T) {
+		assert.Equal(t, "", cdarNoteText([]*cii.CDARNote{nil, note()}))
 	})
 }
 

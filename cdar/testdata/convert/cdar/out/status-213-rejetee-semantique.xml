@@ -52,7 +52,7 @@
       </ram:IssuerTradeParty>
       <ram:SpecifiedDocumentStatus>
         <ram:ReasonCode>REJ_SEMAN</ram:ReasonCode>
-        <ram:Reason>Motif REJ_SEMAN</ram:Reason>
+        <ram:Reason>Rejet sémantique</ram:Reason>
         <ram:RequestedActionCode>NIN</ram:RequestedActionCode>
         <ram:RequestedAction>Créer une facture rectificative</ram:RequestedAction>
         <ram:SequenceNumeric>1</ram:SequenceNumeric>

@@ -57,7 +57,7 @@
       </ram:IssuerTradeParty>
       <ram:SpecifiedDocumentStatus>
         <ram:ReasonCode>AUTRE</ram:ReasonCode>
-        <ram:Reason>Motif AUTRE</ram:Reason>
+        <ram:Reason>Autre</ram:Reason>
         <ram:RequestedActionCode>NIN</ram:RequestedActionCode>
         <ram:RequestedAction>Créer une facture rectificative</ram:RequestedAction>
         <ram:SequenceNumeric>1</ram:SequenceNumeric>

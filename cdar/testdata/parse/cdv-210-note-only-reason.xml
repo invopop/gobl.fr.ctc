@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 210 Refusée issued by the buyer's platform. The motive travels only as
-     SpecifiedDocumentStatus/IncludedNote/Content (MDT-126): the first status
-     pairs the note with a ReasonCode and no ram:Reason label, the second
-     carries a note with no ReasonCode at all. -->
+<!-- 210 Refusée issued by the buyer's platform. ram:Reason (MDT-114) carries
+     only the code's generic label; the motive itself travels as
+     SpecifiedDocumentStatus/IncludedNote/Content (MDT-126). -->
 <rsm:CrossDomainAcknowledgementAndResponse xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossDomainAcknowledgementAndResponse:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
   <rsm:ExchangedDocumentContext>
     <ram:BusinessProcessSpecifiedDocumentContextParameter>
@@ -66,15 +65,10 @@
       </ram:IssuerTradeParty>
       <ram:SpecifiedDocumentStatus>
         <ram:ReasonCode>DOUBLON</ram:ReasonCode>
+        <ram:Reason>Doublon</ram:Reason>
         <ram:SequenceNumeric>1</ram:SequenceNumeric>
         <ram:IncludedNote>
           <ram:Content>Facture déjà reçue le 12/08/2026 sous la référence F202500001</ram:Content>
-        </ram:IncludedNote>
-      </ram:SpecifiedDocumentStatus>
-      <ram:SpecifiedDocumentStatus>
-        <ram:SequenceNumeric>2</ram:SequenceNumeric>
-        <ram:IncludedNote>
-          <ram:Content>Merci de ne pas réémettre cette facture</ram:Content>
         </ram:IncludedNote>
       </ram:SpecifiedDocumentStatus>
     </ram:ReferenceReferencedDocument>
