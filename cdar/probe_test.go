@@ -217,8 +217,13 @@ func TestProbeInvalidStatusesRejectedByGOBL(t *testing.T) {
 			"customer",
 		},
 		{
-			"customer-without-inbox",
-			func(st *bill.Status) { st.Customer.Inboxes = nil },
+			// One party without an inbox is fine (BR-FR-CDV-08 only needs
+			// the recipient's), but at least one must have it.
+			"no-party-with-inbox",
+			func(st *bill.Status) {
+				st.Supplier.Inboxes = nil
+				st.Customer.Inboxes = nil
+			},
 			"inbox",
 		},
 		{

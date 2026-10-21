@@ -286,10 +286,10 @@ func participantInbox(uri cbc.URI) *org.Inbox {
 // hydratePartyInboxes fills a business party's Peppol inbox from the envelope's
 // transport routing (the SBD From / To) when the CDV body omitted it. A
 // conformant CDAR need not repeat the issuer's electronic address in the
-// document body — it travels at the SBD layer — yet BR-FR-CDV-08 requires every
-// non-WK/DFH party to carry an inbox, so a received status would otherwise fail
-// validation. Each routing participant is matched to the party whose SIREN it
-// carries; any leftover participant fills a party still missing an inbox.
+// document body, as it travels at the SBD layer; BR-FR-CDV-08 only requires
+// the recipient's. Each routing participant is matched to the party whose
+// SIREN it carries; any leftover participant fills a party still missing an
+// inbox.
 // Parties that already have an inbox are left untouched.
 func hydratePartyInboxes(supplier, customer *org.Party, r routing) {
 	parties := make([]*org.Party, 0, 2)

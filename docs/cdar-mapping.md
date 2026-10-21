@@ -241,7 +241,7 @@ they will become hard errors in future spec releases):
 | BILL-STATUS-15 | BR-FR-CDV-CL-03 | `Issuer.ext.fr-ctc-flow6-role` present |
 | BILL-STATUS-16 | BR-FR-CDV-CL-04 | `Recipient` present (MDG-23) |
 | BILL-STATUS-17 | BR-FR-CDV-CL-04 | `Recipient.ext.fr-ctc-flow6-role` present |
-| BILL-STATUS-18 | BR-FR-CDV-08 | `Recipient` has inbox when role ≠ WK / DFH |
+| BILL-STATUS-28 | BR-FR-CDV-08 | `Supplier` or `Customer` has an inbox when its role ≠ WK / DFH; the status doesn't say which is the recipient |
 | BILL-STATUS-19 | BR-FR-CDV-CL-09 | reason codes allowed for the line's process code |
 | BILL-REASON-01 | — | `Reason.Key` is a known `bill.ReasonKey` |
 | BILL-REASON-02 | — | `fr-ctc-flow6-reason` known and matches `Reason.Key` bucket |

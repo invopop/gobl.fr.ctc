@@ -293,3 +293,22 @@ func TestParseRoutingFromArgs(t *testing.T) {
 		assert.Equal(t, "iso6523-actorid-upis::0225:100000009_STATUTS", string(env.Head.To))
 	})
 }
+
+// The CDVs that leave the issuer's electronic address to the Peppol envelope
+// are valid without the routing too, as BR-FR-CDV-08 only needs the
+// recipient's.
+func TestParseCDARWithoutRouting(t *testing.T) {
+	for name := range cdarFixturesNeedingRouting {
+		if strings.Contains(name, "POUR_PPF") {
+			continue
+		}
+		t.Run(name, func(t *testing.T) {
+			xmlData, err := os.ReadFile(filepath.Join(getParsePath(), name))
+			require.NoError(t, err)
+			env, err := parseCDAR(xmlData)
+			require.NoError(t, err)
+			require.NoError(t, env.Calculate())
+			assert.NoError(t, env.Validate())
+		})
+	}
+}
