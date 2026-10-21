@@ -171,7 +171,7 @@ func TestCDARStatusRoundTripPerCode(t *testing.T) {
 			require.NotEmpty(t, st.Lines[0].Key, "flow6 should derive a line key for %s", code)
 
 			// Generate CDAR
-			cdar, err := frcdar.ExportStatus(st, frcdar.FormatFlow6)
+			cdar, err := frcdar.ExportStatus(st, frcdar.FormatCDV)
 			require.NoError(t, err)
 			require.NotNil(t, cdar)
 
@@ -218,7 +218,7 @@ func TestCDARStatusReasonRoundTrip(t *testing.T) {
 	require.Len(t, st.Lines, 1)
 	require.Len(t, st.Lines[0].Reasons, 1)
 
-	cdar, err := frcdar.ExportStatus(st, frcdar.FormatFlow6)
+	cdar, err := frcdar.ExportStatus(st, frcdar.FormatCDV)
 	require.NoError(t, err)
 
 	// MDT-126: a Refusée status must carry the comment as
@@ -271,7 +271,7 @@ func TestCDARSenderTradeParty(t *testing.T) {
 		Ext: tax.MakeExtensions().Set(flow6.ExtKeyRole, flow6.RolePlatform),
 	}
 
-	cdar, err := frcdar.ExportStatus(st, frcdar.FormatFlow6, frcdar.WithSender(platform))
+	cdar, err := frcdar.ExportStatus(st, frcdar.FormatCDV, frcdar.WithSender(platform))
 	require.NoError(t, err)
 	require.NotNil(t, cdar.ExchangedDocument.SenderTradeParty)
 	assert.Equal(t, "PA-FR", cdar.ExchangedDocument.SenderTradeParty.Name)
@@ -284,7 +284,7 @@ func TestCDARSenderTradeParty(t *testing.T) {
 	assert.Equal(t, "ACHETEUR", cdar.ExchangedDocument.IssuerTradeParty.Name)
 
 	// And without the option, sender goes back to bare WK.
-	bare, err := frcdar.ExportStatus(st, frcdar.FormatFlow6)
+	bare, err := frcdar.ExportStatus(st, frcdar.FormatCDV)
 	require.NoError(t, err)
 	require.NotNil(t, bare.ExchangedDocument.SenderTradeParty)
 	assert.Empty(t, bare.ExchangedDocument.SenderTradeParty.Name)
@@ -316,7 +316,7 @@ func TestCDARStatusFromToRouting(t *testing.T) {
 
 	convert := func(t *testing.T, env *gobl.Envelope) *cii.CDAR {
 		t.Helper()
-		cdar, err := frcdar.Export(env, frcdar.FormatFlow6)
+		cdar, err := frcdar.Export(env, frcdar.FormatCDV)
 		require.NoError(t, err)
 		return cdar
 	}
@@ -435,7 +435,7 @@ func TestCDARPaymentRoundTrip(t *testing.T) {
 	require.Equal(t, cbc.Code("212"), pmt.Ext.Get(flow6.ExtKeyStatus),
 		"flow6 should derive 212 for a receipt")
 
-	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 	require.NoError(t, err)
 	require.NotNil(t, cdar)
 
@@ -471,7 +471,7 @@ func TestCDARPaymentRoundTrip(t *testing.T) {
 func TestCDARPaymentPartialDropsRAP(t *testing.T) {
 	pmt := buildSyntheticPayment(t, num.MakeAmount(25000, 2))
 
-	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 	require.NoError(t, err)
 	data, err := cii.Encode(cdar)
 	require.NoError(t, err)
@@ -490,7 +490,7 @@ func TestCDARPaymentPartialDropsRAP(t *testing.T) {
 func TestCDARPaymentParsesInboundRAP(t *testing.T) {
 	pmt := buildSyntheticPayment(t, num.MakeAmount(25000, 2))
 
-	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6)
+	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
 	require.NoError(t, err)
 	data, err := cii.Encode(cdar)
 	require.NoError(t, err)
@@ -620,7 +620,7 @@ func TestCDARPaymentPPFEncaissement(t *testing.T) {
 		},
 	}
 
-	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatFlow6PPF, frcdar.WithSender(frcdar.PPFPlatformParty("0431")))
+	cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDVPPF, frcdar.WithSender(frcdar.PPFPlatformParty("0431")))
 	require.NoError(t, err)
 
 	assert.Equal(t, "Encaissée", cdar.ExchangedDocument.Name, "MDT-5")
@@ -655,7 +655,7 @@ func TestCDARPaymentPPFEncaissement(t *testing.T) {
 func requireValidCDAR(t *testing.T, pc *phorm.Client, data []byte, label string) {
 	t.Helper()
 	var errs, warnings []string
-	for _, f := range phormValidate(t, pc, frcdar.FormatFlow6.VESID, data) {
+	for _, f := range phormValidate(t, pc, frcdar.FormatCDV.VESID, data) {
 		if f.Level == levelWarn {
 			warnings = append(warnings, f.String())
 			continue
@@ -676,8 +676,8 @@ func TestCDARSchematron(t *testing.T) {
 		name string
 		ctx  frcdar.Format
 	}{
-		{"b2b", frcdar.FormatFlow6},
-		{"ppf", frcdar.FormatFlow6PPF},
+		{"b2b", frcdar.FormatCDV},
+		{"ppf", frcdar.FormatCDVPPF},
 	}
 
 	for _, code := range statusProcessCodes {

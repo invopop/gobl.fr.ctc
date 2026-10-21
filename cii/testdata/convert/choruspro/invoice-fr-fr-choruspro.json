@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "d1ff280e2f16cf91b08f2af321cd383ccd8fb238721e61617e59ee36e7c3cdaf"
+			"val": "b368014c6e74bd91d6916dd734904f807639657fec9646cbf037ccb38e7097e0"
 		}
 	},
 	"doc": {
@@ -125,22 +125,21 @@
 			}
 		],
 		"payment": {
-			"terms": {
-				"due_dates": [
-					{
-						"date": "2022-03-01",
-						"amount": "1944.00",
-						"percent": "100%"
-					}
-				]
-			},
 			"advances": [
 				{
 					"description": "Paid in full",
 					"percent": "100%",
 					"amount": "1944.00"
 				}
-			]
+			],
+			"terms": {
+				"due_dates": [
+					{
+						"date": "2022-03-01",
+						"percent": "100%"
+					}
+				]
+			}
 		},
 		"totals": {
 			"sum": "1620.00",

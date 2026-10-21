@@ -3,16 +3,19 @@ package cdar_test
 import (
 	"testing"
 
+	"github.com/invopop/gobl"
 	frcdar "github.com/invopop/gobl.fr.ctc/cdar"
+	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/convert"
+	"github.com/invopop/gobl/rules"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConvertRegister(t *testing.T) {
 	t.Run("formats", func(t *testing.T) {
-		for _, k := range []cbc.Key{frcdar.KeyFlow6, frcdar.KeyFlow6PPF} {
+		for _, k := range []cbc.Key{frcdar.KeyCDV, frcdar.KeyCDVPPF} {
 			f := convert.FormatFor(k)
 			require.NotNil(t, f, k)
 			assert.Equal(t, cbc.Key("cdar"), f.Syntax)
@@ -21,8 +24,8 @@ func TestConvertRegister(t *testing.T) {
 
 	t.Run("detect", func(t *testing.T) {
 		for file, key := range map[string]cbc.Key{
-			"UC1_F202500003_04-CDV-204_Prise_en_charge.xml":  frcdar.KeyFlow6,
-			"UC1_F202500003_01-CDV-200_Deposee_POUR_PPF.xml": frcdar.KeyFlow6PPF,
+			"UC1_F202500003_04-CDV-204_Prise_en_charge.xml":  frcdar.KeyCDV,
+			"UC1_F202500003_01-CDV-200_Deposee_POUR_PPF.xml": frcdar.KeyCDVPPF,
 		} {
 			data, err := readParse(file)
 			require.NoError(t, err)
@@ -35,13 +38,30 @@ func TestConvertRegister(t *testing.T) {
 	t.Run("import and export", func(t *testing.T) {
 		data, err := readParse("UC4_F202500006_04-CDV-207_En_litige.xml")
 		require.NoError(t, err)
-		env, err := convert.Import(data)
+		imported, err := convert.Import(data)
 		require.NoError(t, err)
+		env := imported.Envelope
 
-		out, err := convert.Export(env, frcdar.KeyFlow6)
+		out, err := convert.Export(env, frcdar.KeyCDV)
 		require.NoError(t, err)
 		f, err := convert.Detect(out.Data)
 		require.NoError(t, err)
-		assert.Equal(t, frcdar.KeyFlow6, f.Key, "detected again")
+		assert.Equal(t, frcdar.KeyCDV, f.Key, "detected again")
+	})
+
+	t.Run("missing addon", func(t *testing.T) {
+		data, err := readParse("UC4_F202500006_04-CDV-207_En_litige.xml")
+		require.NoError(t, err)
+		imported, err := convert.Import(data)
+		require.NoError(t, err)
+		env := imported.Envelope
+		env.Extract().(*bill.Status).SetAddons()
+
+		_, err = convert.Export(env, frcdar.KeyCDVPPF)
+		assert.ErrorIs(t, err, convert.ErrNotSupported)
+		var ge *gobl.Error
+		require.ErrorAs(t, err, &ge)
+		require.NotNil(t, ge.Faults())
+		assert.Equal(t, rules.Code("CDAR-FR-CTC-CDV-V1-PPF-BILL-STATUS-01"), ge.Faults().First().Code())
 	})
 }

@@ -25,9 +25,9 @@ func TestCDARXMLGuideline(t *testing.T) {
 	t.Run("an empty context falls back to Flow 6", func(t *testing.T) {
 		got := cdarXMLGuideline(Format{})
 		assert.NotEmpty(t, got)
-		want := FormatFlow6.OutputGuidelineID
+		want := FormatCDV.OutputGuidelineID
 		if want == "" {
-			want = FormatFlow6.GuidelineID
+			want = FormatCDV.GuidelineID
 		}
 		assert.Equal(t, want, got)
 	})

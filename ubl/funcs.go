@@ -99,9 +99,9 @@ func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document)
 			if len(out.CreditNoteLines) > 0 {
 				lines = out.CreditNoteLines
 			}
-			for i, l := range inv.Lines {
-				if l.Period != nil {
-					lines[i].InvoicePeriod.DescriptionCode = code
+			for i := range lines {
+				if p := lines[i].InvoicePeriod; p != nil {
+					p.DescriptionCode = code
 				}
 			}
 		}

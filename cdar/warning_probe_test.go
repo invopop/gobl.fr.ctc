@@ -27,12 +27,12 @@ func TestCDARWarningProbe(t *testing.T) {
 	st.Lines[0].Doc.Ext = st.Lines[0].Doc.Ext.
 		Set(untdid.ExtKeyDocumentType, cbc.Code("999")) // not a UNTDID 1001 invoice type
 
-	cdar, err := frcdar.ExportStatus(st, frcdar.FormatFlow6)
+	cdar, err := frcdar.ExportStatus(st, frcdar.FormatCDV)
 	require.NoError(t, err)
 	data, err := cii.Encode(cdar)
 	require.NoError(t, err)
 
-	findings := phormValidate(t, pc, frcdar.FormatFlow6.VESID, data)
+	findings := phormValidate(t, pc, frcdar.FormatCDV.VESID, data)
 	require.NotEmpty(t, findings,
 		"expected the invalid type code to surface — the schematron channel may be silently broken")
 

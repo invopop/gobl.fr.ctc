@@ -57,7 +57,7 @@ func TestProbeFranceInvoices(t *testing.T) {
 			if !ok {
 				t.Fatalf("fixture is not an invoice")
 			}
-			vesid := p.format.GetVESID(inv)
+			vesid := p.format.VESID(inv)
 
 			doc, err := ubl.ExportInvoice(env, ubl.WithFormat(p.format))
 			if err != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/convert"
+	"github.com/invopop/gobl/l10n"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,7 @@ func TestFormats(t *testing.T) {
 		f := convert.FormatFor(k)
 		require.NotNil(t, f, k)
 		assert.Equal(t, cbc.Key("ubl"), f.Syntax)
-		assert.Contains(t, f.Addons, flow2.V1)
+		assert.Contains(t, f.Countries, l10n.FR)
 	}
 
 	keys := make([]cbc.Key, 0)
@@ -51,8 +52,9 @@ func TestDetect(t *testing.T) {
 func TestImport(t *testing.T) {
 	data, err := testLoadXML("france-cius/b2b-reg.xml")
 	require.NoError(t, err)
-	env, err := convert.Import(data)
+	imported, err := convert.Import(data)
 	require.NoError(t, err)
+	env := imported.Envelope
 	inv, ok := env.Extract().(*bill.Invoice)
 	require.True(t, ok)
 	assert.Contains(t, inv.GetAddons(), flow2.V1)
@@ -61,7 +63,7 @@ func TestImport(t *testing.T) {
 func TestExport(t *testing.T) {
 	t.Run("cius", func(t *testing.T) {
 		env := loadTestEnvelope(t, "france-cius/invoice-standard.json")
-		out, err := convert.Export(env, frubl.KeyCIUS, ubl.FormatEN16931.Key)
+		out, err := convert.Export(env, frubl.KeyCIUS, convert.WithAlternatives(ubl.FormatEN16931.Key))
 		require.NoError(t, err)
 		assert.Equal(t, frubl.KeyCIUS, out.Format.Key)
 
@@ -81,7 +83,7 @@ func TestExport(t *testing.T) {
 	})
 	t.Run("addon missing", func(t *testing.T) {
 		env := loadTestEnvelope(t, "invoice-minimal.json")
-		_, err := convert.Export(env, frubl.KeyCIUS, frubl.KeyExtended)
+		_, err := convert.Export(env, frubl.KeyCIUS, convert.WithAlternatives(frubl.KeyExtended))
 		assert.ErrorIs(t, err, convert.ErrNotSupported)
 	})
 }

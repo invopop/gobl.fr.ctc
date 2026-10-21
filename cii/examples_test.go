@@ -35,9 +35,9 @@ var exampleFormats = []struct {
 }{
 	{"facturx", frcii.FormatFacturX},
 	{"choruspro", frcii.FormatChorusPro},
-	{"peppol-france-facturx", frcii.FormatPeppolFranceFacturX},
-	{"peppol-france-cius", frcii.FormatPeppolFranceCIUS},
-	{"peppol-france-extended", frcii.FormatPeppolFranceExtended},
+	{"peppol-france-facturx", frcii.FormatCTCFacturX},
+	{"peppol-france-cius", frcii.FormatCTCCIUS},
+	{"peppol-france-extended", frcii.FormatCTCExtended},
 }
 
 func getConvertPath() string {
