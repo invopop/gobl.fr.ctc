@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
@@ -125,10 +126,10 @@ func TestIdentitySchemeIsPrivate(t *testing.T) {
 // and the forward derivation of Type from a line.Key when no code is set.
 // BR-FR-23 and BR-FR-24 share the charset: a dot is allowed, `/` is not.
 func TestSchemeIDFormat(t *testing.T) {
-	assert.True(t, schemeIDFormatRegex.MatchString("ACME.FR-001"))
-	assert.True(t, schemeIDFormatRegex.MatchString("ACME+FR_001"))
-	assert.False(t, schemeIDFormatRegex.MatchString("ACME/001"))
-	assert.False(t, schemeIDFormatRegex.MatchString("ACME 001"))
+	assert.True(t, dgfip.SchemeIDFormat.MatchString("ACME.FR-001"))
+	assert.True(t, dgfip.SchemeIDFormat.MatchString("ACME+FR_001"))
+	assert.False(t, dgfip.SchemeIDFormat.MatchString("ACME/001"))
+	assert.False(t, dgfip.SchemeIDFormat.MatchString("ACME 001"))
 }
 
 func TestPrepareStatusWithLineFromCode(t *testing.T) {
