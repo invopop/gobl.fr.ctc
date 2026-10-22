@@ -2,10 +2,10 @@ package flow6
 
 import (
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
@@ -24,10 +24,6 @@ const (
 	identityKeyPrivateID    cbc.Key  = "private-id"
 	inboxSchemeSIREN        cbc.Code = "0225"
 )
-
-// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
-// shared by SIREN-scope inboxes and private-id identity codes.
-var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
 
 // allowedFlow6IdentitySchemes is the ICD 6523 subset CDAR accepts on
 // Flow 6 (CDV lifecycle) party identities. STC (0231 — assujetti
@@ -156,8 +152,8 @@ func orgPartyRules() *rules.Set {
 						rules.Assert("06", "party identity code for private-id (0224) must not exceed 100 characters (BR-FR-26)",
 							is.Length(0, 100),
 						),
-						rules.Assert("07", "party identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)",
-							is.MatchesRegexp(sirenInboxFormatRegex),
+						rules.Assert("07", "party identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, . (BR-FR-24)",
+							is.MatchesRegexp(dgfip.SchemeIDFormat),
 						),
 					),
 				),
@@ -258,7 +254,7 @@ func inboxCodeValid(val any) bool {
 	if len(code) > 125 {
 		return false
 	}
-	return sirenInboxFormatRegex.MatchString(code)
+	return dgfip.SchemeIDFormat.MatchString(code)
 }
 
 // migrateDocRefType moves a legacy type code from Type onto the
