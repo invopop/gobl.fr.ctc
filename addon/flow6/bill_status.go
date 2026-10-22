@@ -152,12 +152,8 @@ func setPartyRoleDefault(p *org.Party, role cbc.Code) {
 	p.Ext = p.Ext.Set(ExtKeyRole, role)
 }
 
-// statusHasRecipientInbox follows BR-FR-CDV-08, which requires the CDV
-// recipient to carry a URIID (electronic inbox) unless its role is WK
-// (dematerialisation platform / operator) or DFH (PPF). The status doesn't
-// say which of its parties is the recipient, and the issuer's address may
-// travel only in the Peppol envelope, so it is enough for one of the parties
-// that need an address to have one.
+// statusHasRecipientInbox approximates BR-FR-CDV-08 (recipient inbox unless
+// WK/DFH): the status doesn't say which party is the recipient, so one is enough.
 func statusHasRecipientInbox(v any) bool {
 	st, ok := v.(*bill.Status)
 	if !ok || st == nil {

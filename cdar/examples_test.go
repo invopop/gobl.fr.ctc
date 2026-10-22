@@ -294,9 +294,7 @@ func TestParseRoutingFromArgs(t *testing.T) {
 	})
 }
 
-// The CDVs that leave the issuer's electronic address to the Peppol envelope
-// are valid without the routing too, as BR-FR-CDV-08 only needs the
-// recipient's.
+// CDVs that omit the issuer's inbox validate without routing.
 func TestParseCDARWithoutRouting(t *testing.T) {
 	for name := range cdarFixturesNeedingRouting {
 		if strings.Contains(name, "POUR_PPF") {
