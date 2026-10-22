@@ -6,6 +6,7 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/addons/fr/choruspro"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/regimes/fr"
@@ -71,6 +72,11 @@ func exportExtended(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document)
 	// GOBL nests them inside the party they act for; CII keeps them as
 	// siblings in the trade agreement.
 	if agmt := out.Transaction.Agreement; agmt != nil {
+		// EXT-FR-FE-01: the contract type (UNCL 1153) of the one contract the
+		// base writes.
+		if agmt.Contract != nil {
+			agmt.Contract.ReferenceTypeCode = inv.Ordering.Contracts[0].Ext.Get(untdid.ExtKeyReference).String()
+		}
 		if inv.Supplier != nil && inv.Supplier.Agent != nil {
 			agmt.SalesAgent = goblcii.NewParty(inv.Supplier.Agent)
 		}
@@ -105,6 +111,11 @@ func importExtended(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope)
 	}
 
 	if agmt := in.Transaction.Agreement; agmt != nil {
+		// EXT-FR-FE-01: the contract type.
+		if agmt.Contract != nil && inv.Ordering != nil && len(inv.Ordering.Contracts) > 0 {
+			c := inv.Ordering.Contracts[0]
+			c.Ext = c.Ext.Set(untdid.ExtKeyReference, cbc.Code(agmt.Contract.ReferenceTypeCode))
+		}
 		if inv.Supplier != nil && agmt.SalesAgent != nil {
 			inv.Supplier.Agent = goblcii.ParseParty(agmt.SalesAgent)
 		}

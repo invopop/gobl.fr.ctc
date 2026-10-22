@@ -12,7 +12,9 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
+	"github.com/invopop/gobl/convert"
 	"github.com/invopop/gobl/l10n"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/rules"
@@ -525,4 +527,44 @@ func TestConvertSurfacesValidationFaultsAfterAutoAddon(t *testing.T) {
 	// the minimal invoice cannot satisfy is used instead.)
 	assert.True(t, faults.HasCode("GOBL-FR-CTC-FLOW2-BILL-INVOICE-44"),
 		"expected supplier-endpoint-required fault; got: %s", err)
+}
+
+// EXT-FR-FE-01: the contract type travels as a UNCL 1153 code (BR-FR-CPRO-01).
+func TestContractType(t *testing.T) {
+	env := loadTestEnvelope(t, "france-extended/invoice-standard.json")
+	inv := env.Extract().(*bill.Invoice)
+	if inv.Ordering == nil {
+		inv.Ordering = new(bill.Ordering)
+	}
+	inv.Ordering.Contracts = []*org.DocumentRef{{
+		Code: "MARCHE-2026-0042",
+		Ext:  tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyReference: "GC"}),
+	}}
+	require.NoError(t, env.Calculate())
+
+	doc, err := ubl.ExportInvoice(env, ubl.WithFormat(frubl.FormatExtended))
+	require.NoError(t, err)
+	require.Len(t, doc.ContractDocumentReference, 1)
+	assert.Equal(t, "GC", doc.ContractDocumentReference[0].DocumentType)
+
+	t.Run("imports as the extension", func(t *testing.T) {
+		data, err := ubl.Encode(doc)
+		require.NoError(t, err)
+		imported, err := convert.Import(data)
+		require.NoError(t, err)
+		c := imported.Envelope.Extract().(*bill.Invoice).Ordering.Contracts[0]
+		assert.Equal(t, cbc.Code("GC"), c.Ext.Get(untdid.ExtKeyReference))
+		assert.Empty(t, c.Reason)
+		assert.NoError(t, imported.Envelope.Validate())
+	})
+
+	t.Run("a legacy text value is kept as stated", func(t *testing.T) {
+		doc.ContractDocumentReference[0].DocumentType = "MARCHE"
+		data, err := ubl.Encode(doc)
+		require.NoError(t, err)
+		imported, err := convert.Import(data)
+		require.NoError(t, err)
+		c := imported.Envelope.Extract().(*bill.Invoice).Ordering.Contracts[0]
+		assert.Equal(t, cbc.Code("MARCHE"), c.Ext.Get(untdid.ExtKeyReference))
+	})
 }

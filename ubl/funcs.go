@@ -5,6 +5,7 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	cur "github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/org"
@@ -91,6 +92,14 @@ func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document)
 	rate := cur.MatchExchangeRate(inv.ExchangeRates, inv.Currency, taxCurrency)
 	addTaxExchangeRate(out, inv.Currency, taxCurrency, rate)
 
+	// EXT-FR-FE-01: the contract type (UNCL 1153), in place of the reason the
+	// base writes there.
+	if inv.Ordering != nil {
+		for i, c := range inv.Ordering.Contracts {
+			out.ContractDocumentReference[i].DocumentType = c.Ext.Get(untdid.ExtKeyReference).String()
+		}
+	}
+
 	// BT-8: VAT point date code on each line period, the same invoice-wide
 	// value as the header.
 	if inv.Tax != nil {
@@ -174,6 +183,14 @@ func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope)
 	inv, in, ok := invoices(env, doc)
 	if !ok {
 		return nil
+	}
+
+	// EXT-FR-FE-01: the contract type, which the base reads as the reason.
+	if inv.Ordering != nil {
+		for _, c := range inv.Ordering.Contracts {
+			c.Ext = c.Ext.Set(untdid.ExtKeyReference, cbc.Code(c.Reason))
+			c.Reason = ""
+		}
 	}
 
 	// EXT-FR-FE-BG-04: the party the invoice is addressed to.
