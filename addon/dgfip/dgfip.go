@@ -1,15 +1,25 @@
 // Package dgfip defines the French tax authority (Direction Générale des
 // Finances Publiques) billing-mode code list used by the French CTC
-// (Continuous Transaction Control) reform. It is shared across the
-// flow-specific addons (Flow 2 clearance and Flow 10 e-reporting), so it lives
-// in its own leaf package that those addons embed in their extension lists.
+// (Continuous Transaction Control) reform, and the identifier charset its
+// flows share. It is shared across the flow-specific addons (Flow 2
+// clearance, Flow 6 lifecycle and Flow 10 e-reporting), so it lives in its own
+// leaf package.
 package dgfip
 
 import (
+	"regexp"
+
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/i18n"
 	"github.com/invopop/gobl/pkg/here"
 )
+
+// SchemeIDCharset is the character class BR-FR-23 (0225 electronic addresses)
+// and BR-FR-24 (0224 private ids) share since XP Z12-012 v1.3.1.
+const SchemeIDCharset = `[A-Za-z0-9+\-_.]`
+
+// SchemeIDFormat matches a code made only of SchemeIDCharset.
+var SchemeIDFormat = regexp.MustCompile(`^` + SchemeIDCharset + `+$`)
 
 // ExtKeyBillingMode is the DGFiP "Cadre de Facturation" code that describes
 // the nature of the document (Biens / Services / Mixte) and the payment
@@ -19,9 +29,9 @@ const ExtKeyBillingMode cbc.Key = "fr-ctc-billing-mode"
 
 // Billing mode codes. The prefix denotes invoice nature (B = goods, S =
 // services, M = mixed); the numeric suffix encodes the payment context
-// (1 = deposit, 2 = already paid, 4 = final after down payment,
-// 5 = subcontractor, 6 = co-contractor, 7 = e-reporting,
-// 8 = multi-vendor, 9 = bi-directional).
+// (1 = deposit, 2 = already paid, 3 = subcontracting with direct payment,
+// 4 = final after down payment, 5 = subcontractor, 6 = co-contractor,
+// 7 = e-reporting, 8 = multi-vendor, 9 = bi-directional).
 const (
 	BillingModeB1 cbc.Code = "B1"
 	BillingModeB2 cbc.Code = "B2"
@@ -31,6 +41,7 @@ const (
 	BillingModeB9 cbc.Code = "B9"
 	BillingModeS1 cbc.Code = "S1"
 	BillingModeS2 cbc.Code = "S2"
+	BillingModeS3 cbc.Code = "S3"
 	BillingModeS4 cbc.Code = "S4"
 	BillingModeS5 cbc.Code = "S5"
 	BillingModeS6 cbc.Code = "S6"
@@ -66,9 +77,12 @@ var ExtBillingMode = &cbc.Definition{
 			  to each other)
 
 			The numeric suffix indicates the payment type (1=deposit,
-			2=already paid, 4=final after down payment, 5=subcontractor,
-			6=co-contractor, 7=e-reporting, 8=multi-vendor,
-			9=bi-directional).
+			2=already paid, 3=subcontracting with direct payment,
+			4=final after down payment, 5=subcontractor, 6=co-contractor,
+			7=e-reporting, 8=multi-vendor, 9=bi-directional).
+
+			S3 is public-sector only: a subcontractor bills the public buyer
+			directly under the paiement direct arrangement.
 		`),
 		i18n.FR: here.Doc(`
 			Code utilisé pour décrire le cadre de facturation de la facture. Le
@@ -82,9 +96,12 @@ var ExtBillingMode = &cbc.Definition{
 			  l'un de l'autre)
 
 			Le suffixe numérique indique le type de paiement (1=dépôt,
-			2=déjà payée, 4=définitive après acompte, 5=sous-traitant,
-			6=cotraitant, 7=e-reporting, 8=multi-vendeurs,
-			9=bidirectionnelle).
+			2=déjà payée, 3=sous-traitance avec paiement direct,
+			4=définitive après acompte, 5=sous-traitant, 6=cotraitant,
+			7=e-reporting, 8=multi-vendeurs, 9=bidirectionnelle).
+
+			S3 est réservé à la sphère publique : un sous-traitant facture
+			directement l'acheteur public au titre du paiement direct.
 		`),
 	},
 	Values: []*cbc.Definition{
@@ -96,6 +113,7 @@ var ExtBillingMode = &cbc.Definition{
 		{Code: BillingModeB9, Name: i18n.String{i18n.EN: "Goods - Bi-directional invoice", i18n.FR: "Biens - Facture bidirectionnelle de biens"}},
 		{Code: BillingModeS1, Name: i18n.String{i18n.EN: "Services - Standard invoice", i18n.FR: "Services - Facture de dépôt"}},
 		{Code: BillingModeS2, Name: i18n.String{i18n.EN: "Services - Already paid invoice", i18n.FR: "Services - Facture déjà payée"}},
+		{Code: BillingModeS3, Name: i18n.String{i18n.EN: "Services - Subcontracting payment request with direct payment", i18n.FR: "Services - Demande de paiement de sous-traitance avec paiement direct"}},
 		{Code: BillingModeS4, Name: i18n.String{i18n.EN: "Services - Final invoice (after down payment)", i18n.FR: "Services - Facture définitive (après acompte)"}},
 		{Code: BillingModeS5, Name: i18n.String{i18n.EN: "Services - Subcontractor invoice", i18n.FR: "Services - Facture de sous-traitance"}},
 		{Code: BillingModeS6, Name: i18n.String{i18n.EN: "Services - Co-contractor invoice", i18n.FR: "Services - Facture de cotraitance"}},

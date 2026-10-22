@@ -1,0 +1,106 @@
+# A subcontractor billing a public buyer directly, under the paiement direct
+# arrangement of a works contract. S3 is the cadre de facturation for it, and
+# it is only valid towards the public sphere.
+$schema: "https://gobl.org/draft-0/bill/invoice"
+$addons:
+  - "eu-en16931-v2017"
+  - "fr-ctc-flow2-v1"
+uuid: "8f2b1c40-5d63-4a7e-9b18-2c5e7f091a34"
+currency: "EUR"
+issue_date: "2026-09-22"
+series: "STF"
+code: "2026-001"
+
+tax:
+  ext:
+    fr-ctc-billing-mode: "S3"
+
+supplier:
+  tax_id:
+    country: "FR"
+    code: "732829320"
+  identities:
+    - type: "SIREN"
+      code: "732829320"
+      ext:
+        iso-scheme-id: "0002"
+    - type: "SIRET"
+      code: "73282932000074"
+      ext:
+        iso-scheme-id: "0009"
+  name: "Sous-traitant Example SARL"
+  inboxes:
+    - key: peppol
+      scheme: "0225"
+      code: "732829320"
+  emails:
+    - addr: "facturation@sous-traitant.fr"
+  addresses:
+    - num: "12"
+      street: "Rue des Artisans"
+      locality: "Lyon"
+      code: "69002"
+      country: "FR"
+
+customer:
+  tax_id:
+    country: "FR"
+    code: "356000000"
+  identities:
+    - type: "SIREN"
+      code: "356000000"
+      ext:
+        iso-scheme-id: "0002"
+    - type: "SIRET"
+      code: "35600000000048"
+      ext:
+        iso-scheme-id: "0009"
+  name: "Commune Example"
+  inboxes:
+    - key: peppol
+      scheme: "0225"
+      code: "356000000"
+  emails:
+    - addr: "finances@commune-example.fr"
+  addresses:
+    - num: "1"
+      street: "Place de la Mairie"
+      locality: "Villeurbanne"
+      code: "69100"
+      country: "FR"
+
+ordering:
+  contracts:
+    - code: "MARCHE-2026-0042"
+
+lines:
+  - quantity: 1
+    item:
+      name: "Travaux de second oeuvre - lot 3"
+      price: "12500.00"
+    taxes:
+      - cat: VAT
+        rate: standard
+
+notes:
+  - key: payment
+    text: "Une penalite fixe de 40 EUR sera appliquee en cas de retard de paiement."
+    ext:
+      untdid-text-subject: "PMT"
+  - key: payment-method
+    text: "Des penalites de retard s'appliquent conformement a nos conditions generales de vente."
+    ext:
+      untdid-text-subject: "PMD"
+  - key: payment-term
+    text: "Aucun escompte n'est offert pour paiement anticipe."
+    ext:
+      untdid-text-subject: "AAB"
+
+payment:
+  terms:
+    detail: "Paiement a 30 jours - paiement direct au sous-traitant"
+  instructions:
+    key: "credit-transfer"
+    credit_transfer:
+      - iban: "FR7630006000011234567890189"
+        name: "Sous-traitant Example SARL"
