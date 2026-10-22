@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "0851f321f6625359620e3584a3e7b870076a7ff69c70f35cd6e68ae060c4bf2c"
+			"val": "842352ec5755ca08ba03bec04b9e9528d4d820ab235b4f41750cb422952d371f"
 		},
 		"from": "iso6523-actorid-upis::0225:324872211",
 		"to": "iso6523-actorid-upis::0225:439368049"
@@ -616,6 +616,11 @@
 		"delivery": {
 			"receiver": {
 				"name": "NOM LIVRé",
+				"identities": [
+					{
+						"code": "PRIVATE_ID_DELIVERY"
+					}
+				],
 				"addresses": [
 					{
 						"street": "ADRESSE LIVRAISON LIGNE 1",
@@ -626,11 +631,6 @@
 					}
 				]
 			},
-			"identities": [
-				{
-					"code": "PRIVATE_ID_DELIVERY"
-				}
-			],
 			"date": "2025-01-31"
 		},
 		"totals": {

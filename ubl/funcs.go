@@ -22,6 +22,10 @@ const (
 // not defined.
 const paymentMeansNotDefined = "1"
 
+// deliveryIdentityKeyTerms marks the delivery identity that carries the
+// Incoterms delivery terms (EXT-FR-FE-BG-14).
+const deliveryIdentityKeyTerms cbc.Key = "terms"
+
 // invoices provides the GOBL and UBL invoices of an export or import, if
 // both are invoices.
 func invoices(env *gobl.Envelope, doc goblubl.Document) (*bill.Invoice, *goblubl.Invoice, bool) {
@@ -77,8 +81,8 @@ func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) err
 	return nil
 }
 
-// exportExtended adds the parties and amounts that only the French Extended
-// profile defines.
+// exportExtended adds the parties, amounts and delivery terms that only the
+// French Extended profile defines.
 func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document) error {
 	inv, out, ok := invoices(env, doc)
 	if !ok {
@@ -147,6 +151,18 @@ func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document)
 			p.UBL.AgentParty = goblubl.NewParty(p.GOBL.Agent)
 		}
 	}
+
+	// EXT-FR-FE-BG-14: the Incoterms code (EXT-FR-FE-185) and delivery
+	// location name (EXT-FR-FE-186), from the delivery identity keyed as terms.
+	if inv.Delivery != nil {
+		if id := org.IdentityForKey(inv.Delivery.Identities, deliveryIdentityKeyTerms); id != nil && id.Code != cbc.CodeEmpty {
+			out.DeliveryTerms = &goblubl.DeliveryTerms{ID: id.Code.String()}
+			if id.Label != "" {
+				name := id.Label
+				out.DeliveryTerms.DeliveryLocation = &goblubl.Location{Name: &name}
+			}
+		}
+	}
 	return nil
 }
 
@@ -168,8 +184,8 @@ func addTaxExchangeRate(out *goblubl.Invoice, from, to cur.Code, rate *cur.Excha
 	}
 }
 
-// importExtended restores the parties that only the French Extended profile
-// defines.
+// importExtended restores the parties and delivery terms that only the
+// French Extended profile defines.
 func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) error {
 	inv, in, ok := invoices(env, doc)
 	if !ok {
@@ -199,6 +215,22 @@ func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope)
 		if p.UBL.AgentParty != nil && p.GOBL.Agent == nil {
 			p.GOBL.Agent = goblubl.ParseParty(p.UBL.AgentParty)
 		}
+	}
+
+	// EXT-FR-FE-BG-14: the Incoterms code and delivery location name, as a
+	// delivery identity keyed as terms.
+	if dt := in.DeliveryTerms; dt != nil && dt.ID != "" {
+		id := &org.Identity{
+			Key:  deliveryIdentityKeyTerms,
+			Code: cbc.Code(dt.ID),
+		}
+		if dt.DeliveryLocation != nil && dt.DeliveryLocation.Name != nil {
+			id.Label = *dt.DeliveryLocation.Name
+		}
+		if inv.Delivery == nil {
+			inv.Delivery = new(bill.DeliveryDetails)
+		}
+		inv.Delivery.Identities = append(inv.Delivery.Identities, id)
 	}
 	return nil
 }
