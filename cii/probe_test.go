@@ -34,6 +34,11 @@ var franceInvoiceProbes = []franceInvoiceProbe{
 	{"Extended/381", "peppol-france-extended", "credit-note.json", frcii.FormatCTCExtended},
 }
 
+// toleratedWarnings are warnings a valid document cannot avoid. CII requires
+// ApplicableHeaderTradeDelivery, so an invoice with no delivery details carries
+// it empty, which the Factur-X rules flag under PEPPOL-EN16931-R008.
+var toleratedWarnings = map[string]bool{"PEPPOL-EN16931-R008": true}
+
 // TestProbeFranceInvoices converts each French CTC invoice fixture and
 // pushes the generated CII XML through phive, failing on any error OR
 // warning against the dedicated French schematron pinned on the context.
@@ -64,6 +69,9 @@ func TestProbeFranceInvoices(t *testing.T) {
 					problems = append(problems, "ERROR: "+e.Message)
 				}
 				for _, w := range r.Warnings {
+					if toleratedWarnings[w.ErrorID] {
+						continue
+					}
 					problems = append(problems, "WARN:  "+w.Message)
 				}
 			}
