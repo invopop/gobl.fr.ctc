@@ -152,28 +152,36 @@ func setPartyRoleDefault(p *org.Party, role cbc.Code) {
 	p.Ext = p.Ext.Set(ExtKeyRole, role)
 }
 
-// partyHasInboxWhenRequired enforces BR-FR-CDV-08: a party whose role
-// is not WK (dematerialisation platform / operator) and not DFH
-// (PPF) must carry a URIID (electronic inbox).
-func partyHasInboxWhenRequired(v any) bool {
-	p, ok := v.(*org.Party)
-	if !ok || p == nil {
+// statusHasRecipientInbox approximates BR-FR-CDV-08 (recipient inbox unless
+// WK/DFH): the status doesn't say which party is the recipient, so one is enough.
+func statusHasRecipientInbox(v any) bool {
+	st, ok := v.(*bill.Status)
+	if !ok || st == nil {
 		return true
 	}
-	role := p.Ext.Get(ExtKeyRole)
-	if role == RolePlatform || role == RolePPF {
-		return true
-	}
-	for _, ib := range p.Inboxes {
-		if ib != nil && ib.Code != "" {
-			return true
+	required := false
+	for _, p := range []*org.Party{st.Supplier, st.Customer} {
+		if p == nil {
+			continue
+		}
+		if role := p.Ext.Get(ExtKeyRole); role == RolePlatform || role == RolePPF {
+			continue
+		}
+		required = true
+		for _, ib := range p.Inboxes {
+			if ib != nil && ib.Code != "" {
+				return true
+			}
 		}
 	}
-	return false
+	return !required
 }
 
 func billStatusRules() *rules.Set {
 	return rules.For(new(bill.Status),
+		rules.Assert("28", "status supplier or customer must have an inbox when its role is not WK or DFH (BR-FR-CDV-08)",
+			is.Func("a party has an inbox unless WK/DFH", statusHasRecipientInbox),
+		),
 		rules.Field("type",
 			rules.Assert("01", "status type must be one of: response, update",
 				is.In(bill.StatusTypeResponse, bill.StatusTypeUpdate),
@@ -192,9 +200,6 @@ func billStatusRules() *rules.Set {
 		rules.Field("supplier",
 			rules.Assert("03", "status supplier is required (BR-FR-CDV-13)",
 				is.Present,
-			),
-			rules.Assert("04", "status supplier must have an inbox when its role is not WK or DFH (BR-FR-CDV-08)",
-				is.Func("supplier has inbox unless WK/DFH", partyHasInboxWhenRequired),
 			),
 			rules.Field("ext",
 				rules.Assert("05", fmt.Sprintf("status supplier ext %s is required (BR-FR-CDV-CL-03)", ExtKeyRole),
@@ -218,9 +223,6 @@ func billStatusRules() *rules.Set {
 			),
 		),
 		rules.Field("customer",
-			rules.Assert("08", "status customer must have an inbox when its role is not WK or DFH (BR-FR-CDV-08)",
-				is.Func("customer has inbox unless WK/DFH", partyHasInboxWhenRequired),
-			),
 			rules.Field("ext",
 				rules.Assert("09", fmt.Sprintf("status customer ext %s is required (BR-FR-CDV-CL-04)", ExtKeyRole),
 					tax.ExtensionsRequire(ExtKeyRole),

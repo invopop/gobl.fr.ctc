@@ -136,6 +136,19 @@ var scenarios = []*tax.ScenarioSet{
 // Global credit note: covers a contractual period, not a single invoice.
 const globalCreditNote cbc.Code = "262"
 
+// DocumentType provides the invoice type and tags whose scenario sets the
+// UNTDID 1001 code, so an import can restore them from BT-3.
+func DocumentType(code cbc.Code) (cbc.Key, []cbc.Key, bool) {
+	for _, ss := range scenarios {
+		for _, s := range ss.List {
+			if s.Ext.Get(untdid.ExtKeyDocumentType) == code {
+				return s.Types[0], s.Tags, true
+			}
+		}
+	}
+	return cbc.KeyEmpty, nil, false
+}
+
 // TagGlobal marks a credit note that settles a contractual period rather than
 // a single invoice, mapping to UNTDID 262.
 const TagGlobal cbc.Key = "global"
