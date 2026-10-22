@@ -12,6 +12,7 @@ import (
 	"github.com/invopop/gobl/regimes/fr"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeIdentity(t *testing.T) {
@@ -65,6 +66,39 @@ func TestNormalizeInboxes(t *testing.T) {
 		}}
 		normalizeInboxes(p)
 		assert.Equal(t, cbc.Key(""), p.Inboxes[2].Key)
+	})
+}
+
+func TestNormalizeEndpoints(t *testing.T) {
+	t.Run("copies the peppol inbox", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Scheme: "0088", Code: "5790000435975"},
+			{Key: org.InboxKeyPeppol, Scheme: "0225", Code: "356000000_PEP"},
+		}}
+		normalizeEndpoints(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:356000000_PEP"), p.Endpoints[0].URI)
+	})
+
+	t.Run("falls back to the first inbox with a scheme and code", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			nil,
+			{Code: "no-scheme"},
+			{Scheme: "0088", Code: "5790000435975"},
+		}}
+		normalizeEndpoints(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0088:5790000435975"), p.Endpoints[0].URI)
+	})
+
+	t.Run("keeps an existing endpoint", func(t *testing.T) {
+		p := &org.Party{
+			Endpoints: []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:A"}},
+			Inboxes:   []*org.Inbox{{Scheme: "0225", Code: "B"}},
+		}
+		normalizeEndpoints(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:A"), p.Endpoints[0].URI)
 	})
 }
 
