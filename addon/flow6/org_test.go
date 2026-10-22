@@ -123,6 +123,14 @@ func TestIdentitySchemeIsPrivate(t *testing.T) {
 // TestPrepareStatusWithLineFromCode covers the reverse mapping from a
 // pre-set CDAR ProcessConditionCode to the (Status.Type, line.Key) pair,
 // and the forward derivation of Type from a line.Key when no code is set.
+// BR-FR-23 and BR-FR-24 share the charset: a dot is allowed, `/` is not.
+func TestSchemeIDFormat(t *testing.T) {
+	assert.True(t, schemeIDFormatRegex.MatchString("ACME.FR-001"))
+	assert.True(t, schemeIDFormatRegex.MatchString("ACME+FR_001"))
+	assert.False(t, schemeIDFormatRegex.MatchString("ACME/001"))
+	assert.False(t, schemeIDFormatRegex.MatchString("ACME 001"))
+}
+
 func TestPrepareStatusWithLineFromCode(t *testing.T) {
 	type want struct {
 		typ cbc.Key

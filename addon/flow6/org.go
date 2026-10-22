@@ -25,11 +25,9 @@ const (
 	inboxSchemeSIREN        cbc.Code = "0225"
 )
 
-// Private-id (0224) identity code charset (BR-FR-24).
-var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
-
-// 0225 address charset (BR-FR-23): unlike BR-FR-24, allows `.` but not `/`.
-var sirenInboxAddressRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
+// schemeIDFormatRegex is the charset BR-FR-23 (0225 addresses) and BR-FR-24
+// (0224 private ids) share.
+var schemeIDFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
 
 // allowedFlow6IdentitySchemes is the ICD 6523 subset CDAR accepts on
 // Flow 6 (CDV lifecycle) party identities. STC (0231 — assujetti
@@ -158,8 +156,8 @@ func orgPartyRules() *rules.Set {
 						rules.Assert("06", "party identity code for private-id (0224) must not exceed 100 characters (BR-FR-26)",
 							is.Length(0, 100),
 						),
-						rules.Assert("07", "party identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)",
-							is.MatchesRegexp(sirenInboxFormatRegex),
+						rules.Assert("07", "party identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, . (BR-FR-24)",
+							is.MatchesRegexp(schemeIDFormatRegex),
 						),
 					),
 				),
@@ -260,7 +258,7 @@ func inboxCodeValid(val any) bool {
 	if len(code) > 125 {
 		return false
 	}
-	return sirenInboxAddressRegex.MatchString(code)
+	return schemeIDFormatRegex.MatchString(code)
 }
 
 // migrateDocRefType moves a legacy type code from Type onto the
