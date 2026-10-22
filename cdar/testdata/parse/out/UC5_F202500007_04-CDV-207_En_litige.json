@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "69bc8a1b0939509415ab2f39974316ad039f607d581abed2919e0d5315f1d99c"
+			"val": "62753c6180589e38c437747b799a471bef3f0b945a983be954ec9231c3a4b6ee"
 		},
 		"from": "iso6523-actorid-upis::0225:100000009_STATUTS",
 		"to": "iso6523-actorid-upis::0225:200000008_STATUTS"
@@ -94,6 +94,7 @@
 				"reasons": [
 					{
 						"key": "legal",
+						"description": "Taux de TVA erroné",
 						"faults": [
 							{
 								"code": "DIV",

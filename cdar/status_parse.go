@@ -2,6 +2,7 @@ package cdar
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -157,10 +158,7 @@ func goblStatusLineFromCDAR(ref *cii.CDARReferencedDocument) *bill.StatusLine {
 			r.Faults = append(r.Faults, f)
 		}
 		if r != nil {
-			// The free-text motive is the note (MDT-126). The Reason
-			// element (MDT-114) is only the code's label, which the
-			// reason ext already carries.
-			r.Description = cdarNoteText(ds.IncludedNotes)
+			r.Description = cdarReasonText(ds)
 			line.Reasons = append(line.Reasons, r)
 		}
 		if ds.RequestedActionCode != "" {
@@ -178,10 +176,12 @@ func goblStatusLineFromCDAR(ref *cii.CDARReferencedDocument) *bill.StatusLine {
 	return line
 }
 
-// cdarNoteText joins the IncludedNote content (MDT-126) of a status.
-func cdarNoteText(notes []*cii.CDARNote) string {
-	var parts []string
-	for _, n := range notes {
+// cdarReasonText joins a status's Reason labels (MDT-114) and IncludedNote
+// content (MDT-126). Export writes the description to MDT-126 alone, so our
+// own CDVs read back unchanged.
+func cdarReasonText(ds *cii.CDARDocumentStatus) string {
+	parts := slices.Clone(ds.Reason)
+	for _, n := range ds.IncludedNotes {
 		if n != nil {
 			parts = append(parts, n.Content...)
 		}

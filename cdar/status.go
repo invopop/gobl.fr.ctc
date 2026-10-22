@@ -10,7 +10,6 @@ import (
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
-	"github.com/invopop/gobl/i18n"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/tax"
 )
@@ -343,12 +342,7 @@ var statusCharacteristicTypeCodes = map[cbc.Code]bool{
 func newCDARDocumentStatus(reason *bill.Reason, action *bill.Action, seq int) *cii.CDARDocumentStatus {
 	ds := &cii.CDARDocumentStatus{SequenceNumeric: seq}
 	if reason != nil {
-		code := reason.Ext.Get(flow6.ExtKeyReason)
-		ds.ReasonCode = code.String()
-		// MDT-114 is the code's label.
-		if cd := tax.ExtensionForKey(flow6.ExtKeyReason).CodeDef(code); cd != nil {
-			ds.Reason = []string{cd.Name.In(i18n.FR)}
-		}
+		ds.ReasonCode = reason.Ext.Get(flow6.ExtKeyReason).String()
 		if reason.Description != "" {
 			// MDT-126: PPF makes the free-text comment mandatory for a
 			// Refusée / Suspendue status (and accepts it for others), carried

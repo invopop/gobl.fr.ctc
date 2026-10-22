@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 210 Refusée issued by the buyer's platform. ram:Reason (MDT-114) carries
-     only the code's generic label; the motive itself travels as
+<!-- 210 Refusée issued by the buyer's platform, with the code's generic label
+     in ram:Reason (MDT-114) and the motive in
      SpecifiedDocumentStatus/IncludedNote/Content (MDT-126). -->
 <rsm:CrossDomainAcknowledgementAndResponse xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossDomainAcknowledgementAndResponse:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
   <rsm:ExchangedDocumentContext>

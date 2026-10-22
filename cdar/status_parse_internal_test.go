@@ -52,16 +52,25 @@ func TestSupplierWithReferencedSIREN(t *testing.T) {
 	})
 }
 
-func TestCDARNoteText(t *testing.T) {
+func TestCDARReasonText(t *testing.T) {
 	note := func(content ...string) *cii.CDARNote { return &cii.CDARNote{Content: content} }
 
 	t.Run("joins every content line", func(t *testing.T) {
 		notes := []*cii.CDARNote{note("Facture déjà reçue", "le 12/08/2026"), note("sous la référence F202500001")}
-		assert.Equal(t, "Facture déjà reçue\nle 12/08/2026\nsous la référence F202500001", cdarNoteText(notes))
+		ds := &cii.CDARDocumentStatus{IncludedNotes: notes}
+		assert.Equal(t, "Facture déjà reçue\nle 12/08/2026\nsous la référence F202500001", cdarReasonText(ds))
 	})
 
 	t.Run("nil and empty notes give no text", func(t *testing.T) {
-		assert.Equal(t, "", cdarNoteText([]*cii.CDARNote{nil, note()}))
+		assert.Equal(t, "", cdarReasonText(&cii.CDARDocumentStatus{IncludedNotes: []*cii.CDARNote{nil, note()}}))
+	})
+
+	t.Run("the Reason label comes first", func(t *testing.T) {
+		ds := &cii.CDARDocumentStatus{
+			Reason:        []string{"Doublon"},
+			IncludedNotes: []*cii.CDARNote{note("Facture déjà reçue")},
+		}
+		assert.Equal(t, "Doublon\nFacture déjà reçue", cdarReasonText(ds))
 	})
 }
 
