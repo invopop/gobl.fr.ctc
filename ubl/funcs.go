@@ -3,9 +3,9 @@ package ubl
 import (
 	"github.com/invopop/gobl"
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
-	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	cur "github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/org"
@@ -153,7 +153,7 @@ func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document)
 	// extension, and the delivery location name (EXT-FR-FE-186) from the
 	// label of the receiver's address.
 	if del := inv.Delivery; del != nil {
-		if code := del.Ext.Get(untdid.ExtKeyIncotermDeliveryTerms); code != cbc.CodeEmpty {
+		if code := del.Ext.Get(flow2.ExtKeyIncotermDeliveryTerms); code != cbc.CodeEmpty {
 			out.DeliveryTerms = &goblubl.DeliveryTerms{ID: code.String()}
 			if del.Receiver != nil && len(del.Receiver.Addresses) > 0 && del.Receiver.Addresses[0].Label != "" {
 				name := del.Receiver.Addresses[0].Label
@@ -221,7 +221,7 @@ func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope)
 		if inv.Delivery == nil {
 			inv.Delivery = new(bill.DeliveryDetails)
 		}
-		inv.Delivery.Ext = inv.Delivery.Ext.Set(untdid.ExtKeyIncotermDeliveryTerms, cbc.Code(dt.ID))
+		inv.Delivery.Ext = inv.Delivery.Ext.Set(flow2.ExtKeyIncotermDeliveryTerms, cbc.Code(dt.ID))
 		if dt.DeliveryLocation != nil && dt.DeliveryLocation.Name != nil && *dt.DeliveryLocation.Name != "" {
 			if inv.Delivery.Receiver == nil {
 				inv.Delivery.Receiver = new(org.Party)

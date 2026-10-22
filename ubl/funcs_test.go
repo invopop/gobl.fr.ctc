@@ -12,7 +12,6 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
-	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/l10n"
 	"github.com/invopop/gobl/org"
@@ -548,7 +547,7 @@ func TestDeliveryTerms(t *testing.T) {
 				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
 			},
 			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
-			Ext:        tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyIncotermDeliveryTerms: "DAP"}),
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{flow2.ExtKeyIncotermDeliveryTerms: "DAP"}),
 		}
 	}
 
@@ -601,7 +600,7 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 
 		require.NotNil(t, inv.Delivery)
-		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(untdid.ExtKeyIncotermDeliveryTerms))
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(flow2.ExtKeyIncotermDeliveryTerms))
 		require.NotNil(t, inv.Delivery.Receiver)
 		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
 		assert.Equal(t, "Port of Le Havre", inv.Delivery.Receiver.Addresses[0].Label)

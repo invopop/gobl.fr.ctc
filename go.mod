@@ -3,8 +3,8 @@ module github.com/invopop/gobl.fr.ctc
 go 1.25.0
 
 require (
-	github.com/invopop/gobl v0.510.1-0.20261022112841-9a41ee678fd0
-	github.com/invopop/gobl.ubl v0.95.1-0.20261022112921-f3c943f459e8
+	github.com/invopop/gobl v0.510.1-0.20261022113627-1393dbf38441
+	github.com/invopop/gobl.ubl v0.95.1-0.20261022113655-bc99f3bca7ad
 	github.com/invopop/phorm v0.1.5
 	github.com/stretchr/testify v1.11.1
 )
