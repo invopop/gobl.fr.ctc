@@ -92,7 +92,7 @@ func TestParseCDARStatusIncludedNote(t *testing.T) {
 	require.Len(t, reasons, 1)
 
 	assert.Equal(t, "DOUBLON", reasons[0].Ext.Get(flow6.ExtKeyReason).String())
-	assert.Equal(t, "Doublon\nFacture déjà reçue le 12/08/2026 sous la référence F202500001", reasons[0].Description)
+	assert.Equal(t, "Facture déjà reçue le 12/08/2026 sous la référence F202500001", reasons[0].Description)
 
 	env, err := gobl.Envelop(st)
 	require.NoError(t, err)
