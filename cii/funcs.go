@@ -4,6 +4,7 @@ import (
 	"github.com/invopop/gobl"
 	goblcii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	"github.com/invopop/gobl/addons/fr/choruspro"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/untdid"
@@ -48,6 +49,27 @@ func importBillingMode(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelo
 	}
 	if in.ExchangedContext != nil && in.ExchangedContext.BusinessContext != nil {
 		inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code(in.ExchangedContext.BusinessContext.ID))
+	}
+	return nil
+}
+
+// importDocumentType restores the invoice type and tags that BT-3 stands for
+// under the Flow 2 scenarios, which the base import only knows for the codes
+// EN 16931 defines. The base already keeps the code itself.
+func importDocumentType(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope) error {
+	inv, in, ok := invoices(env, doc)
+	if !ok {
+		return nil
+	}
+	typ, tags, ok := flow2.DocumentType(cbc.Code(in.ExchangedDocument.TypeCode))
+	if !ok {
+		return nil
+	}
+	inv.Type = typ
+	for _, tag := range tags {
+		if !inv.HasTags(tag) {
+			inv.SetTags(append(inv.GetTags(), tag)...)
+		}
 	}
 	return nil
 }

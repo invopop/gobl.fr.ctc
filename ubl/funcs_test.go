@@ -1,6 +1,7 @@
 package ubl_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/invopop/gobl"
@@ -567,4 +568,69 @@ func TestContractType(t *testing.T) {
 		c := imported.Envelope.Extract().(*bill.Invoice).Ordering.Contracts[0]
 		assert.Equal(t, cbc.Code("MARCHE"), c.Ext.Get(untdid.ExtKeyReference))
 	})
+}
+
+// TestImportDocumentType covers BT-3 on the way in. The French profiles accept
+// UNTDID 1001 codes well beyond the ones EN 16931 defines, and the base import
+// leaves every one of them as a plain "other".
+func TestImportDocumentType(t *testing.T) {
+	tests := []struct {
+		code string
+		typ  cbc.Key
+		tags []cbc.Key
+	}{
+		{"386", bill.InvoiceTypeStandard, []cbc.Key{tax.TagPrepayment}},
+		{"389", bill.InvoiceTypeStandard, []cbc.Key{tax.TagSelfBilled}},
+		{"393", bill.InvoiceTypeStandard, []cbc.Key{tax.TagFactoring}},
+		{"500", bill.InvoiceTypeStandard, []cbc.Key{tax.TagSelfBilled, tax.TagPrepayment}},
+		{"501", bill.InvoiceTypeStandard, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+		{"471", bill.InvoiceTypeCorrective, []cbc.Key{tax.TagSelfBilled}},
+		{"472", bill.InvoiceTypeCorrective, []cbc.Key{tax.TagFactoring}},
+		{"473", bill.InvoiceTypeCorrective, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+		{"396", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagFactoring}},
+		{"502", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+		{"503", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagPrepayment}},
+		{"262", bill.InvoiceTypeCreditNote, []cbc.Key{flow2.TagGlobal}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.code, func(t *testing.T) {
+			inv := importWithDocumentType(t, tt.code)
+
+			assert.Equal(t, tt.typ, inv.Type)
+			assert.Equal(t, tt.tags, inv.Tags.List)
+			assert.Equal(t, cbc.Code(tt.code), inv.Tax.Ext.Get(untdid.ExtKeyDocumentType),
+				"the scenario must regenerate the stated code")
+		})
+	}
+
+	t.Run("a code the profile forbids is reported, not dropped", func(t *testing.T) {
+		// 875 is a German construction invoice, so BR-FR-04 must reject it
+		// rather than the extension turning up missing.
+		inv := importWithDocumentType(t, "875")
+
+		assert.Equal(t, cbc.Code("875"), inv.Tax.Ext.Get(untdid.ExtKeyDocumentType))
+		assert.ErrorContains(t, rules.Validate(inv),
+			"must be a valid Flow 2 document type")
+	})
+}
+
+// importWithDocumentType imports the French extended example with its BT-3
+// invoice type code swapped for the given one.
+func importWithDocumentType(t *testing.T, code string) *bill.Invoice {
+	t.Helper()
+
+	raw, err := testLoadXML("france-extended/b2g-invoice.xml")
+	require.NoError(t, err)
+
+	data := bytes.Replace(raw,
+		[]byte("<cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>"),
+		[]byte("<cbc:InvoiceTypeCode>"+code+"</cbc:InvoiceTypeCode>"), 1)
+	require.NotEqual(t, string(raw), string(data), "BT-3 was not replaced")
+
+	imported, err := convert.Import(data)
+	require.NoError(t, err)
+	inv, ok := imported.Envelope.Extract().(*bill.Invoice)
+	require.True(t, ok)
+	return inv
 }
