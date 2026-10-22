@@ -118,8 +118,7 @@ func WithSender(p *org.Party) Option {
 // with — the Peppol SBD From / To — as fully-qualified participant URIs (e.g.
 // "iso6523-actorid-upis::0225:code"). On import they are recorded verbatim on
 // the envelope's Head.From / Head.To, and also populate a party inbox the CDAR
-// body may omit (carried at the SBD layer instead), so the result satisfies
-// BR-FR-CDV-08.
+// body may omit (carried at the SBD layer instead).
 func WithRouting(from, to cbc.URI) Option {
 	return func(o *options) {
 		o.routing = routing{from: from, to: to}

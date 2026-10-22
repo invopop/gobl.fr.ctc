@@ -681,11 +681,29 @@ func TestSetPartyRoleDefaultExistingNotOverridden(t *testing.T) {
 	assert.Equal(t, RoleBuyer, p.Ext.Get(ExtKeyRole))
 }
 
-func TestPartyHasInboxWhenRequiredWrongType(t *testing.T) {
-	assert.True(t, partyHasInboxWhenRequired("x"))
-}
+func TestStatusHasRecipientEndpoint(t *testing.T) {
+	endpoint := []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:356000000_PEP"}}
+	party := func(role cbc.Code, endpoints []*org.Endpoint) *org.Party {
+		return &org.Party{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyRole: role}), Endpoints: endpoints}
+	}
 
-func TestPartyHasInboxWhenRequiredWKRole(t *testing.T) {
-	p := &org.Party{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyRole: RolePlatform})}
-	assert.True(t, partyHasInboxWhenRequired(p))
+	assert.True(t, statusHasRecipientEndpoint("x"), "not a status")
+	assert.True(t, statusHasRecipientEndpoint(&bill.Status{
+		Supplier: party(RoleSeller, endpoint), Customer: party(RoleBuyer, endpoint),
+	}), "both parties have one")
+	assert.True(t, statusHasRecipientEndpoint(&bill.Status{
+		Supplier: party(RoleSeller, nil), Customer: party(RoleBuyer, endpoint),
+	}), "the issuer's address may travel only in the Peppol envelope")
+	assert.True(t, statusHasRecipientEndpoint(&bill.Status{
+		Supplier: party(RolePlatform, nil), Customer: party(RolePPF, nil),
+	}), "WK and DFH parties need none")
+	assert.False(t, statusHasRecipientEndpoint(&bill.Status{
+		Supplier: party(RoleSeller, nil), Customer: party(RoleBuyer, nil),
+	}), "neither has one")
+	assert.False(t, statusHasRecipientEndpoint(&bill.Status{
+		Supplier: &org.Party{
+			Ext:     tax.ExtensionsOf(cbc.CodeMap{ExtKeyRole: RoleSeller}),
+			Inboxes: []*org.Inbox{{Scheme: "0225", Code: "356000000_PEP"}},
+		},
+	}), "an inbox alone isn't checked, only its normalized endpoint")
 }
