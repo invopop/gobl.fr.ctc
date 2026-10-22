@@ -373,9 +373,6 @@ func billInvoiceRules() *rules.Set {
 
 // -- Rule-level guards ----------------------------------------------------
 
-// invoiceTaxExtIn returns a Test that passes when bill.Invoice.Tax.Ext[key]
-// matches one of the provided codes. Used to gate per-document-type or
-// per-billing-mode branches without writing a dedicated predicate.
 // periodHasBothDates reports whether the period carries a start and an end.
 // cal.Period requires only one of the two, but BR-FR-CO-03 asks for both.
 func periodHasBothDates(val any) bool {
@@ -386,6 +383,9 @@ func periodHasBothDates(val any) bool {
 	return period.Start != nil && period.End != nil
 }
 
+// invoiceTaxExtIn returns a Test that passes when bill.Invoice.Tax.Ext[key]
+// matches one of the provided codes. Used to gate per-document-type or
+// per-billing-mode branches without writing a dedicated predicate.
 func invoiceTaxExtIn(key cbc.Key, codes ...cbc.Code) rules.Test {
 	return is.Func(
 		fmt.Sprintf("invoice tax ext %s in [%s]", key, joinCodes(codes)),
