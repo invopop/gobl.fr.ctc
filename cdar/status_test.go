@@ -592,10 +592,8 @@ func TestCDARPaymentNoAmount(t *testing.T) {
 	require.NotNil(t, pmt.Lines[0].Document)
 	assert.Equal(t, cbc.Code("F202500003"), pmt.Lines[0].Document.Code)
 
-	// The missing amount makes the document invalid, not unparseable.
-	err = env.Validate()
-	require.Error(t, err, "zero amount must fail validation")
-	assert.Contains(t, err.Error(), "amount")
+	// A 211 advice may carry a zero amount, so a missing one validates too.
+	assert.NoError(t, env.Validate())
 }
 
 // TestCDARPaymentPPFEncaissement covers the PPF (einvoicingF2) profile
