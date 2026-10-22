@@ -91,7 +91,7 @@ var FormatCTCCIUS = goblcii.Format{
 	OutputGuidelineID: goblcii.GuidelineIDEN16931,
 	Version:           goblcii.VersionD22B,
 	Addons:            []cbc.Key{flow2.V1},
-	VESID:             "fr.ctc:cii:1.4.0-03",
+	VESID:             "fr.ctc:cii:1.4.0-04",
 	ExportFuncs:       []goblcii.ExportFunc{exportBillingMode},
 	ImportFuncs:       []goblcii.ImportFunc{importBillingMode},
 	Attachments:       true,
@@ -110,7 +110,7 @@ var FormatCTCExtended = goblcii.Format{
 	OutputGuidelineID: goblcii.GuidelineIDEN16931 + "#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr",
 	Version:           goblcii.VersionD22B,
 	Addons:            []cbc.Key{flow2.V1},
-	VESID:             "fr.ctc:extended-cii:1.4.0-03",
+	VESID:             "fr.ctc:extended-cii:1.4.0-04",
 	// The CTC schematron never checks BT-24, so a mangled GuidelineID
 	// arrives validated and the billing mode is all that is left to trust.
 	// Extended because its extra mappings are additive: a CIUS document

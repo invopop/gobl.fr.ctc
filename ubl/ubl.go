@@ -39,8 +39,8 @@ var FormatCIUS = goblubl.Format{
 	OutputCustomizationID: "urn:cen.eu:en16931:2017",
 	Addons:                []cbc.Key{flow2.V1},
 	VESIDs: goblubl.VESIDMapping{
-		Invoice:    "fr.ctc:ubl-invoice:1.4.0-03",
-		CreditNote: "fr.ctc:ubl-creditnote:1.4.0-03",
+		Invoice:    "fr.ctc:ubl-invoice:1.4.0-04",
+		CreditNote: "fr.ctc:ubl-creditnote:1.4.0-04",
 	},
 	ExportFuncs: []goblubl.ExportFunc{exportCIUS},
 	ImportFuncs: []goblubl.ImportFunc{importCIUS},
@@ -58,8 +58,8 @@ var FormatExtended = goblubl.Format{
 	OutputCustomizationID: "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr",
 	Addons:                []cbc.Key{flow2.V1},
 	VESIDs: goblubl.VESIDMapping{
-		Invoice:    "fr.ctc:extended-ubl-invoice:1.4.0-03",
-		CreditNote: "fr.ctc:extended-ubl-creditnote:1.4.0-03",
+		Invoice:    "fr.ctc:extended-ubl-invoice:1.4.0-04",
+		CreditNote: "fr.ctc:extended-ubl-creditnote:1.4.0-04",
 	},
 	SubLines: true,
 	// The CTC schematron never checks BT-24, so a mangled CustomizationID
