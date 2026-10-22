@@ -27,16 +27,15 @@ const (
 )
 
 // The opaque part of an ISO 6523 endpoint on the French 0225 scheme, and
-// BR-FR-23's charset for its address. The charset deliberately differs from
-// sirenInboxFormatRegex on `.` and `/`.
+// BR-FR-23's charset for its address.
 var (
 	endpointSIRENScheme  = fmt.Sprintf(`^:%s:`, inboxSchemeSIREN)
 	endpointSIRENAddress = fmt.Sprintf(`^:%s:[A-Za-z0-9+\-_.]+$`, inboxSchemeSIREN)
 )
 
-// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format required of
-// private-id identity codes.
-var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
+// schemeIDFormatRegex is the charset BR-FR-23 (0225 addresses) and BR-FR-24
+// (0224 private ids) share.
+var schemeIDFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
 
 func normalizeParty(party *org.Party) {
 	if party == nil {
@@ -329,8 +328,8 @@ func orgIdentityRules() *rules.Set {
 				rules.Assert("01", "identity code for private-id (0224) must not exceed 100 characters (BR-FR-26)",
 					is.Length(0, 100),
 				),
-				rules.Assert("02", "identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)",
-					is.MatchesRegexp(sirenInboxFormatRegex),
+				rules.Assert("02", "identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, . (BR-FR-24)",
+					is.MatchesRegexp(schemeIDFormatRegex),
 				),
 			),
 		),
@@ -408,8 +407,8 @@ func orgInboxRules() *rules.Set {
 				rules.Assert("01", "the length must be between 0 and 125",
 					is.Length(0, 125),
 				),
-				rules.Assert("02", "must be in a valid format",
-					is.Matches(`^[A-Za-z0-9\-\+_/]+$`),
+				rules.Assert("02", "must contain only alphanumeric characters and +, -, _, . (BR-FR-23)",
+					is.MatchesRegexp(schemeIDFormatRegex),
 				),
 			),
 		),

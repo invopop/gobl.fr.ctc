@@ -432,9 +432,24 @@ func TestOrgIdentityValidate(t *testing.T) {
 		assert.ErrorContains(t, err, "must not exceed 100 characters")
 	})
 	t.Run("private-id outside the permitted charset (BR-FR-24)", func(t *testing.T) {
-		err := rules.Validate(privateID("bad code!"), ctx)
-		assert.ErrorContains(t, err, "alphanumeric characters")
+		for _, code := range []string{"bad code!", "ACME/001"} {
+			err := rules.Validate(privateID(code), ctx)
+			assert.ErrorContains(t, err, "alphanumeric characters", code)
+		}
 	})
+	t.Run("private-id with a dot (BR-FR-24)", func(t *testing.T) {
+		assert.NoError(t, rules.Validate(privateID("ACME.FR-001"), ctx))
+	})
+}
+
+func TestOrgInboxValidate(t *testing.T) {
+	ctx := tax.AddonContext(V1)
+	inbox := func(code string) *org.Inbox {
+		return &org.Inbox{Scheme: inboxSchemeSIREN, Code: cbc.Code(code)}
+	}
+
+	assert.NoError(t, rules.Validate(inbox("356000000_billing.dept"), ctx))
+	assert.ErrorContains(t, rules.Validate(inbox("356000000/billing"), ctx), "BR-FR-23")
 }
 
 func TestMetaNoBlankValues(t *testing.T) {
