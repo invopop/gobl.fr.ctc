@@ -1,15 +1,25 @@
 // Package dgfip defines the French tax authority (Direction Générale des
 // Finances Publiques) billing-mode code list used by the French CTC
-// (Continuous Transaction Control) reform. It is shared across the
-// flow-specific addons (Flow 2 clearance and Flow 10 e-reporting), so it lives
-// in its own leaf package that those addons embed in their extension lists.
+// (Continuous Transaction Control) reform, and the identifier charset its
+// flows share. It is shared across the flow-specific addons (Flow 2
+// clearance, Flow 6 lifecycle and Flow 10 e-reporting), so it lives in its own
+// leaf package.
 package dgfip
 
 import (
+	"regexp"
+
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/i18n"
 	"github.com/invopop/gobl/pkg/here"
 )
+
+// SchemeIDCharset is the character class BR-FR-23 (0225 electronic addresses)
+// and BR-FR-24 (0224 private ids) share since XP Z12-012 v1.3.1.
+const SchemeIDCharset = `[A-Za-z0-9+\-_.]`
+
+// SchemeIDFormat matches a code made only of SchemeIDCharset.
+var SchemeIDFormat = regexp.MustCompile(`^` + SchemeIDCharset + `+$`)
 
 // ExtKeyBillingMode is the DGFiP "Cadre de Facturation" code that describes
 // the nature of the document (Biens / Services / Mixte) and the payment

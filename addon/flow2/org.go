@@ -2,9 +2,9 @@ package flow2
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
@@ -30,12 +30,8 @@ const (
 // BR-FR-23's charset for its address.
 var (
 	endpointSIRENScheme  = fmt.Sprintf(`^:%s:`, inboxSchemeSIREN)
-	endpointSIRENAddress = fmt.Sprintf(`^:%s:[A-Za-z0-9+\-_.]+$`, inboxSchemeSIREN)
+	endpointSIRENAddress = fmt.Sprintf(`^:%s:%s+$`, inboxSchemeSIREN, dgfip.SchemeIDCharset)
 )
-
-// schemeIDFormatRegex is the charset BR-FR-23 (0225 addresses) and BR-FR-24
-// (0224 private ids) share.
-var schemeIDFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_.]+$`)
 
 func normalizeParty(party *org.Party) {
 	if party == nil {
@@ -329,7 +325,7 @@ func orgIdentityRules() *rules.Set {
 					is.Length(0, 100),
 				),
 				rules.Assert("02", "identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, . (BR-FR-24)",
-					is.MatchesRegexp(schemeIDFormatRegex),
+					is.MatchesRegexp(dgfip.SchemeIDFormat),
 				),
 			),
 		),
@@ -408,7 +404,7 @@ func orgInboxRules() *rules.Set {
 					is.Length(0, 125),
 				),
 				rules.Assert("02", "must contain only alphanumeric characters and +, -, _, . (BR-FR-23)",
-					is.MatchesRegexp(schemeIDFormatRegex),
+					is.MatchesRegexp(dgfip.SchemeIDFormat),
 				),
 			),
 		),
