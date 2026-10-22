@@ -70,7 +70,7 @@ var FormatCDV = Format{
 	// CDAR XML's BusinessProcessParameter at the CDV MDT-2 "REGULATED" value.
 	BusinessID:       ProcessIDRegulated,
 	OutputBusinessID: "REGULATED",
-	VESID:            "fr.ctc:cdar:1.4.0-03",
+	VESID:            "fr.ctc:cdar:1.4.0-04",
 }
 
 // FormatCDVPPF is used for French CTC Flow 6 CDAR copies sent to
@@ -81,7 +81,7 @@ var FormatCDVPPF = Format{
 	Key:         KeyCDVPPF,
 	Name:        i18n.NewString("CDAR France CTC CDV for the PPF"),
 	GuidelineID: CDARGuidelinePPF,
-	VESID:       "fr.ctc:cdar:1.4.0-03",
+	VESID:       "fr.ctc:cdar:1.4.0-04",
 }
 
 // routing carries the envelope's transport addresses — the SBD From / To the

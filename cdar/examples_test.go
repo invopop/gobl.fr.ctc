@@ -185,6 +185,7 @@ var cdarFixturesNeedingRouting = map[string]bool{
 	"UC1_F202500003_06-CDV-211_Paiement_transmis.xml":  true,
 	"UC1_F202500003_07-CDV-212_Encaissee.xml":          true,
 	"UC1_F202500003_07-CDV-212_Encaissee_POUR_PPF.xml": true,
+	"UC3_F202500005_04-CDV-210_Refusee.xml":            true,
 	"UC4_F202500006_04-CDV-207_En_litige.xml":          true,
 	"UC5_F202500007_04-CDV-207_En_litige.xml":          true,
 }

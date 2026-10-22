@@ -153,6 +153,9 @@ flow6.StatusKeyFor("212")                     // → "paid", "response", true
 | `TypeCode` (MDT-91) | `Doc.Type` | UNTDID 1001 invoice type |
 | `ReceiptDateTime` | not currently mapped | |
 | `SpecifiedDocumentStatus[]` | one entry per `(Reason × Action)` pair, then characteristic-only entries | See §5 |
+| `SpecifiedDocumentStatus/ReasonCode` (MDT-113) | `Reasons[].ext[fr-ctc-flow6-reason]` | |
+| `SpecifiedDocumentStatus/Reason` (MDT-114) | `Reasons[].Description`, before MDT-126 | Import only. Export doesn't write it, so our own CDVs read back unchanged. |
+| `SpecifiedDocumentStatus/IncludedNote/Content` (MDT-126) | `Reasons[].Description`, after MDT-114 | Import joins it after MDT-114; export writes the description here alone. PPF requires it on a Refusée / Suspendue. A note on an entry with neither a `ReasonCode` nor characteristics has no reason to sit on and is not imported. |
 
 ### Status-required Reasons (BR-FR-CDV-15)
 

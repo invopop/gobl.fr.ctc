@@ -3,27 +3,32 @@ package cii_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	goblcii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	frcii "github.com/invopop/gobl.fr.ctc/cii"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/convert"
+	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestExportFormats(t *testing.T) {
-	t.Run("with Factur-X context", func(t *testing.T) {
-		env := loadEnvelope(t, "facturx/invoice-complete.json")
-		out, err := goblcii.ExportInvoice(env, goblcii.WithFormat(frcii.FormatFacturX))
+	t.Run("with France Factur-X CIUS context", func(t *testing.T) {
+		env := loadEnvelope(t, "peppol-france-cius/invoice-standard.json")
+		out, err := goblcii.ExportInvoice(env, goblcii.WithFormat(frcii.FormatCTCFacturXCIUS))
 		require.NoError(t, err)
 
+		// BT-24 is Factur-X EN 16931's own value, BT-23 the billing mode.
 		assert.Equal(t, "urn:cen.eu:en16931:2017", out.ExchangedContext.GuidelineContext.ID)
-		assert.Nil(t, out.ExchangedContext.BusinessContext)
+		require.NotNil(t, out.ExchangedContext.BusinessContext)
+		assert.Equal(t, "S1", out.ExchangedContext.BusinessContext.ID)
 	})
 
 	t.Run("with France Extended context", func(t *testing.T) {
@@ -68,10 +73,10 @@ func TestFindFormat(t *testing.T) {
 			assert.Equal(t, frcii.FormatCTCCIUS.GuidelineID, ctx.GuidelineID)
 			assert.Equal(t, frcii.FormatCTCCIUS.VESID, ctx.VESID)
 
-			ctx = goblcii.FindFormat(frcii.FormatCTCFacturX.GuidelineID, mode)
+			ctx = goblcii.FindFormat(frcii.FormatCTCFacturXExtended.GuidelineID, mode)
 			require.NotNil(t, ctx, "mode %s", mode)
-			assert.Equal(t, frcii.FormatCTCFacturX.GuidelineID, ctx.GuidelineID)
-			assert.Equal(t, frcii.FormatCTCFacturX.VESID, ctx.VESID)
+			assert.Equal(t, frcii.FormatCTCFacturXExtended.GuidelineID, ctx.GuidelineID)
+			assert.Equal(t, frcii.FormatCTCFacturXExtended.VESID, ctx.VESID)
 
 			ctx = goblcii.FindFormat(frcii.FormatCTCExtended.GuidelineID, mode)
 			require.NotNil(t, ctx, "mode %s", mode)
@@ -99,15 +104,13 @@ func TestFindFormat(t *testing.T) {
 	})
 
 	t.Run("find France Factur-X by the guideline it emits", func(t *testing.T) {
-		// A billing mode picks the French context; without one the same
-		// guideline is the plain Factur-X EXTENDED profile.
-		ctx := goblcii.FindFormat(frcii.FormatFacturXExtended.GuidelineID, "B1")
-		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatCTCFacturX.GuidelineID, ctx.GuidelineID)
-
-		ctx = goblcii.FindFormat(frcii.FormatFacturXExtended.GuidelineID, "")
-		require.NotNil(t, ctx)
-		assert.Equal(t, frcii.FormatFacturXExtended.GuidelineID, ctx.GuidelineID)
+		// With or without a billing mode, the Factur-X EXTENDED guideline is
+		// the French CTC Factur-X EXTENDED profile.
+		for _, mode := range []string{"B1", ""} {
+			ctx := goblcii.FindFormat(frcii.GuidelineIDFacturXExtended, mode)
+			require.NotNil(t, ctx, "mode %q", mode)
+			assert.Equal(t, frcii.KeyCTCFacturXExtended, ctx.Key)
+		}
 	})
 }
 
@@ -166,37 +169,16 @@ func TestFrenchBillingModeFallback(t *testing.T) {
 	})
 }
 
-// TestHybridProfileGuidelines pins each hybrid context to the BT-24 value its
-// profile's codelist admits; a wrong value invalidates every document.
-func TestHybridProfileGuidelines(t *testing.T) {
-	for _, tc := range []struct {
-		name      string
-		context   goblcii.Format
-		guideline string
-		vesID     string
-	}{
-		{"Factur-X BASIC", frcii.FormatFacturXBasic,
-			"urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:basic", "fr.factur-x:basic:1.0.8"},
-		{"Factur-X EN 16931", frcii.FormatFacturX,
-			"urn:cen.eu:en16931:2017", "fr.factur-x:en16931:1.0.8"},
-		{"Factur-X EXTENDED", frcii.FormatFacturXExtended,
-			"urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended", "fr.factur-x:extended:1.0.8"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.guideline, tc.context.GuidelineID)
-			assert.Equal(t, tc.vesID, tc.context.VESID)
-			assert.Empty(t, tc.context.OutputGuidelineID, "hybrid profiles emit their own GuidelineID")
-		})
-	}
-}
+// TestFacturXProfiles pins each Factur-X profile to the BT-24 value its
+// codelist admits and to its Flux 2 rule set; a wrong guideline invalidates
+// every document.
+func TestFacturXProfiles(t *testing.T) {
+	assert.Equal(t, "urn:cen.eu:en16931:2017", frcii.FormatCTCFacturXCIUS.GuidelineID)
+	assert.Empty(t, frcii.FormatCTCFacturXCIUS.OutputGuidelineID)
+	assert.Equal(t, "fr.ctc:facturx-en16931:1.4.0-04", frcii.FormatCTCFacturXCIUS.VESID)
 
-// TestPeppolFranceFacturXEmitsFacturXGuideline checks BT-24 names a Factur-X
-// profile rather than the CTC one.
-func TestPeppolFranceFacturXEmitsFacturXGuideline(t *testing.T) {
-	assert.Equal(t,
-		frcii.FormatFacturXExtended.GuidelineID,
-		frcii.FormatCTCFacturX.OutputGuidelineID,
-	)
+	assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended", frcii.FormatCTCFacturXExtended.OutputGuidelineID)
+	assert.Equal(t, "fr.ctc:facturx-extended:1.4.0-04", frcii.FormatCTCFacturXExtended.VESID)
 }
 
 // TestPeppolFranceExtendedGuidelines pins the extended context's external
@@ -258,7 +240,7 @@ func TestExtendedParties(t *testing.T) {
 		// ContextPeppolFranceFacturXV1 declares the Factur-X EXTENDED
 		// guideline in BT-24 but is checked by the same EXTENDED-CTC-FR
 		// rule set, so it carries the same parties.
-		tr := convert(t, frcii.FormatCTCFacturX).Transaction
+		tr := convert(t, frcii.FormatCTCFacturXExtended).Transaction
 
 		require.NotNil(t, tr.Settlement.Invoicee)
 		require.NotNil(t, tr.Settlement.Payer)
@@ -312,7 +294,7 @@ func TestSubLinesRoundTrip(t *testing.T) {
 		fixture string
 		format  goblcii.Format
 	}{
-		{"peppol-france-facturx/invoice-hierarchy.json", frcii.FormatCTCFacturX},
+		{"peppol-france-facturx/invoice-hierarchy.json", frcii.FormatCTCFacturXExtended},
 		{"peppol-france-extended/invoice-sub-lines.json", frcii.FormatCTCExtended},
 	} {
 		t.Run(tt.fixture, func(t *testing.T) {
@@ -340,12 +322,16 @@ func TestSubLinesRoundTrip(t *testing.T) {
 func TestConvertRegister(t *testing.T) {
 	t.Run("formats", func(t *testing.T) {
 		for _, k := range []cbc.Key{
-			frcii.KeyCTCCIUS, frcii.KeyCTCExtended, frcii.KeyCTCFacturX,
-			frcii.KeyFacturX, frcii.KeyFacturXBasic, frcii.KeyFacturXExtended, frcii.KeyChorusPro,
+			frcii.KeyCTCCIUS, frcii.KeyCTCExtended,
+			frcii.KeyCTCFacturXCIUS, frcii.KeyCTCFacturXExtended, frcii.KeyChorusPro,
 		} {
 			f := convert.FormatFor(k)
 			require.NotNil(t, f, k)
 			assert.Equal(t, cbc.Key("cii"), f.Syntax)
+			if k != frcii.KeyCTCFacturXCIUS {
+				assert.NotEmpty(t, f.Import, k)
+			}
+			assert.True(t, f.Attachments, k)
 		}
 	})
 
@@ -373,18 +359,11 @@ func TestConvertRegister(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, frcii.KeyCTCCIUS, f.Key, "detected again")
 	})
-	t.Run("attachments", func(t *testing.T) {
-		for _, k := range []cbc.Key{
-			frcii.KeyCTCCIUS, frcii.KeyCTCExtended, frcii.KeyCTCFacturX,
-			frcii.KeyFacturX, frcii.KeyFacturXExtended, frcii.KeyChorusPro,
-		} {
-			assert.True(t, convert.FormatFor(k).Attachments, k)
-		}
-		assert.False(t, convert.FormatFor(frcii.KeyFacturXBasic).Attachments)
 
-		env := loadEnvelope(t, "facturx/invoice-complete.json")
+	t.Run("attachments", func(t *testing.T) {
+		env := loadEnvelope(t, "peppol-france-cius/invoice-standard.json")
 		pdf := &convert.Attachment{Name: "invoice.pdf", MIME: "application/pdf", Data: []byte("%PDF")}
-		out, err := convert.Export(env, frcii.KeyFacturX, convert.WithAttachments(pdf))
+		out, err := convert.Export(env, frcii.KeyCTCFacturXCIUS, convert.WithAttachments(pdf))
 		require.NoError(t, err)
 		doc, err := goblcii.Decode(out.Data)
 		require.NoError(t, err)
@@ -397,16 +376,93 @@ func TestConvertRegister(t *testing.T) {
 		require.Len(t, imported.Attachments, 1)
 		assert.Equal(t, pdf.Data, imported.Attachments[0].Data)
 	})
-	t.Run("factur-x en 16931 is export-only", func(t *testing.T) {
-		f := convert.FormatFor(frcii.KeyFacturX)
-		require.NotNil(t, f)
-		assert.Empty(t, f.Import)
 
-		env := loadEnvelope(t, "facturx/invoice-complete.json")
-		out, err := convert.Export(env, frcii.KeyFacturX)
+	t.Run("factur-x cius is export-only", func(t *testing.T) {
+		env := loadEnvelope(t, "peppol-france-cius/invoice-standard.json")
+		out, err := convert.Export(env, frcii.KeyCTCFacturXCIUS)
 		require.NoError(t, err)
 		d, err := convert.Detect(out.Data)
 		require.NoError(t, err)
-		assert.Equal(t, goblcii.FormatEN16931.Key, d.Key, "imported as EN 16931")
+		assert.Equal(t, frcii.KeyCTCCIUS, d.Key, "its CII reads as CIUS")
 	})
+
+	t.Run("factur-x extended is detected", func(t *testing.T) {
+		env := loadEnvelope(t, "peppol-france-facturx/invoice-standard.json")
+		out, err := convert.Export(env, frcii.KeyCTCFacturXExtended)
+		require.NoError(t, err)
+		d, err := convert.Detect(out.Data)
+		require.NoError(t, err)
+		assert.Equal(t, frcii.KeyCTCFacturXExtended, d.Key)
+
+		imported, err := convert.Import(out.Data, convert.WithFormats(frcii.KeyCTCFacturXExtended))
+		require.NoError(t, err)
+		assert.Equal(t, frcii.KeyCTCFacturXExtended, imported.Format.Key)
+	})
+}
+
+// EXT-FR-FE-01: the contract type travels as a UNCL 1153 code (BR-FR-CPRO-01).
+func TestContractType(t *testing.T) {
+	env := loadEnvelope(t, "peppol-france-extended/invoice-standard.json")
+	inv := env.Extract().(*bill.Invoice)
+	if inv.Ordering == nil {
+		inv.Ordering = new(bill.Ordering)
+	}
+	inv.Ordering.Contracts = []*org.DocumentRef{{
+		Code: "MARCHE-2026-0042",
+		Ext:  tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyReference: "CT"}),
+	}}
+	require.NoError(t, env.Calculate())
+
+	doc, err := goblcii.ExportInvoice(env, goblcii.WithFormat(frcii.FormatCTCExtended))
+	require.NoError(t, err)
+	require.NotNil(t, doc.Transaction.Agreement.Contract)
+	assert.Equal(t, "CT", doc.Transaction.Agreement.Contract.ReferenceTypeCode)
+
+	data, err := goblcii.Encode(doc)
+	require.NoError(t, err)
+	imported, err := convert.Import(data)
+	require.NoError(t, err)
+	c := imported.Envelope.Extract().(*bill.Invoice).Ordering.Contracts[0]
+	assert.Equal(t, cbc.Code("CT"), c.Ext.Get(untdid.ExtKeyReference))
+	assert.NoError(t, imported.Envelope.Validate())
+}
+
+func TestImportDocumentType(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(getParsePath(), "peppol-france-extended", "invoice-standard.xml"))
+	require.NoError(t, err)
+
+	tests := []struct {
+		code string
+		typ  cbc.Key
+		tags []cbc.Key
+	}{
+		{"386", bill.InvoiceTypeStandard, []cbc.Key{tax.TagPrepayment}},
+		{"393", bill.InvoiceTypeStandard, []cbc.Key{tax.TagFactoring}},
+		{"500", bill.InvoiceTypeStandard, []cbc.Key{tax.TagSelfBilled, tax.TagPrepayment}},
+		{"501", bill.InvoiceTypeStandard, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+		{"471", bill.InvoiceTypeCorrective, []cbc.Key{tax.TagSelfBilled}},
+		{"472", bill.InvoiceTypeCorrective, []cbc.Key{tax.TagFactoring}},
+		{"473", bill.InvoiceTypeCorrective, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+		{"261", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagSelfBilled}},
+		{"396", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagFactoring}},
+		{"502", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagSelfBilled, tax.TagFactoring}},
+		{"503", bill.InvoiceTypeCreditNote, []cbc.Key{tax.TagPrepayment}},
+		{"262", bill.InvoiceTypeCreditNote, []cbc.Key{flow2.TagGlobal}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.code, func(t *testing.T) {
+			data := strings.Replace(string(raw),
+				"<ram:TypeCode>380</ram:TypeCode>",
+				"<ram:TypeCode>"+tt.code+"</ram:TypeCode>", 1)
+			imported, err := convert.Import([]byte(data))
+			require.NoError(t, err)
+			inv, ok := imported.Envelope.Extract().(*bill.Invoice)
+			require.True(t, ok)
+
+			assert.Equal(t, tt.typ, inv.Type)
+			assert.Equal(t, tt.tags, inv.Tags.List)
+			assert.Equal(t, cbc.Code(tt.code), inv.Tax.Ext.Get(untdid.ExtKeyDocumentType),
+				"the scenario must regenerate the stated code")
+		})
+	}
 }
