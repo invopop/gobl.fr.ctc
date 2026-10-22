@@ -1,0 +1,271 @@
+{
+	"$schema": "https://gobl.org/draft-0/envelope",
+	"head": {
+		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
+		"dig": {
+			"alg": "sha256",
+			"val": "d1553da9748e7c330dfe1e8bbea7806b12a2787761d127935a5c5be7bac4021d"
+		},
+		"from": "iso6523-actorid-upis::0225:356000000",
+		"to": "iso6523-actorid-upis::0225:732829320"
+	},
+	"doc": {
+		"$schema": "https://gobl.org/draft-0/bill/invoice",
+		"$regime": "FR",
+		"$addons": [
+			"eu-en16931-v2017",
+			"fr-ctc-flow2-v1"
+		],
+		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
+		"type": "standard",
+		"code": "FAC-2026-0042",
+		"issue_date": "2026-01-15",
+		"currency": "EUR",
+		"tax": {
+			"rounding": "currency",
+			"ext": {
+				"fr-ctc-billing-mode": "B1",
+				"untdid-document-type": "380"
+			}
+		},
+		"supplier": {
+			"name": "Supplier SARL",
+			"tax_id": {
+				"country": "FR",
+				"code": "39356000000"
+			},
+			"identities": [
+				{
+					"scope": "legal",
+					"code": "356000000",
+					"ext": {
+						"iso-scheme-id": "0002"
+					}
+				}
+			],
+			"people": [
+				{
+					"name": {
+						"given": "Service Facturation"
+					}
+				}
+			],
+			"endpoints": [
+				{
+					"uri": "iso6523-actorid-upis::0225:356000000"
+				}
+			],
+			"inboxes": [
+				{
+					"key": "peppol",
+					"scheme": "0225",
+					"code": "356000000"
+				}
+			],
+			"addresses": [
+				{
+					"street": "1 Rue de l'Exemple",
+					"locality": "Paris",
+					"code": "75001",
+					"country": "FR"
+				}
+			],
+			"telephones": [
+				{
+					"num": "+33 1 00 00 00 00"
+				}
+			]
+		},
+		"customer": {
+			"name": "Customer SAS",
+			"tax_id": {
+				"country": "FR",
+				"code": "44732829320"
+			},
+			"identities": [
+				{
+					"scope": "legal",
+					"code": "732829320",
+					"ext": {
+						"iso-scheme-id": "0002"
+					}
+				},
+				{
+					"code": "73282932000074",
+					"ext": {
+						"iso-scheme-id": "0009"
+					}
+				}
+			],
+			"people": [
+				{
+					"name": {
+						"given": "Jeanne Martin"
+					}
+				}
+			],
+			"endpoints": [
+				{
+					"uri": "iso6523-actorid-upis::0225:732829320"
+				}
+			],
+			"inboxes": [
+				{
+					"key": "peppol",
+					"scheme": "0225",
+					"code": "732829320"
+				}
+			],
+			"addresses": [
+				{
+					"street": "10 Avenue du Test",
+					"locality": "Lyon",
+					"code": "69001",
+					"country": "FR"
+				}
+			],
+			"emails": [
+				{
+					"addr": "jeanne.martin@example.com"
+				}
+			],
+			"telephones": [
+				{
+					"num": "+33 4 00 00 00 00"
+				}
+			]
+		},
+		"lines": [
+			{
+				"i": 1,
+				"quantity": "3.000",
+				"order": "1",
+				"item": {
+					"ref": "ART-001",
+					"name": "Capteur de proximité",
+					"price": "25.00",
+					"unit": "piece",
+					"origin": "DE",
+					"ext": {
+						"untdid-unit": "H87"
+					}
+				},
+				"sum": "75.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "20.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"total": "75.00"
+			}
+		],
+		"ordering": {
+			"purchases": [
+				{
+					"code": "PO-12345"
+				}
+			],
+			"sales": [
+				{
+					"code": "SO-67890"
+				}
+			]
+		},
+		"payment": {
+			"terms": {
+				"due_dates": [
+					{
+						"date": "2026-02-28",
+						"amount": "90.00",
+						"percent": "100%"
+					}
+				],
+				"notes": "Paiement à 45 jours fin de mois."
+			}
+		},
+		"delivery": {
+			"receiver": {
+				"name": "Customer SAS",
+				"addresses": [
+					{
+						"label": "Entrepôt de Lille",
+						"street": "5 Zone Industrielle",
+						"locality": "Lille",
+						"code": "59000",
+						"country": "FR"
+					}
+				]
+			},
+			"identities": [
+				{
+					"code": "3012345678902",
+					"ext": {
+						"iso-scheme-id": "0088"
+					}
+				}
+			],
+			"date": "2026-01-15",
+			"ext": {
+				"incoterm-delivery-terms": "DAP"
+			}
+		},
+		"totals": {
+			"sum": "75.00",
+			"total": "75.00",
+			"taxes": {
+				"categories": [
+					{
+						"code": "VAT",
+						"rates": [
+							{
+								"key": "standard",
+								"ext": {
+									"untdid-tax-category": "S"
+								},
+								"base": "75.00",
+								"percent": "20.00%",
+								"amount": "15.00"
+							}
+						],
+						"amount": "15.00"
+					}
+				],
+				"sum": "15.00"
+			},
+			"tax": "15.00",
+			"total_with_tax": "90.00",
+			"payable": "90.00"
+		},
+		"notes": [
+			{
+				"text": "Aucun escompte n'est accordé pour paiement anticipé.",
+				"ext": {
+					"untdid-text-subject": "AAB"
+				}
+			},
+			{
+				"text": "Pénalités de retard au taux de 3 fois l'intérêt légal.",
+				"ext": {
+					"untdid-text-subject": "PMD"
+				}
+			},
+			{
+				"text": "Indemnité forfaitaire de 40 € pour frais de recouvrement.",
+				"ext": {
+					"untdid-text-subject": "PMT"
+				}
+			},
+			{
+				"text": "TVA exigible sur les débits",
+				"ext": {
+					"untdid-text-subject": "TXD"
+				}
+			}
+		]
+	}
+}

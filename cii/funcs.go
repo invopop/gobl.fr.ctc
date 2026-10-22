@@ -4,6 +4,7 @@ import (
 	"github.com/invopop/gobl"
 	goblcii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	"github.com/invopop/gobl/addons/fr/choruspro"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cbc"
@@ -60,7 +61,8 @@ func exportSubLines(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document)
 	return nil
 }
 
-// exportExtended adds the parties only the French extended profile defines.
+// exportExtended adds the parties and delivery terms only the French extended
+// profile defines.
 func exportExtended(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document) error {
 	inv, out, ok := invoices(env, doc)
 	if !ok {
@@ -94,10 +96,24 @@ func exportExtended(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document)
 			stlm.Payer = goblcii.NewParty(inv.Payment.Payer)
 		}
 	}
+
+	// EXT-FR-FE-BG-14: the Incoterm code (EXT-FR-FE-185) from the delivery
+	// extension, and the delivery location name (EXT-FR-FE-186) from the
+	// label of the receiver's address.
+	if del := inv.Delivery; del != nil && out.Transaction.Agreement != nil {
+		if code := del.Ext.Get(flow2.ExtKeyIncotermDeliveryTerms); code != cbc.CodeEmpty {
+			terms := &goblcii.DeliveryTerms{Code: code.String()}
+			if del.Receiver != nil && len(del.Receiver.Addresses) > 0 && del.Receiver.Addresses[0].Label != "" {
+				terms.Location = &goblcii.TradeLocation{Name: del.Receiver.Addresses[0].Label}
+			}
+			out.Transaction.Agreement.DeliveryTerms = terms
+		}
+	}
 	return nil
 }
 
-// importExtended reads the parties only the French extended profile defines.
+// importExtended reads the parties and delivery terms only the French extended
+// profile defines.
 func importExtended(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope) error {
 	inv, in, ok := invoices(env, doc)
 	if !ok || in.Transaction == nil {
@@ -125,6 +141,25 @@ func importExtended(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope)
 				inv.Payment = new(bill.PaymentDetails)
 			}
 			inv.Payment.Payer = goblcii.ParseParty(stlm.Payer)
+		}
+	}
+
+	// EXT-FR-FE-BG-14: the Incoterm code into the delivery extension, and the
+	// delivery location name into the label of the receiver's address.
+	if agmt := in.Transaction.Agreement; agmt != nil && agmt.DeliveryTerms != nil && agmt.DeliveryTerms.Code != "" {
+		dt := agmt.DeliveryTerms
+		if inv.Delivery == nil {
+			inv.Delivery = new(bill.DeliveryDetails)
+		}
+		inv.Delivery.Ext = inv.Delivery.Ext.Set(flow2.ExtKeyIncotermDeliveryTerms, cbc.Code(dt.Code))
+		if dt.Location != nil && dt.Location.Name != "" {
+			if inv.Delivery.Receiver == nil {
+				inv.Delivery.Receiver = new(org.Party)
+			}
+			if len(inv.Delivery.Receiver.Addresses) == 0 {
+				inv.Delivery.Receiver.Addresses = []*org.Address{{}}
+			}
+			inv.Delivery.Receiver.Addresses[0].Label = dt.Location.Name
 		}
 	}
 	return nil
