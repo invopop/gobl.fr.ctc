@@ -1,6 +1,8 @@
 package ubl
 
 import (
+	"slices"
+
 	"github.com/invopop/gobl"
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	goblubl "github.com/invopop/gobl.ubl"
@@ -44,7 +46,24 @@ func exportCIUS(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document) err
 	for _, p := range goblubl.InvoiceParties(inv, out) {
 		taxRegistrationScheme(p.GOBL, p.UBL)
 	}
+	out.Note = uniqueNotes(out.Note)
 	return nil
+}
+
+// uniqueNotes drops repeated document notes (BG-1). A GOBL note without a
+// subject code whose text already starts with "#CODE#" encodes the same as the
+// coded note, which would repeat its subject and break BR-FR-06.
+func uniqueNotes(notes []string) []string {
+	if len(notes) < 2 {
+		return notes
+	}
+	out := make([]string, 0, len(notes))
+	for _, n := range notes {
+		if !slices.Contains(out, n) {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // taxRegistrationScheme sets the LOC scheme on the party's BT-32 tax
