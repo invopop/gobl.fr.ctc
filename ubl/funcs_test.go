@@ -12,6 +12,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/l10n"
 	"github.com/invopop/gobl/org"
@@ -525,4 +526,41 @@ func TestConvertSurfacesValidationFaultsAfterAutoAddon(t *testing.T) {
 	// the minimal invoice cannot satisfy is used instead.)
 	assert.True(t, faults.HasCode("GOBL-FR-CTC-FLOW2-BILL-INVOICE-44"),
 		"expected supplier-endpoint-required fault; got: %s", err)
+}
+
+// TestUniqueNotes covers a GOBL note without a subject code whose text
+// already starts with "#PMT#" next to the same note coded PMT, which both
+// encode as "#PMT#…" in UBL and would break BR-FR-06.
+func TestUniqueNotes(t *testing.T) {
+	const text = "Recovery fee applies to late payments."
+	export := func(t *testing.T, f ubl.Format) []string {
+		t.Helper()
+		env := loadTestEnvelope(t, "france-extended/invoice-standard.json")
+		inv, ok := env.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		inv.Notes = []*org.Note{
+			{Text: "#PMT#" + text},
+			{Text: text, Ext: tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyTextSubject: "PMT"})},
+			{Text: "Late payment penalties apply.", Ext: tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyTextSubject: "PMD"})},
+		}
+		doc, err := ubl.ExportInvoice(env, ubl.WithFormat(f))
+		require.NoError(t, err)
+		return doc.Note
+	}
+
+	for _, f := range []ubl.Format{frubl.FormatCIUS, frubl.FormatExtended} {
+		t.Run(f.Key.String()+" writes the PMT note once", func(t *testing.T) {
+			assert.Equal(t, []string{"#PMT#" + text, "#PMD#Late payment penalties apply."}, export(t, f))
+		})
+	}
+
+	t.Run("distinct notes are all kept", func(t *testing.T) {
+		env := loadTestEnvelope(t, "france-extended/invoice-standard.json")
+		inv, ok := env.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		inv.Notes = []*org.Note{{Text: "First general note."}, {Text: "Second general note."}}
+		doc, err := ubl.ExportInvoice(env, ubl.WithFormat(frubl.FormatExtended))
+		require.NoError(t, err)
+		assert.Equal(t, []string{"First general note.", "Second general note."}, doc.Note)
+	})
 }
