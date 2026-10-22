@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "3a501564bfc7b95105013716c11468e5604ddff0bd8b017459163ba6e654dfb7"
+			"val": "d1553da9748e7c330dfe1e8bbea7806b12a2787761d127935a5c5be7bac4021d"
 		},
 		"from": "iso6523-actorid-upis::0225:356000000",
 		"to": "iso6523-actorid-upis::0225:732829320"
@@ -191,16 +191,9 @@
 		"delivery": {
 			"receiver": {
 				"name": "Customer SAS",
-				"identities": [
-					{
-						"code": "3012345678902",
-						"ext": {
-							"iso-scheme-id": "0088"
-						}
-					}
-				],
 				"addresses": [
 					{
+						"label": "Entrepôt de Lille",
 						"street": "5 Zone Industrielle",
 						"locality": "Lille",
 						"code": "59000",
@@ -210,12 +203,16 @@
 			},
 			"identities": [
 				{
-					"label": "Entrepôt de Lille",
-					"key": "terms",
-					"code": "DAP"
+					"code": "3012345678902",
+					"ext": {
+						"iso-scheme-id": "0088"
+					}
 				}
 			],
-			"date": "2026-01-15"
+			"date": "2026-01-15",
+			"ext": {
+				"incoterm-delivery-terms": "DAP"
+			}
 		},
 		"totals": {
 			"sum": "75.00",

@@ -5,6 +5,7 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	cur "github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/org"
@@ -21,10 +22,6 @@ const (
 // paymentMeansNotDefined is the UNTDID 4461 code for an instrument that is
 // not defined.
 const paymentMeansNotDefined = "1"
-
-// deliveryIdentityKeyTerms marks the delivery identity that carries the
-// Incoterms delivery terms (EXT-FR-FE-BG-14).
-const deliveryIdentityKeyTerms cbc.Key = "terms"
 
 // invoices provides the GOBL and UBL invoices of an export or import, if
 // both are invoices.
@@ -152,13 +149,14 @@ func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document)
 		}
 	}
 
-	// EXT-FR-FE-BG-14: the Incoterms code (EXT-FR-FE-185) and delivery
-	// location name (EXT-FR-FE-186), from the delivery identity keyed as terms.
-	if inv.Delivery != nil {
-		if id := org.IdentityForKey(inv.Delivery.Identities, deliveryIdentityKeyTerms); id != nil && id.Code != cbc.CodeEmpty {
-			out.DeliveryTerms = &goblubl.DeliveryTerms{ID: id.Code.String()}
-			if id.Label != "" {
-				name := id.Label
+	// EXT-FR-FE-BG-14: the Incoterms code (EXT-FR-FE-185) from the delivery
+	// extension, and the delivery location name (EXT-FR-FE-186) from the
+	// label of the receiver's address.
+	if del := inv.Delivery; del != nil {
+		if code := del.Ext.Get(untdid.ExtKeyIncotermDeliveryTerms); code != cbc.CodeEmpty {
+			out.DeliveryTerms = &goblubl.DeliveryTerms{ID: code.String()}
+			if del.Receiver != nil && len(del.Receiver.Addresses) > 0 && del.Receiver.Addresses[0].Label != "" {
+				name := del.Receiver.Addresses[0].Label
 				out.DeliveryTerms.DeliveryLocation = &goblubl.Location{Name: &name}
 			}
 		}
@@ -217,20 +215,22 @@ func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope)
 		}
 	}
 
-	// EXT-FR-FE-BG-14: the Incoterms code and delivery location name, as a
-	// delivery identity keyed as terms.
+	// EXT-FR-FE-BG-14: the Incoterms code into the delivery extension, and the
+	// delivery location name into the label of the receiver's address.
 	if dt := in.DeliveryTerms; dt != nil && dt.ID != "" {
-		id := &org.Identity{
-			Key:  deliveryIdentityKeyTerms,
-			Code: cbc.Code(dt.ID),
-		}
-		if dt.DeliveryLocation != nil && dt.DeliveryLocation.Name != nil {
-			id.Label = *dt.DeliveryLocation.Name
-		}
 		if inv.Delivery == nil {
 			inv.Delivery = new(bill.DeliveryDetails)
 		}
-		inv.Delivery.Identities = append(inv.Delivery.Identities, id)
+		inv.Delivery.Ext = inv.Delivery.Ext.Set(untdid.ExtKeyIncotermDeliveryTerms, cbc.Code(dt.ID))
+		if dt.DeliveryLocation != nil && dt.DeliveryLocation.Name != nil && *dt.DeliveryLocation.Name != "" {
+			if inv.Delivery.Receiver == nil {
+				inv.Delivery.Receiver = new(org.Party)
+			}
+			if len(inv.Delivery.Receiver.Addresses) == 0 {
+				inv.Delivery.Receiver.Addresses = []*org.Address{{}}
+			}
+			inv.Delivery.Receiver.Addresses[0].Label = *dt.DeliveryLocation.Name
+		}
 	}
 	return nil
 }

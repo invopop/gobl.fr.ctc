@@ -12,6 +12,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/l10n"
 	"github.com/invopop/gobl/org"
@@ -527,9 +528,9 @@ func TestConvertSurfacesValidationFaultsAfterAutoAddon(t *testing.T) {
 		"expected supplier-endpoint-required fault; got: %s", err)
 }
 
-// TestDeliveryTerms maps the Incoterms delivery terms (EXT-FR-FE-BG-14) to a
-// delivery identity keyed as terms, apart from the delivery location ID
-// (BT-71) that lives on the receiver.
+// TestDeliveryTerms maps the Incoterms delivery terms (EXT-FR-FE-BG-14): the
+// code to the delivery extension and the location name to the label of the
+// receiver's address, apart from the delivery location ID (BT-71).
 func TestDeliveryTerms(t *testing.T) {
 	const fixture = "france-extended/invoice-standard.json"
 	withDelivery := func(t *testing.T, del *bill.DeliveryDetails) *gobl.Envelope {
@@ -540,15 +541,19 @@ func TestDeliveryTerms(t *testing.T) {
 		inv.Delivery = del
 		return env
 	}
-	terms := &org.Identity{Key: "terms", Code: "DAP", Label: "Port of Le Havre"}
-	location := &org.Identity{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}
+	delivery := func() *bill.DeliveryDetails {
+		return &bill.DeliveryDetails{
+			Receiver: &org.Party{
+				Name:      "Warehouse SAS",
+				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
+			},
+			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyIncotermDeliveryTerms: "DAP"}),
+		}
+	}
 
-	t.Run("extended writes the terms and keeps BT-71 from the receiver", func(t *testing.T) {
-		env := withDelivery(t, &bill.DeliveryDetails{
-			Receiver:   &org.Party{Name: "Warehouse SAS", Identities: []*org.Identity{location}},
-			Identities: []*org.Identity{terms},
-		})
-		doc, err := ubl.ExportInvoice(env, ubl.WithFormat(frubl.FormatExtended))
+	t.Run("extended writes the terms next to BT-71", func(t *testing.T) {
+		doc, err := ubl.ExportInvoice(withDelivery(t, delivery()), ubl.WithFormat(frubl.FormatExtended))
 		require.NoError(t, err)
 
 		require.NotNil(t, doc.DeliveryTerms)
@@ -566,35 +571,22 @@ func TestDeliveryTerms(t *testing.T) {
 		assert.Equal(t, "0088", *loc.ID.SchemeID)
 	})
 
-	t.Run("terms alone never become BT-71", func(t *testing.T) {
-		env := withDelivery(t, &bill.DeliveryDetails{
-			Receiver:   &org.Party{Name: "Warehouse SAS"},
-			Identities: []*org.Identity{terms},
-		})
-		doc, err := ubl.ExportInvoice(env, ubl.WithFormat(frubl.FormatExtended))
-		require.NoError(t, err)
-		require.NotNil(t, doc.DeliveryTerms)
-		require.Len(t, doc.Delivery, 1)
-		require.NotNil(t, doc.Delivery[0].DeliveryLocation)
-		assert.Nil(t, doc.Delivery[0].DeliveryLocation.ID)
-	})
-
-	t.Run("cius leaves the terms out", func(t *testing.T) {
-		env := withDelivery(t, &bill.DeliveryDetails{
-			Receiver:   &org.Party{Name: "Warehouse SAS"},
-			Identities: []*org.Identity{terms},
-		})
-		doc, err := ubl.ExportInvoice(env, ubl.WithFormat(frubl.FormatCIUS))
+	t.Run("an address label alone writes no terms", func(t *testing.T) {
+		del := delivery()
+		del.Ext = tax.Extensions{}
+		doc, err := ubl.ExportInvoice(withDelivery(t, del), ubl.WithFormat(frubl.FormatExtended))
 		require.NoError(t, err)
 		assert.Nil(t, doc.DeliveryTerms)
 	})
 
-	t.Run("parse restores the terms and the receiver location ID", func(t *testing.T) {
-		env := withDelivery(t, &bill.DeliveryDetails{
-			Receiver:   &org.Party{Name: "Warehouse SAS", Identities: []*org.Identity{location}},
-			Identities: []*org.Identity{terms},
-		})
-		doc, err := ubl.ExportInvoice(env, ubl.WithFormat(frubl.FormatExtended))
+	t.Run("cius leaves the terms out", func(t *testing.T) {
+		doc, err := ubl.ExportInvoice(withDelivery(t, delivery()), ubl.WithFormat(frubl.FormatCIUS))
+		require.NoError(t, err)
+		assert.Nil(t, doc.DeliveryTerms)
+	})
+
+	t.Run("parse restores the terms and BT-71", func(t *testing.T) {
+		doc, err := ubl.ExportInvoice(withDelivery(t, delivery()), ubl.WithFormat(frubl.FormatExtended))
 		require.NoError(t, err)
 		data, err := ubl.Encode(doc)
 		require.NoError(t, err)
@@ -609,15 +601,13 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 
 		require.NotNil(t, inv.Delivery)
-		require.Len(t, inv.Delivery.Identities, 1)
-		got := inv.Delivery.Identities[0]
-		assert.Equal(t, cbc.Key("terms"), got.Key)
-		assert.Equal(t, cbc.Code("DAP"), got.Code)
-		assert.Equal(t, "Port of Le Havre", got.Label)
-
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(untdid.ExtKeyIncotermDeliveryTerms))
 		require.NotNil(t, inv.Delivery.Receiver)
-		require.Len(t, inv.Delivery.Receiver.Identities, 1)
-		assert.Equal(t, cbc.Code("3012345678901"), inv.Delivery.Receiver.Identities[0].Code)
-		assert.Equal(t, cbc.Code("0088"), inv.Delivery.Receiver.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
+		assert.Equal(t, "Port of Le Havre", inv.Delivery.Receiver.Addresses[0].Label)
+
+		require.Len(t, inv.Delivery.Identities, 1)
+		assert.Equal(t, cbc.Code("3012345678901"), inv.Delivery.Identities[0].Code)
+		assert.Equal(t, cbc.Code("0088"), inv.Delivery.Identities[0].Ext.Get(iso.ExtKeySchemeID))
 	})
 }
