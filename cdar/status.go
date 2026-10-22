@@ -2,6 +2,7 @@ package cdar
 
 import (
 	"fmt"
+	"strings"
 
 	cii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/flow6"
@@ -467,15 +468,9 @@ func newCDARTradeParty(p *org.Party) *cii.CDARTradeParty {
 			Value:    id.Code.String(),
 		})
 	}
-	if len(p.Inboxes) > 0 {
-		ib := p.Inboxes[0]
-		if ib.Code != "" {
-			tp.URIUniversalCommunication = &cii.CDARUniversalCommunication{
-				URIID: &cii.CDARURIID{
-					SchemeID: ib.Scheme.String(),
-					Value:    ib.Code.String(),
-				},
-			}
+	if scheme, code := partyAddress(p); code != "" {
+		tp.URIUniversalCommunication = &cii.CDARUniversalCommunication{
+			URIID: &cii.CDARURIID{SchemeID: scheme, Value: code},
 		}
 	}
 	return tp
@@ -596,4 +591,19 @@ func makeIssueDateTime(d cal.Date, t *cal.Time) *cii.CDARIssueDateTime {
 
 func formatCDARDate(d cal.Date) string {
 	return fmt.Sprintf("%04d%02d%02d", d.Year, d.Month, d.Day)
+}
+
+// partyAddress provides the party's electronic address from its
+// iso6523-actorid-upis endpoint, or its first inbox when it has none.
+func partyAddress(p *org.Party) (scheme, code string) {
+	if e := p.Endpoint(iso.ActorIDScheme); e != nil {
+		id := strings.TrimPrefix(e.URI.String(), iso.ActorIDScheme+"::")
+		if i := strings.Index(id, ":"); i > 0 {
+			return id[:i], id[i+1:]
+		}
+	}
+	if len(p.Inboxes) > 0 && p.Inboxes[0] != nil {
+		return p.Inboxes[0].Scheme.String(), p.Inboxes[0].Code.String()
+	}
+	return "", ""
 }

@@ -152,9 +152,10 @@ func setPartyRoleDefault(p *org.Party, role cbc.Code) {
 	p.Ext = p.Ext.Set(ExtKeyRole, role)
 }
 
-// statusHasRecipientInbox approximates BR-FR-CDV-08 (recipient inbox unless
-// WK/DFH): the status doesn't say which party is the recipient, so one is enough.
-func statusHasRecipientInbox(v any) bool {
+// statusHasRecipientEndpoint approximates BR-FR-CDV-08 (recipient address
+// unless WK/DFH): the status doesn't say which party is the recipient, so one
+// iso6523-actorid-upis endpoint is enough.
+func statusHasRecipientEndpoint(v any) bool {
 	st, ok := v.(*bill.Status)
 	if !ok || st == nil {
 		return true
@@ -168,10 +169,8 @@ func statusHasRecipientInbox(v any) bool {
 			continue
 		}
 		required = true
-		for _, ib := range p.Inboxes {
-			if ib != nil && ib.Code != "" {
-				return true
-			}
+		if p.Endpoint(iso.ActorIDScheme) != nil {
+			return true
 		}
 	}
 	return !required
@@ -179,9 +178,6 @@ func statusHasRecipientInbox(v any) bool {
 
 func billStatusRules() *rules.Set {
 	return rules.For(new(bill.Status),
-		rules.Assert("28", "status supplier or customer must have an inbox when its role is not WK or DFH (BR-FR-CDV-08)",
-			is.Func("a party has an inbox unless WK/DFH", statusHasRecipientInbox),
-		),
 		rules.Field("type",
 			rules.Assert("01", "status type must be one of: response, update",
 				is.In(bill.StatusTypeResponse, bill.StatusTypeUpdate),
@@ -402,6 +398,9 @@ func billStatusRules() *rules.Set {
 					),
 				),
 			),
+		),
+		rules.Assert("28", "status supplier or customer must have an iso6523-actorid-upis endpoint when its role is not WK or DFH (BR-FR-CDV-08)",
+			is.Func("a party has an endpoint unless WK/DFH", statusHasRecipientEndpoint),
 		),
 	)
 }
