@@ -3,8 +3,10 @@ package ubl
 import (
 	"github.com/invopop/gobl"
 	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	cur "github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/org"
@@ -63,7 +65,8 @@ func taxRegistrationScheme(p *org.Party, out *goblubl.Party) {
 	}
 }
 
-// importCIUS restores the billing mode from the ProfileID.
+// importCIUS restores the billing mode from the ProfileID and the document
+// type from BT-3.
 func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) error {
 	inv, in, ok := invoices(env, doc)
 	if !ok {
@@ -74,7 +77,41 @@ func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) err
 		profileID = in.ProfileID.Value
 	}
 	inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code(profileID))
+	importDocumentType(inv, in)
 	return nil
+}
+
+// importDocumentType restores the invoice type and tags that BT-3 stands for
+// under the Flow 2 scenarios, which the base import only knows for the codes
+// EN 16931 defines.
+func importDocumentType(inv *bill.Invoice, in *goblubl.Invoice) {
+	code := documentTypeCode(in)
+	if typ, tags, ok := flow2.DocumentType(code); ok {
+		inv.Type = typ
+		for _, tag := range tags {
+			if !inv.HasTags(tag) {
+				inv.SetTags(append(inv.GetTags(), tag)...)
+			}
+		}
+		return
+	}
+	// A code Flow 2 does not accept is kept as stated, so the addon can
+	// report it for what it is.
+	if code != cbc.CodeEmpty && inv.Type == bill.InvoiceTypeOther {
+		inv.Tax.Ext = inv.Tax.Ext.Set(untdid.ExtKeyDocumentType, code)
+	}
+}
+
+// documentTypeCode provides BT-3, whichever element the document carries it in.
+func documentTypeCode(in *goblubl.Invoice) cbc.Code {
+	tc := in.InvoiceTypeCode
+	if tc == nil {
+		tc = in.CreditNoteTypeCode
+	}
+	if tc == nil {
+		return cbc.CodeEmpty
+	}
+	return cbc.Code(tc.Value)
 }
 
 // exportExtended adds the parties and amounts that only the French Extended
@@ -90,6 +127,14 @@ func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document)
 	taxCurrency := inv.RegimeDef().GetCurrency()
 	rate := cur.MatchExchangeRate(inv.ExchangeRates, inv.Currency, taxCurrency)
 	addTaxExchangeRate(out, inv.Currency, taxCurrency, rate)
+
+	// EXT-FR-FE-01: the contract type (UNCL 1153), in place of the reason the
+	// base writes there.
+	if inv.Ordering != nil {
+		for i, c := range inv.Ordering.Contracts {
+			out.ContractDocumentReference[i].DocumentType = c.Ext.Get(untdid.ExtKeyReference).String()
+		}
+	}
 
 	// BT-8: VAT point date code on each line period, the same invoice-wide
 	// value as the header.
@@ -174,6 +219,14 @@ func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope)
 	inv, in, ok := invoices(env, doc)
 	if !ok {
 		return nil
+	}
+
+	// EXT-FR-FE-01: the contract type, which the base reads as the reason.
+	if inv.Ordering != nil {
+		for _, c := range inv.Ordering.Contracts {
+			c.Ext = c.Ext.Set(untdid.ExtKeyReference, cbc.Code(c.Reason))
+			c.Reason = ""
+		}
 	}
 
 	// EXT-FR-FE-BG-04: the party the invoice is addressed to.
