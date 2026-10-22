@@ -21,6 +21,9 @@ GOBL tax addons covering the three exchange flows:
   messages (`bill.Status`, `bill.Payment`).
 - **Flow 10** (`fr-ctc-flow10-v1`) — e-reporting for B2C and cross-border B2B.
 
+It also defines the Factur-X addon (`fr-facturx-v1`), which marks documents
+for the Factur-X formats and requires EN 16931.
+
 A meta-addon (`fr-ctc-v1`) auto-dispatches an invoice or payment to the correct
 flow based on its parties.
 
@@ -33,7 +36,8 @@ documents take on its weight.
 
 - `addon/` — the GOBL addon: extensions, normalizers, scenarios, and validation
   rules that register into GOBL on import (`addon/flow2`, `addon/flow6`,
-  `addon/flow10` plus the `fr-ctc-v1` meta-addon). This package is kept dependency-
+  `addon/flow10` plus the `fr-ctc-v1` meta-addon), and the Factur-X addon in
+  `addon/facturx`. This package is kept dependency-
   light so importing it never pulls in conversion tooling.
 - the module root (and future subpackages) is reserved for converters and other
   CTC logic that build on the addon.
@@ -47,15 +51,14 @@ documents take on its weight.
   [gobl.cii](https://github.com/invopop/gobl.cii) and registered with gobl.cii
   and GOBL's `convert` register on import: French CTC CIUS
   (`cii+fr-ctc-cius-v1`), Extended (`cii+fr-ctc-extended-v1`) and
-  Factur-X (`cii+fr-ctc-facturx-v1`); the Factur-X profiles
-  (`cii+fr-facturx-v1`, `cii+fr-facturx-v1+basic`, `cii+fr-facturx-v1+extended`);
-  and Chorus Pro (`cii+fr-choruspro-v1`). Add
-  `_ "github.com/invopop/gobl.fr.ctc/cii"` to import and export French CII
-  documents through `cii.Import`/`cii.Export` or `convert.Import`/`convert.Export`.
-  `cii+fr-facturx-v1` is export-only: Factur-X EN 16931 XML declares exactly
-  the EN 16931 guideline, as only its PDF tells it apart, so it is imported as
-  `cii+en16931-v2017`. Add the `fr-facturx-v1` addon to export it back as
-  Factur-X.
+  the Factur-X CTC profiles, EN 16931 (`cii+fr-ctc-facturx-cius-v1`) and
+  EXTENDED (`cii+fr-ctc-facturx-extended-v1`); and Chorus Pro
+  (`cii+fr-choruspro-v1`). Add `_ "github.com/invopop/gobl.fr.ctc/cii"` to
+  import and export French CII documents through `cii.Import`/`cii.Export` or
+  `convert.Import`/`convert.Export`. Factur-X EN 16931 XML reads exactly like
+  the CTC CIUS, as only its PDF tells it apart, so
+  `cii+fr-ctc-facturx-cius-v1` is export-only and its XML imports as
+  `cii+fr-ctc-cius-v1`.
 - `cdar/` — the Flow 6 lifecycle statuses and payments, mapped between
   `bill.Status`/`bill.Payment` and the CDAR structures of gobl.cii, for the
   end-party (`cdar+fr-ctc-cdv-v1`) and PPF (`cdar+fr-ctc-cdv-v1+ppf`) formats.
@@ -79,10 +82,10 @@ import (
 Declare the addon on a document (or let the regime/scenario add it) and
 `Calculate` + `Validate` will run the full CTC normalization and rules.
 
-> **Note**: the `fr-ctc-*` keys are listed in GOBL core's approved external-addon
-> registry, so they are recognised as valid `$addons` values in the JSON Schema.
-> The runtime check stays strict, however: a document declaring an `fr-ctc-*`
-> addon will fail validation with `add-on must be registered` unless this module
+> **Note**: the `fr-ctc-*` and `fr-facturx-v1` keys are listed in GOBL core's
+> approved external-addon registry, so they are recognised as valid `$addons`
+> values in the JSON Schema. The runtime check stays strict, however: a document
+> declaring one of these addons will fail validation with `add-on must be registered` unless this module
 > is imported. Any service that processes French CTC documents must import it.
 
 ## Development

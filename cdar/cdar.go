@@ -70,7 +70,7 @@ var FormatCDV = Format{
 	// CDAR XML's BusinessProcessParameter at the CDV MDT-2 "REGULATED" value.
 	BusinessID:       ProcessIDRegulated,
 	OutputBusinessID: "REGULATED",
-	VESID:            "fr.ctc:cdar:1.4.0-03",
+	VESID:            "fr.ctc:cdar:1.4.0-04",
 }
 
 // FormatCDVPPF is used for French CTC Flow 6 CDAR copies sent to
@@ -81,7 +81,7 @@ var FormatCDVPPF = Format{
 	Key:         KeyCDVPPF,
 	Name:        i18n.NewString("CDAR France CTC CDV for the PPF"),
 	GuidelineID: CDARGuidelinePPF,
-	VESID:       "fr.ctc:cdar:1.4.0-03",
+	VESID:       "fr.ctc:cdar:1.4.0-04",
 }
 
 // routing carries the envelope's transport addresses — the SBD From / To the
@@ -258,7 +258,7 @@ func (converter) Detect(in *convert.Input) cbc.Key {
 	return KeyCDV
 }
 
-func (converter) Import(_ cbc.Key, data []byte) (*gobl.Envelope, error) {
+func (converter) Import(_ cbc.Key, data []byte) (*convert.ImportResult, error) {
 	doc, err := cii.Decode(data)
 	if err != nil {
 		return nil, err
@@ -267,7 +267,11 @@ func (converter) Import(_ cbc.Key, data []byte) (*gobl.Envelope, error) {
 	if !ok {
 		return nil, cii.ErrUnsupportedDocumentType
 	}
-	return Import(cdar)
+	env, err := Import(cdar)
+	if err != nil {
+		return nil, err
+	}
+	return &convert.ImportResult{Envelope: env}, nil
 }
 
 // Accepts checks the status or payment includes the Flow 6 addon.
@@ -282,7 +286,7 @@ func (converter) Accepts(key cbc.Key, env *gobl.Envelope) error {
 	return nil
 }
 
-func (converter) Export(key cbc.Key, env *gobl.Envelope) ([]byte, error) {
+func (converter) Export(key cbc.Key, env *gobl.Envelope, _ *convert.ExportOptions) ([]byte, error) {
 	f := FormatCDV
 	if key == KeyCDVPPF {
 		f = FormatCDVPPF

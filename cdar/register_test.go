@@ -38,8 +38,9 @@ func TestConvertRegister(t *testing.T) {
 	t.Run("import and export", func(t *testing.T) {
 		data, err := readParse("UC4_F202500006_04-CDV-207_En_litige.xml")
 		require.NoError(t, err)
-		env, err := convert.Import(data)
+		imported, err := convert.Import(data)
 		require.NoError(t, err)
+		env := imported.Envelope
 
 		out, err := convert.Export(env, frcdar.KeyCDV)
 		require.NoError(t, err)
@@ -51,8 +52,9 @@ func TestConvertRegister(t *testing.T) {
 	t.Run("missing addon", func(t *testing.T) {
 		data, err := readParse("UC4_F202500006_04-CDV-207_En_litige.xml")
 		require.NoError(t, err)
-		env, err := convert.Import(data)
+		imported, err := convert.Import(data)
 		require.NoError(t, err)
+		env := imported.Envelope
 		env.Extract().(*bill.Status).SetAddons()
 
 		_, err = convert.Export(env, frcdar.KeyCDVPPF)
