@@ -526,3 +526,87 @@ func TestConvertSurfacesValidationFaultsAfterAutoAddon(t *testing.T) {
 	assert.True(t, faults.HasCode("GOBL-FR-CTC-FLOW2-BILL-INVOICE-44"),
 		"expected supplier-endpoint-required fault; got: %s", err)
 }
+
+// TestDeliveryTerms maps the Incoterms delivery terms (EXT-FR-FE-BG-14): the
+// code to the delivery extension and the location name to the label of the
+// receiver's address, apart from the delivery location ID (BT-71).
+func TestDeliveryTerms(t *testing.T) {
+	const fixture = "france-extended/invoice-standard.json"
+	withDelivery := func(t *testing.T, del *bill.DeliveryDetails) *gobl.Envelope {
+		t.Helper()
+		env := loadTestEnvelope(t, fixture)
+		inv, ok := env.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		inv.Delivery = del
+		return env
+	}
+	delivery := func() *bill.DeliveryDetails {
+		return &bill.DeliveryDetails{
+			Receiver: &org.Party{
+				Name:      "Warehouse SAS",
+				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
+			},
+			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{flow2.ExtKeyIncotermDeliveryTerms: "DAP"}),
+		}
+	}
+
+	t.Run("extended writes the terms next to BT-71", func(t *testing.T) {
+		doc, err := ubl.ExportInvoice(withDelivery(t, delivery()), ubl.WithFormat(frubl.FormatExtended))
+		require.NoError(t, err)
+
+		require.NotNil(t, doc.DeliveryTerms)
+		assert.Equal(t, "DAP", doc.DeliveryTerms.ID)
+		require.NotNil(t, doc.DeliveryTerms.DeliveryLocation)
+		require.NotNil(t, doc.DeliveryTerms.DeliveryLocation.Name)
+		assert.Equal(t, "Port of Le Havre", *doc.DeliveryTerms.DeliveryLocation.Name)
+
+		require.Len(t, doc.Delivery, 1)
+		loc := doc.Delivery[0].DeliveryLocation
+		require.NotNil(t, loc)
+		require.NotNil(t, loc.ID)
+		assert.Equal(t, "3012345678901", loc.ID.Value)
+		require.NotNil(t, loc.ID.SchemeID)
+		assert.Equal(t, "0088", *loc.ID.SchemeID)
+	})
+
+	t.Run("an address label alone writes no terms", func(t *testing.T) {
+		del := delivery()
+		del.Ext = tax.Extensions{}
+		doc, err := ubl.ExportInvoice(withDelivery(t, del), ubl.WithFormat(frubl.FormatExtended))
+		require.NoError(t, err)
+		assert.Nil(t, doc.DeliveryTerms)
+	})
+
+	t.Run("cius leaves the terms out", func(t *testing.T) {
+		doc, err := ubl.ExportInvoice(withDelivery(t, delivery()), ubl.WithFormat(frubl.FormatCIUS))
+		require.NoError(t, err)
+		assert.Nil(t, doc.DeliveryTerms)
+	})
+
+	t.Run("parse restores the terms and BT-71", func(t *testing.T) {
+		doc, err := ubl.ExportInvoice(withDelivery(t, delivery()), ubl.WithFormat(frubl.FormatExtended))
+		require.NoError(t, err)
+		data, err := ubl.Encode(doc)
+		require.NoError(t, err)
+
+		parsed, err := ubl.Decode(data)
+		require.NoError(t, err)
+		in, ok := parsed.(*ubl.Invoice)
+		require.True(t, ok)
+		out, err := ubl.Import(in)
+		require.NoError(t, err)
+		inv, ok := out.Extract().(*bill.Invoice)
+		require.True(t, ok)
+
+		require.NotNil(t, inv.Delivery)
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(flow2.ExtKeyIncotermDeliveryTerms))
+		require.NotNil(t, inv.Delivery.Receiver)
+		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
+		assert.Equal(t, "Port of Le Havre", inv.Delivery.Receiver.Addresses[0].Label)
+
+		require.Len(t, inv.Delivery.Identities, 1)
+		assert.Equal(t, cbc.Code("3012345678901"), inv.Delivery.Identities[0].Code)
+		assert.Equal(t, cbc.Code("0088"), inv.Delivery.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+	})
+}

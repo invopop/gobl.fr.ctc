@@ -5,12 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/invopop/gobl"
 	goblcii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	frcii "github.com/invopop/gobl.fr.ctc/cii"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/convert"
+	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -408,5 +411,73 @@ func TestConvertRegister(t *testing.T) {
 		d, err := convert.Detect(out.Data)
 		require.NoError(t, err)
 		assert.Equal(t, goblcii.FormatEN16931.Key, d.Key, "imported as EN 16931")
+	})
+}
+
+// TestDeliveryTerms maps the Incoterms delivery terms (EXT-FR-FE-BG-14): the
+// code to the delivery extension and the location name to the label of the
+// receiver's address, apart from the delivery location ID (BT-71).
+func TestDeliveryTerms(t *testing.T) {
+	const fixture = "peppol-france-extended/invoice-standard.json"
+	withDelivery := func(t *testing.T) *gobl.Envelope {
+		t.Helper()
+		env := loadEnvelope(t, fixture)
+		inv, ok := env.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		inv.Delivery = &bill.DeliveryDetails{
+			Receiver: &org.Party{
+				Name:      "Warehouse SAS",
+				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
+			},
+			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{flow2.ExtKeyIncotermDeliveryTerms: "DAP"}),
+		}
+		return env
+	}
+
+	for _, f := range []goblcii.Format{frcii.FormatCTCExtended, frcii.FormatCTCFacturX} {
+		t.Run(f.Key.String()+" writes the terms next to BT-71", func(t *testing.T) {
+			doc, err := goblcii.ExportInvoice(withDelivery(t), goblcii.WithFormat(f))
+			require.NoError(t, err)
+
+			terms := doc.Transaction.Agreement.DeliveryTerms
+			require.NotNil(t, terms)
+			assert.Equal(t, "DAP", terms.Code)
+			require.NotNil(t, terms.Location)
+			assert.Equal(t, "Port of Le Havre", terms.Location.Name)
+
+			rcv := doc.Transaction.Delivery.Receiver
+			require.NotNil(t, rcv)
+			require.Len(t, rcv.GlobalID, 1)
+			assert.Equal(t, "3012345678901", rcv.GlobalID[0].Value)
+			assert.Equal(t, "0088", rcv.GlobalID[0].SchemeID)
+		})
+	}
+
+	t.Run("cius leaves the terms out", func(t *testing.T) {
+		doc, err := goblcii.ExportInvoice(withDelivery(t), goblcii.WithFormat(frcii.FormatCTCCIUS))
+		require.NoError(t, err)
+		assert.Nil(t, doc.Transaction.Agreement.DeliveryTerms)
+	})
+
+	t.Run("parse restores the terms and BT-71", func(t *testing.T) {
+		doc, err := goblcii.ExportInvoice(withDelivery(t), goblcii.WithFormat(frcii.FormatCTCExtended))
+		require.NoError(t, err)
+		data, err := goblcii.Encode(doc)
+		require.NoError(t, err)
+
+		env, err := parseCII(data)
+		require.NoError(t, err)
+		inv, ok := env.Extract().(*bill.Invoice)
+		require.True(t, ok)
+
+		require.NotNil(t, inv.Delivery)
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(flow2.ExtKeyIncotermDeliveryTerms))
+		require.NotNil(t, inv.Delivery.Receiver)
+		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
+		assert.Equal(t, "Port of Le Havre", inv.Delivery.Receiver.Addresses[0].Label)
+		require.Len(t, inv.Delivery.Identities, 1)
+		assert.Equal(t, cbc.Code("3012345678901"), inv.Delivery.Identities[0].Code)
+		assert.Equal(t, cbc.Code("0088"), inv.Delivery.Identities[0].Ext.Get(iso.ExtKeySchemeID))
 	})
 }

@@ -3,8 +3,8 @@ module github.com/invopop/gobl.fr.ctc
 go 1.25.0
 
 require (
-	github.com/invopop/gobl v0.510.0
-	github.com/invopop/gobl.ubl v0.93.0
+	github.com/invopop/gobl v0.510.1-0.20261022113627-1393dbf38441
+	github.com/invopop/gobl.ubl v0.95.1-0.20261022113655-bc99f3bca7ad
 	github.com/invopop/phorm v0.1.5
 	github.com/stretchr/testify v1.11.1
 )
@@ -30,7 +30,7 @@ require (
 	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/invopop/gobl.cii v0.75.0
+	github.com/invopop/gobl.cii v0.76.1-0.20261022114631-8de47d041752
 	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/magefile/mage v1.15.0 // indirect

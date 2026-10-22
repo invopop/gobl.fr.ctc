@@ -35,6 +35,7 @@ func init() {
 		rules.GOBL.Add(Namespace),
 		is.InContext(tax.AddonIn(V1)),
 		billInvoiceRules(),
+		billDeliveryDetailsRules(),
 		orgPartyRules(),
 		orgIdentityRules(),
 		orgInboxRules(),
@@ -86,7 +87,7 @@ func newV1Addon() *tax.AddonDef {
 			},
 		},
 		// Shared DGFiP billing-mode code list (also declared by Flow 10).
-		Extensions: []*cbc.Definition{dgfip.ExtBillingMode},
+		Extensions: []*cbc.Definition{dgfip.ExtBillingMode, extIncotermDeliveryTerms},
 		Tags:       []*tax.TagSet{invoiceTags},
 		Scenarios:  scenarios,
 	}
