@@ -631,11 +631,49 @@ func TestInvoiceGlobalCreditNote(t *testing.T) {
 	// delivery.period is "the period in which to expect delivery", not BG-14.
 	// gobl.cii reads BillingSpecifiedPeriod from it, which is a converter bug;
 	// satisfying the rule from that field would bless the wrong data.
+	// cal.Period requires only one of its two dates since gobl main; BR-FR-CO-03
+	// asks for both, so the addon has to check.
+	t.Run("rejects a period missing one of its dates", func(t *testing.T) {
+		for name, p := range map[string]*cal.Period{
+			"start only": {Start: cal.NewDate(2024, 5, 1)},
+			"end only":   {End: cal.NewDate(2024, 5, 31)},
+		} {
+			t.Run(name, func(t *testing.T) {
+				inv := testInvoiceGlobalCreditNote(t)
+				inv.Ordering.Period = p
+				require.NoError(t, inv.Calculate())
+				assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-48")
+			})
+		}
+	})
+
 	t.Run("a delivery period does not satisfy BG-14", func(t *testing.T) {
 		inv := testInvoiceGlobalCreditNote(t)
 		inv.Delivery = &bill.DeliveryDetails{Period: inv.Ordering.Period}
 		inv.Ordering.Period = nil
 		require.NoError(t, inv.Calculate())
 		assert.ErrorContains(t, rules.Validate(inv), "BILL-INVOICE-43")
+	})
+}
+
+// Every code Flow 2 accepts restores a type and tags that calculate back to
+// the same code.
+func TestDocumentType(t *testing.T) {
+	for _, code := range allowedInvoiceDocumentTypes {
+		t.Run(code.String(), func(t *testing.T) {
+			typ, tags, ok := DocumentType(code)
+			require.True(t, ok)
+			inv := testInvoiceB2BStandard(t)
+			inv.Type = typ
+			inv.SetTags(tags...)
+			inv.Tax.Ext = inv.Tax.Ext.Delete(untdid.ExtKeyDocumentType)
+			require.NoError(t, inv.Calculate())
+			assert.Equal(t, code, inv.Tax.Ext.Get(untdid.ExtKeyDocumentType))
+		})
+	}
+
+	t.Run("a code with no scenario", func(t *testing.T) {
+		_, _, ok := DocumentType("999")
+		assert.False(t, ok)
 	})
 }
