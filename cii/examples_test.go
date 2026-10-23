@@ -34,6 +34,8 @@ var exampleFormats = []struct {
 	format goblcii.Format
 }{
 	{"choruspro", frcii.FormatChorusPro},
+	{"facturx", frcii.FormatFacturX},
+	{"facturx-extended", frcii.FormatFacturXExtended},
 	{"peppol-france-facturx-cius", frcii.FormatCTCFacturXCIUS},
 	{"peppol-france-facturx", frcii.FormatCTCFacturXExtended},
 	{"peppol-france-cius", frcii.FormatCTCCIUS},

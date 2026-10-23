@@ -188,6 +188,34 @@ func TestFacturXProfiles(t *testing.T) {
 	assert.Equal(t, "fr.ctc:facturx-extended:1.4.0-04", frcii.FormatCTCFacturXExtended.VESID)
 }
 
+// The plain Factur-X profiles share their guidelines with ZUGFeRD and EN 16931,
+// so they are export-only, which keeps them out of detection.
+func TestPlainFacturX(t *testing.T) {
+	t.Run("never detected", func(t *testing.T) {
+		assert.Equal(t, goblcii.FormatEN16931.Key, goblcii.FindFormat(goblcii.GuidelineIDEN16931, "").Key)
+		assert.Nil(t, goblcii.FindFormat(frcii.GuidelineIDFacturXExtended, ""))
+	})
+
+	t.Run("export-only in the convert register", func(t *testing.T) {
+		for _, k := range []cbc.Key{frcii.KeyFacturX, frcii.KeyFacturXExtended} {
+			f := convert.FormatFor(k)
+			require.NotNil(t, f, k)
+			assert.NotEmpty(t, f.Export, k)
+			assert.Empty(t, f.Import, k)
+		}
+		assert.Nil(t, convert.FormatFor("cii+fr-facturx-v1+basic"))
+	})
+
+	t.Run("export writes each profile's guideline", func(t *testing.T) {
+		data, err := os.ReadFile(filepath.Join("testdata", "convert", "facturx-extended", "out", "invoice-complete.xml"))
+		require.NoError(t, err)
+		assert.Contains(t, string(data), frcii.GuidelineIDFacturXExtended)
+		data, err = os.ReadFile(filepath.Join("testdata", "convert", "facturx", "out", "invoice-complete.xml"))
+		require.NoError(t, err)
+		assert.Contains(t, string(data), "<ram:ID>"+goblcii.GuidelineIDEN16931+"</ram:ID>")
+	})
+}
+
 // TestPeppolFranceExtendedGuidelines pins the extended context's external
 // identification and the extended-ctc-fr guideline it emits in BT-24.
 func TestPeppolFranceExtendedGuidelines(t *testing.T) {
