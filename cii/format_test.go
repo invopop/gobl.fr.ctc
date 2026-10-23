@@ -103,13 +103,19 @@ func TestFindFormat(t *testing.T) {
 		assert.Equal(t, frcii.FormatCTCExtended.GuidelineID, ctx.GuidelineID)
 	})
 
-	t.Run("find France Factur-X by the guideline it emits", func(t *testing.T) {
-		// With or without a billing mode, the Factur-X EXTENDED guideline is
-		// the French CTC Factur-X EXTENDED profile.
-		for _, mode := range []string{"B1", ""} {
-			ctx := goblcii.FindFormat(frcii.GuidelineIDFacturXExtended, mode)
-			require.NotNil(t, ctx, "mode %q", mode)
+	t.Run("find France Factur-X by the guideline it emits and a French BT-23", func(t *testing.T) {
+		for _, bt23 := range []string{"B1", "S5"} {
+			ctx := goblcii.FindFormat(frcii.GuidelineIDFacturXExtended, bt23)
+			require.NotNil(t, ctx, "BT-23 %q", bt23)
 			assert.Equal(t, frcii.KeyCTCFacturXExtended, ctx.Key)
+		}
+	})
+
+	t.Run("leave plain Factur-X and ZUGFeRD EXTENDED to EN 16931", func(t *testing.T) {
+		// ZUGFeRD 2.1+ EXTENDED carries the same guideline, so without a
+		// French BT-23 it is not a French CTC document.
+		for _, bt23 := range []string{"", "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0", frcii.ProcessIDRegulated, "A1"} {
+			assert.Nil(t, goblcii.FindFormat(frcii.GuidelineIDFacturXExtended, bt23), "BT-23 %q", bt23)
 		}
 	})
 }
@@ -177,7 +183,8 @@ func TestFacturXProfiles(t *testing.T) {
 	assert.Empty(t, frcii.FormatCTCFacturXCIUS.OutputGuidelineID)
 	assert.Equal(t, "fr.ctc:facturx-en16931:1.4.0-04", frcii.FormatCTCFacturXCIUS.VESID)
 
-	assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended", frcii.FormatCTCFacturXExtended.OutputGuidelineID)
+	assert.Empty(t, frcii.FormatCTCFacturXExtended.OutputGuidelineID)
+	assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended", frcii.GuidelineIDFacturXExtended)
 	assert.Equal(t, "fr.ctc:facturx-extended:1.4.0-04", frcii.FormatCTCFacturXExtended.VESID)
 }
 

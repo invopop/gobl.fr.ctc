@@ -29,6 +29,14 @@ func invoices(env *gobl.Envelope, doc goblcii.Document) (*bill.Invoice, *goblcii
 	return inv, out, ok && ok2
 }
 
+// exportFacturXExtended writes the Factur-X EXTENDED guideline into BT-24.
+func exportFacturXExtended(_ *goblcii.Format, _ *gobl.Envelope, doc goblcii.Document) error {
+	if out, ok := doc.(*goblcii.Invoice); ok && out.ExchangedContext != nil && out.ExchangedContext.GuidelineContext != nil {
+		out.ExchangedContext.GuidelineContext.ID = GuidelineIDFacturXExtended
+	}
+	return nil
+}
+
 // exportBillingMode writes the billing mode into BT-23.
 func exportBillingMode(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document) error {
 	inv, out, ok := invoices(env, doc)
