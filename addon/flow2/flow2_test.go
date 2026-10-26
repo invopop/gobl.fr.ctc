@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl/addons/eu/en16931"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
@@ -77,7 +77,7 @@ func testInvoiceB2BStandard(t *testing.T) *bill.Invoice {
 		Type:     bill.InvoiceTypeStandard,
 		Tax: &bill.Tax{
 			Ext: tax.ExtensionsOf(cbc.CodeMap{
-				dgfip.ExtKeyBillingMode:   dgfip.BillingModeS1,
+				ctc.ExtKeyBillingMode:     ctc.BillingModeS1,
 				untdid.ExtKeyDocumentType: "380",
 			}),
 		},
@@ -192,7 +192,7 @@ func TestInvoiceSIRENEndpointFollowsDocumentType(t *testing.T) {
 	selfBilled := func(inv *bill.Invoice) {
 		inv.Tags = tax.WithTags(tax.TagSelfBilled)
 		inv.Tax.Ext = tax.ExtensionsOf(cbc.CodeMap{
-			dgfip.ExtKeyBillingMode: dgfip.BillingModeS1,
+			ctc.ExtKeyBillingMode: ctc.BillingModeS1,
 		})
 	}
 
@@ -357,7 +357,7 @@ func TestInvoiceMissingNotesFails(t *testing.T) {
 
 func TestInvoiceMissingBillingModeFails(t *testing.T) {
 	inv := testInvoiceB2BStandard(t)
-	inv.Tax.Ext = inv.Tax.Ext.Delete(dgfip.ExtKeyBillingMode)
+	inv.Tax.Ext = inv.Tax.Ext.Delete(ctc.ExtKeyBillingMode)
 	assert.Error(t, rules.Validate(inv))
 }
 
@@ -367,7 +367,7 @@ func TestInvoiceInvalidBillingModeFails(t *testing.T) {
 	// reached PPF as an invalid BT-23 ProfileID).
 	inv := testInvoiceB2BStandard(t)
 	require.NoError(t, inv.Calculate())
-	inv.Tax.Ext = inv.Tax.Ext.Merge(tax.ExtensionsOf(cbc.CodeMap{dgfip.ExtKeyBillingMode: "b2b"}))
+	inv.Tax.Ext = inv.Tax.Ext.Merge(tax.ExtensionsOf(cbc.CodeMap{ctc.ExtKeyBillingMode: "b2b"}))
 	assert.ErrorContains(t, rules.Validate(inv), "must be a valid billing-mode code")
 }
 

@@ -3,7 +3,7 @@ package flow10
 import (
 	"testing"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
@@ -24,21 +24,21 @@ func pct(s string) *num.Percentage {
 
 func TestNormalizeBillingMode(t *testing.T) {
 	t.Run("keeps caller value", func(t *testing.T) {
-		inv := &bill.Invoice{Tax: &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{dgfip.ExtKeyBillingMode: dgfip.BillingModeB2})}}
+		inv := &bill.Invoice{Tax: &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{ctc.ExtKeyBillingMode: ctc.BillingModeB2})}}
 		normalizeBillingMode(inv)
-		assert.Equal(t, dgfip.BillingModeB2, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.Equal(t, ctc.BillingModeB2, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 	t.Run("M1 when unpaid", func(t *testing.T) {
 		inv := &bill.Invoice{}
 		normalizeBillingMode(inv)
 		require.NotNil(t, inv.Tax)
-		assert.Equal(t, dgfip.BillingModeM1, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.Equal(t, ctc.BillingModeM1, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 	t.Run("M2 when fully paid", func(t *testing.T) {
 		due := num.MakeAmount(0, 2)
 		inv := &bill.Invoice{Totals: &bill.Totals{Due: &due}}
 		normalizeBillingMode(inv)
-		assert.Equal(t, dgfip.BillingModeM2, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.Equal(t, ctc.BillingModeM2, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 }
 
@@ -63,14 +63,14 @@ func TestNormalizeInvoiceDispatch(t *testing.T) {
 		inv := &bill.Invoice{} // no customer => B2C
 		normalizeInvoice(inv)
 		assert.Equal(t, B2CCategoryNotTaxable, inv.Tax.Ext.Get(ExtKeyB2CCategory))
-		assert.Empty(t, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.Empty(t, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 
 	t.Run("customer without legal identity is B2C", func(t *testing.T) {
 		inv := &bill.Invoice{Customer: &org.Party{Name: "Jean Dupont"}}
 		normalizeInvoice(inv)
 		assert.Equal(t, B2CCategoryNotTaxable, inv.Tax.Ext.Get(ExtKeyB2CCategory))
-		assert.Empty(t, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.Empty(t, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 
 	t.Run("customer with legal identity is B2B", func(t *testing.T) {
@@ -79,7 +79,7 @@ func TestNormalizeInvoiceDispatch(t *testing.T) {
 		}}
 		normalizeInvoice(inv)
 		assert.Empty(t, inv.Tax.Ext.Get(ExtKeyB2CCategory))
-		assert.NotEmpty(t, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.NotEmpty(t, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 }
 

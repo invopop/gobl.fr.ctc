@@ -1,13 +1,12 @@
-// Package dgfip defines the French tax authority (Direction Générale des
-// Finances Publiques) billing-mode code list used by the French CTC
-// (Continuous Transaction Control) reform, and the identifier charset its
-// flows share. It is shared across the flow-specific addons (Flow 2
-// clearance, Flow 6 lifecycle and Flow 10 e-reporting), so it lives in its own
-// leaf package.
-package dgfip
+// Package ctc defines the DGFiP (Direction Générale des Finances Publiques)
+// definitions shared by the French CTC flow addons (Flow 2 clearance, Flow 6
+// lifecycle and Flow 10 e-reporting): the billing-mode code list and the
+// identifier charset. It is a leaf package, imported by the flows.
+package ctc
 
 import (
 	"regexp"
+	"slices"
 
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/i18n"
@@ -56,13 +55,16 @@ const (
 )
 
 // ExtBillingMode is the shared billing-mode extension definition. Flow addons
-// that use it include it in their AddonDef.Extensions list; registration is
-// idempotent by key, so it is safe for more than one addon to declare it.
+// declare it through BillingModeExtension, which adds them to its usage.
 var ExtBillingMode = &cbc.Definition{
 	Key: ExtKeyBillingMode,
 	Name: i18n.String{
-		i18n.EN: "Billing Mode",
-		i18n.FR: "Cadre de Facturation",
+		i18n.EN: "France CTC: Billing Mode",
+		i18n.FR: "France CTC: Cadre de Facturation",
+	},
+	Usage: &cbc.Usage{
+		// Keys are added by BillingModeExtension.
+		Schemas: []string{"bill/tax"},
 	},
 	Desc: i18n.String{
 		i18n.EN: here.Doc(`
@@ -126,4 +128,13 @@ var ExtBillingMode = &cbc.Definition{
 		{Code: BillingModeM8, Name: i18n.String{i18n.EN: "Mixed - Multi-vendor invoice (unit invoices not all Sx or Bx)", i18n.FR: "Mixte - Facture multi-vendeurs double, contenant des factures unitaires qui ne sont pas toutes Sx ou Bx"}},
 		{Code: BillingModeM9, Name: i18n.String{i18n.EN: "Mixed - Bi-directional invoice", i18n.FR: "Mixte - Facture bidirectionnelle double"}},
 	},
+}
+
+// BillingModeExtension adds the addon to the usage of ExtBillingMode and
+// returns it, for the addon to include in its extensions.
+func BillingModeExtension(addon cbc.Key) *cbc.Definition {
+	if !slices.Contains(ExtBillingMode.Usage.Keys, addon) {
+		ExtBillingMode.Usage.Keys = append(ExtBillingMode.Usage.Keys, addon)
+	}
+	return ExtBillingMode
 }

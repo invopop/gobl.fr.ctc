@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/untdid"
@@ -71,17 +71,17 @@ func normalizeInvoice(inv *bill.Invoice) {
 }
 
 func normalizeBillingMode(inv *bill.Invoice) {
-	if inv.Tax != nil && !inv.Tax.Ext.IsZero() && inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode) != "" {
+	if inv.Tax != nil && !inv.Tax.Ext.IsZero() && inv.Tax.Ext.Get(ctc.ExtKeyBillingMode) != "" {
 		return
 	}
-	mode := dgfip.BillingModeM1
+	mode := ctc.BillingModeM1
 	if inv.Totals != nil && inv.Totals.Paid() {
-		mode = dgfip.BillingModeM2
+		mode = ctc.BillingModeM2
 	}
 	if inv.Tax == nil {
 		inv.Tax = &bill.Tax{}
 	}
-	inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, mode)
+	inv.Tax.Ext = inv.Tax.Ext.Set(ctc.ExtKeyBillingMode, mode)
 }
 
 func normalizeSTCNote(inv *bill.Invoice) {
@@ -187,14 +187,14 @@ func billInvoiceRules() *rules.Set {
 				rules.Assert("08", fmt.Sprintf("invoice tax ext %s must be a valid Flow 2 document type (BR-FR-04)", untdid.ExtKeyDocumentType),
 					tax.ExtensionsHasCodes(untdid.ExtKeyDocumentType, allowedInvoiceDocumentTypes...),
 				),
-				rules.Assert("09", fmt.Sprintf("invoice tax ext %s is required and must be a valid billing-mode code", dgfip.ExtKeyBillingMode),
-					tax.ExtensionsRequire(dgfip.ExtKeyBillingMode),
-					tax.ExtensionHasValidCode(dgfip.ExtKeyBillingMode),
+				rules.Assert("09", fmt.Sprintf("invoice tax ext %s is required and must be a valid billing-mode code", ctc.ExtKeyBillingMode),
+					tax.ExtensionsRequire(ctc.ExtKeyBillingMode),
+					tax.ExtensionHasValidCode(ctc.ExtKeyBillingMode),
 				),
 			),
 		),
 		rules.When(
-			invoiceTaxExtIn(dgfip.ExtKeyBillingMode, dgfip.BillingModeB4, dgfip.BillingModeS4, dgfip.BillingModeM4),
+			invoiceTaxExtIn(ctc.ExtKeyBillingMode, ctc.BillingModeB4, ctc.BillingModeS4, ctc.BillingModeM4),
 			rules.Field("tax",
 				rules.Field("ext",
 					rules.Assert("10", fmt.Sprintf("invoice tax ext %s must not be an advance-payment code (386, 500, 503) when billing mode is factoring (B4, S4, M4) (BR-FR-CO-08)", untdid.ExtKeyDocumentType),
@@ -308,14 +308,14 @@ func billInvoiceRules() *rules.Set {
 		rules.When(
 			invoiceTaxExtNotIn(untdid.ExtKeyDocumentType, advancePaymentDocumentTypes...),
 			rules.When(
-				invoiceTaxExtNotIn(dgfip.ExtKeyBillingMode, dgfip.BillingModeB2, dgfip.BillingModeS2, dgfip.BillingModeM2),
+				invoiceTaxExtNotIn(ctc.ExtKeyBillingMode, ctc.BillingModeB2, ctc.BillingModeS2, ctc.BillingModeM2),
 				rules.Assert("29", "invoice payment terms due_dates must not be before the invoice issue date (BR-FR-CO-07)",
 					is.Func("due dates valid", invoiceDueDatesValid),
 				),
 			),
 		),
 		rules.When(
-			invoiceTaxExtIn(dgfip.ExtKeyBillingMode, dgfip.BillingModeB2, dgfip.BillingModeS2, dgfip.BillingModeM2),
+			invoiceTaxExtIn(ctc.ExtKeyBillingMode, ctc.BillingModeB2, ctc.BillingModeS2, ctc.BillingModeM2),
 			rules.Field("payment",
 				rules.Assert("30", "invoice payment is required for final invoices (BR-FR-CO-09)",
 					is.Present,

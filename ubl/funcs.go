@@ -2,7 +2,7 @@ package ubl
 
 import (
 	"github.com/invopop/gobl"
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
@@ -40,7 +40,7 @@ func exportCIUS(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document) err
 		return nil
 	}
 	// The UBL ProfileID carries the billing mode.
-	if profile := inv.Tax.GetExt(dgfip.ExtKeyBillingMode); profile != cbc.CodeEmpty {
+	if profile := inv.Tax.GetExt(ctc.ExtKeyBillingMode); profile != cbc.CodeEmpty {
 		out.ProfileID = &goblubl.IDType{Value: profile.String()}
 	}
 	for _, p := range goblubl.InvoiceParties(inv, out) {
@@ -76,7 +76,7 @@ func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) err
 	if in.ProfileID != nil {
 		profileID = in.ProfileID.Value
 	}
-	inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code(profileID))
+	inv.Tax.Ext = inv.Tax.Ext.Set(ctc.ExtKeyBillingMode, cbc.Code(profileID))
 	importDocumentType(inv, in)
 	return nil
 }
@@ -114,8 +114,8 @@ func documentTypeCode(in *goblubl.Invoice) cbc.Code {
 	return cbc.Code(tc.Value)
 }
 
-// exportExtended adds the parties and amounts that only the French Extended
-// profile defines.
+// exportExtended adds the parties, amounts and delivery terms that only the
+// French Extended profile defines.
 func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document) error {
 	inv, out, ok := invoices(env, doc)
 	if !ok {
@@ -192,6 +192,19 @@ func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document)
 			p.UBL.AgentParty = goblubl.NewParty(p.GOBL.Agent)
 		}
 	}
+
+	// EXT-FR-FE-BG-14: the Incoterms code (EXT-FR-FE-185) from the delivery
+	// extension, and the delivery location name (EXT-FR-FE-186) from the
+	// label of the receiver's address.
+	if del := inv.Delivery; del != nil {
+		if code := del.Ext.Get(flow2.ExtKeyDeliveryTerms); code != cbc.CodeEmpty {
+			out.DeliveryTerms = &goblubl.DeliveryTerms{ID: code.String()}
+			if del.Receiver != nil && len(del.Receiver.Addresses) > 0 && del.Receiver.Addresses[0].Label != "" {
+				name := del.Receiver.Addresses[0].Label
+				out.DeliveryTerms.DeliveryLocation = &goblubl.Location{Name: &name}
+			}
+		}
+	}
 	return nil
 }
 
@@ -213,8 +226,8 @@ func addTaxExchangeRate(out *goblubl.Invoice, from, to cur.Code, rate *cur.Excha
 	}
 }
 
-// importExtended restores the parties that only the French Extended profile
-// defines.
+// importExtended restores the parties and delivery terms that only the
+// French Extended profile defines.
 func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) error {
 	inv, in, ok := invoices(env, doc)
 	if !ok {
@@ -251,6 +264,24 @@ func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope)
 	for _, p := range goblubl.InvoiceParties(inv, in) {
 		if p.UBL.AgentParty != nil && p.GOBL.Agent == nil {
 			p.GOBL.Agent = goblubl.ParseParty(p.UBL.AgentParty)
+		}
+	}
+
+	// EXT-FR-FE-BG-14: the Incoterms code into the delivery extension, and the
+	// delivery location name into the label of the receiver's address.
+	if dt := in.DeliveryTerms; dt != nil && dt.ID != "" {
+		if inv.Delivery == nil {
+			inv.Delivery = new(bill.DeliveryDetails)
+		}
+		inv.Delivery.Ext = inv.Delivery.Ext.Set(flow2.ExtKeyDeliveryTerms, cbc.Code(dt.ID))
+		if dt.DeliveryLocation != nil && dt.DeliveryLocation.Name != nil && *dt.DeliveryLocation.Name != "" {
+			if inv.Delivery.Receiver == nil {
+				inv.Delivery.Receiver = new(org.Party)
+			}
+			if len(inv.Delivery.Receiver.Addresses) == 0 {
+				inv.Delivery.Receiver.Addresses = []*org.Address{{}}
+			}
+			inv.Delivery.Receiver.Addresses[0].Label = *dt.DeliveryLocation.Name
 		}
 	}
 	return nil
