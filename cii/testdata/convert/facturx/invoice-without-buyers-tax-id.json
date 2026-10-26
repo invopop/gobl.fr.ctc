@@ -4,15 +4,14 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "582304e0b60f6541e50391b07c5a6bc032ca2c3317e102976f75c62ef97fd5e6"
+			"val": "ca2f51bc852b64dcc9c0d3b06e0144a1f66f3042bbb640a89aaeaaa175dff5fc"
 		}
 	},
 	"doc": {
 		"$schema": "https://gobl.org/draft-0/bill/invoice",
 		"$regime": "DE",
 		"$addons": [
-			"eu-en16931-v2017",
-			"fr-facturx-v1"
+			"eu-en16931-v2017"
 		],
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"type": "standard",

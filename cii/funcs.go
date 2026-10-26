@@ -7,6 +7,7 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	"github.com/invopop/gobl/addons/fr/choruspro"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/regimes/fr"
@@ -26,6 +27,14 @@ func invoices(env *gobl.Envelope, doc goblcii.Document) (*bill.Invoice, *goblcii
 	inv, ok := env.Extract().(*bill.Invoice)
 	out, ok2 := doc.(*goblcii.Invoice)
 	return inv, out, ok && ok2
+}
+
+// exportFacturXExtended writes the Factur-X EXTENDED guideline into BT-24.
+func exportFacturXExtended(_ *goblcii.Format, _ *gobl.Envelope, doc goblcii.Document) error {
+	if out, ok := doc.(*goblcii.Invoice); ok && out.ExchangedContext != nil && out.ExchangedContext.GuidelineContext != nil {
+		out.ExchangedContext.GuidelineContext.ID = GuidelineIDFacturXExtended
+	}
+	return nil
 }
 
 // exportBillingMode writes the billing mode into BT-23.
@@ -52,6 +61,27 @@ func importBillingMode(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelo
 	return nil
 }
 
+// importDocumentType restores the invoice type and tags that BT-3 stands for
+// under the Flow 2 scenarios, which the base import only knows for the codes
+// EN 16931 defines. The base already keeps the code itself.
+func importDocumentType(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope) error {
+	inv, in, ok := invoices(env, doc)
+	if !ok {
+		return nil
+	}
+	typ, tags, ok := flow2.DocumentType(cbc.Code(in.ExchangedDocument.TypeCode))
+	if !ok {
+		return nil
+	}
+	inv.Type = typ
+	for _, tag := range tags {
+		if !inv.HasTags(tag) {
+			inv.SetTags(append(inv.GetTags(), tag)...)
+		}
+	}
+	return nil
+}
+
 // exportSubLines writes line breakdowns as sub-lines, which the EXTENDED
 // profiles allow.
 func exportSubLines(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document) error {
@@ -73,6 +103,11 @@ func exportExtended(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document)
 	// GOBL nests them inside the party they act for; CII keeps them as
 	// siblings in the trade agreement.
 	if agmt := out.Transaction.Agreement; agmt != nil {
+		// EXT-FR-FE-01: the contract type (UNCL 1153) of the one contract the
+		// base writes.
+		if agmt.Contract != nil {
+			agmt.Contract.ReferenceTypeCode = inv.Ordering.Contracts[0].Ext.Get(untdid.ExtKeyReference).String()
+		}
 		if inv.Supplier != nil && inv.Supplier.Agent != nil {
 			agmt.SalesAgent = goblcii.NewParty(inv.Supplier.Agent)
 		}
@@ -121,6 +156,11 @@ func importExtended(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope)
 	}
 
 	if agmt := in.Transaction.Agreement; agmt != nil {
+		// EXT-FR-FE-01: the contract type.
+		if agmt.Contract != nil && inv.Ordering != nil && len(inv.Ordering.Contracts) > 0 {
+			c := inv.Ordering.Contracts[0]
+			c.Ext = c.Ext.Set(untdid.ExtKeyReference, cbc.Code(agmt.Contract.ReferenceTypeCode))
+		}
 		if inv.Supplier != nil && agmt.SalesAgent != nil {
 			inv.Supplier.Agent = goblcii.ParseParty(agmt.SalesAgent)
 		}

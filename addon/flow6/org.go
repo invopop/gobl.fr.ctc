@@ -2,10 +2,10 @@ package flow6
 
 import (
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
@@ -24,10 +24,6 @@ const (
 	identityKeyPrivateID    cbc.Key  = "private-id"
 	inboxSchemeSIREN        cbc.Code = "0225"
 )
-
-// sirenInboxFormatRegex enforces the alphanumeric + `-+_/` format
-// shared by SIREN-scope inboxes and private-id identity codes.
-var sirenInboxFormatRegex = regexp.MustCompile(`^[A-Za-z0-9+\-_/]+$`)
 
 // allowedFlow6IdentitySchemes is the ICD 6523 subset CDAR accepts on
 // Flow 6 (CDV lifecycle) party identities. STC (0231 — assujetti
@@ -104,27 +100,34 @@ func normalizeInboxes(party *org.Party) {
 	}
 }
 
-// normalizeEndpoints copies the peppol-keyed inbox into an
-// iso6523-actorid-upis endpoint when the party has none, so the
-// envelope can derive its Head.From / Head.To routing URIs from the
-// lifecycle document's parties.
+// normalizeEndpoints copies the party's inbox into an
+// iso6523-actorid-upis endpoint when it has none: the peppol-keyed inbox,
+// or else the first with a scheme and code. Validation and routing use
+// the endpoint.
 func normalizeEndpoints(party *org.Party) {
 	if party.Endpoint(iso.ActorIDScheme) != nil {
 		return
 	}
+	var src *org.Inbox
 	for _, in := range party.Inboxes {
-		if in == nil || in.Key != org.InboxKeyPeppol {
+		if in == nil || in.Scheme == cbc.CodeEmpty || in.Code == cbc.CodeEmpty {
 			continue
 		}
-		if in.Scheme == cbc.CodeEmpty || in.Code == cbc.CodeEmpty {
-			continue
+		if in.Key == org.InboxKeyPeppol {
+			src = in
+			break
 		}
-		party.Endpoints = append(party.Endpoints, &org.Endpoint{
-			Label: in.Label,
-			URI:   cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, in.Scheme, in.Code)),
-		})
+		if src == nil {
+			src = in
+		}
+	}
+	if src == nil {
 		return
 	}
+	party.Endpoints = append(party.Endpoints, &org.Endpoint{
+		Label: src.Label,
+		URI:   cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, src.Scheme, src.Code)),
+	})
 }
 
 func orgPartyRules() *rules.Set {
@@ -156,8 +159,8 @@ func orgPartyRules() *rules.Set {
 						rules.Assert("06", "party identity code for private-id (0224) must not exceed 100 characters (BR-FR-26)",
 							is.Length(0, 100),
 						),
-						rules.Assert("07", "party identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, / (BR-FR-24)",
-							is.MatchesRegexp(sirenInboxFormatRegex),
+						rules.Assert("07", "party identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, . (BR-FR-24)",
+							is.MatchesRegexp(dgfip.SchemeIDFormat),
 						),
 					),
 				),
@@ -258,7 +261,7 @@ func inboxCodeValid(val any) bool {
 	if len(code) > 125 {
 		return false
 	}
-	return sirenInboxFormatRegex.MatchString(code)
+	return dgfip.SchemeIDFormat.MatchString(code)
 }
 
 // migrateDocRefType moves a legacy type code from Type onto the

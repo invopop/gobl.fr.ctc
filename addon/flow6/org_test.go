@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
@@ -11,6 +12,7 @@ import (
 	"github.com/invopop/gobl/regimes/fr"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeIdentity(t *testing.T) {
@@ -64,6 +66,39 @@ func TestNormalizeInboxes(t *testing.T) {
 		}}
 		normalizeInboxes(p)
 		assert.Equal(t, cbc.Key(""), p.Inboxes[2].Key)
+	})
+}
+
+func TestNormalizeEndpoints(t *testing.T) {
+	t.Run("copies the peppol inbox", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Scheme: "0088", Code: "5790000435975"},
+			{Key: org.InboxKeyPeppol, Scheme: "0225", Code: "356000000_PEP"},
+		}}
+		normalizeEndpoints(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:356000000_PEP"), p.Endpoints[0].URI)
+	})
+
+	t.Run("falls back to the first inbox with a scheme and code", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			nil,
+			{Code: "no-scheme"},
+			{Scheme: "0088", Code: "5790000435975"},
+		}}
+		normalizeEndpoints(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0088:5790000435975"), p.Endpoints[0].URI)
+	})
+
+	t.Run("keeps an existing endpoint", func(t *testing.T) {
+		p := &org.Party{
+			Endpoints: []*org.Endpoint{{URI: "iso6523-actorid-upis::0225:A"}},
+			Inboxes:   []*org.Inbox{{Scheme: "0225", Code: "B"}},
+		}
+		normalizeEndpoints(p)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:A"), p.Endpoints[0].URI)
 	})
 }
 
@@ -123,6 +158,14 @@ func TestIdentitySchemeIsPrivate(t *testing.T) {
 // TestPrepareStatusWithLineFromCode covers the reverse mapping from a
 // pre-set CDAR ProcessConditionCode to the (Status.Type, line.Key) pair,
 // and the forward derivation of Type from a line.Key when no code is set.
+// BR-FR-23 and BR-FR-24 share the charset: a dot is allowed, `/` is not.
+func TestSchemeIDFormat(t *testing.T) {
+	assert.True(t, dgfip.SchemeIDFormat.MatchString("ACME.FR-001"))
+	assert.True(t, dgfip.SchemeIDFormat.MatchString("ACME+FR_001"))
+	assert.False(t, dgfip.SchemeIDFormat.MatchString("ACME/001"))
+	assert.False(t, dgfip.SchemeIDFormat.MatchString("ACME 001"))
+}
+
 func TestPrepareStatusWithLineFromCode(t *testing.T) {
 	type want struct {
 		typ cbc.Key
@@ -174,4 +217,6 @@ func TestInboxCodeValid(t *testing.T) {
 	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "1_PEP"}))
 	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: cbc.Code(strings.Repeat("A", 126))}))
 	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "bad code"}))
+	assert.True(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "356000000_billing-dept.example"}))
+	assert.False(t, inboxCodeValid(&org.Inbox{Scheme: inboxSchemeSIREN, Code: "356000000/billing"}))
 }

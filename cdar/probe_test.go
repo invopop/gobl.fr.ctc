@@ -217,9 +217,12 @@ func TestProbeInvalidStatusesRejectedByGOBL(t *testing.T) {
 			"customer",
 		},
 		{
-			"customer-without-inbox",
-			func(st *bill.Status) { st.Customer.Inboxes = nil },
-			"inbox",
+			"no-party-with-endpoint",
+			func(st *bill.Status) {
+				st.Supplier.Inboxes, st.Supplier.Endpoints = nil, nil
+				st.Customer.Inboxes, st.Customer.Endpoints = nil, nil
+			},
+			"endpoint",
 		},
 		{
 			"reason-not-allowed-for-status",

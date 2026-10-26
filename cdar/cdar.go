@@ -70,7 +70,7 @@ var FormatCDV = Format{
 	// CDAR XML's BusinessProcessParameter at the CDV MDT-2 "REGULATED" value.
 	BusinessID:       ProcessIDRegulated,
 	OutputBusinessID: "REGULATED",
-	VESID:            "fr.ctc:cdar:1.4.0-03",
+	VESID:            "fr.ctc:cdar:1.4.0-04",
 }
 
 // FormatCDVPPF is used for French CTC Flow 6 CDAR copies sent to
@@ -81,7 +81,7 @@ var FormatCDVPPF = Format{
 	Key:         KeyCDVPPF,
 	Name:        i18n.NewString("CDAR France CTC CDV for the PPF"),
 	GuidelineID: CDARGuidelinePPF,
-	VESID:       "fr.ctc:cdar:1.4.0-03",
+	VESID:       "fr.ctc:cdar:1.4.0-04",
 }
 
 // routing carries the envelope's transport addresses — the SBD From / To the
@@ -118,8 +118,7 @@ func WithSender(p *org.Party) Option {
 // with — the Peppol SBD From / To — as fully-qualified participant URIs (e.g.
 // "iso6523-actorid-upis::0225:code"). On import they are recorded verbatim on
 // the envelope's Head.From / Head.To, and also populate a party inbox the CDAR
-// body may omit (carried at the SBD layer instead), so the result satisfies
-// BR-FR-CDV-08.
+// body may omit (carried at the SBD layer instead).
 func WithRouting(from, to cbc.URI) Option {
 	return func(o *options) {
 		o.routing = routing{from: from, to: to}

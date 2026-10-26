@@ -200,7 +200,7 @@ func TestVESID(t *testing.T) {
 
 		// Get VESID for France CIUS format
 		vesid := frubl.FormatCIUS.VESID(inv)
-		assert.Equal(t, "fr.ctc:ubl-invoice:1.4.0-03", vesid)
+		assert.Equal(t, "fr.ctc:ubl-invoice:1.4.0-04", vesid)
 	})
 
 	t.Run("France Extended VESID", func(t *testing.T) {
@@ -211,7 +211,7 @@ func TestVESID(t *testing.T) {
 
 		// Get VESID for France Extended format
 		vesid := frubl.FormatExtended.VESID(inv)
-		assert.Equal(t, "fr.ctc:extended-ubl-invoice:1.4.0-03", vesid)
+		assert.Equal(t, "fr.ctc:extended-ubl-invoice:1.4.0-04", vesid)
 	})
 }
 

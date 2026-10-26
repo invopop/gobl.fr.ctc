@@ -24,7 +24,7 @@ func TestDeliveryTermsRules(t *testing.T) {
 		return inv
 	}
 
-	for _, code := range []cbc.Code{"1", "2", "CFR", "CIF", "CIP", "CPT", "DAP", "DDP", "DPU", "EXW", "FAS", "FCA", "FOB"} {
+	for _, code := range cbc.DefinitionCodes(extIncotermDeliveryTerms.Values) {
 		t.Run("accepts "+code.String(), func(t *testing.T) {
 			assert.NoError(t, rules.Validate(withTerms(t, code)))
 		})

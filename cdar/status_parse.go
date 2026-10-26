@@ -2,6 +2,7 @@ package cdar
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -137,8 +138,7 @@ func goblStatusLineFromCDAR(ref *cii.CDARReferencedDocument) *bill.StatusLine {
 			// Reason.Key is recovered from the ext by flow6's
 			// prepareReasonKey at normalize-time.
 			r = &bill.Reason{
-				Ext:         tax.MakeExtensions().Set(flow6.ExtKeyReason, cbc.Code(ds.ReasonCode)),
-				Description: cii.CleanString(strings.Join(ds.Reason, "\n")),
+				Ext: tax.MakeExtensions().Set(flow6.ExtKeyReason, cbc.Code(ds.ReasonCode)),
 			}
 		}
 		// Field-level corrections and amount markers
@@ -158,6 +158,7 @@ func goblStatusLineFromCDAR(ref *cii.CDARReferencedDocument) *bill.StatusLine {
 			r.Faults = append(r.Faults, f)
 		}
 		if r != nil {
+			r.Description = cdarReasonText(ds)
 			line.Reasons = append(line.Reasons, r)
 		}
 		if ds.RequestedActionCode != "" {
@@ -173,6 +174,19 @@ func goblStatusLineFromCDAR(ref *cii.CDARReferencedDocument) *bill.StatusLine {
 		}
 	}
 	return line
+}
+
+// cdarReasonText joins a status's Reason labels (MDT-114) and IncludedNote
+// content (MDT-126). Export writes the description to MDT-126 alone, so our
+// own CDVs read back unchanged.
+func cdarReasonText(ds *cii.CDARDocumentStatus) string {
+	parts := slices.Clone(ds.Reason)
+	for _, n := range ds.IncludedNotes {
+		if n != nil {
+			parts = append(parts, n.Content...)
+		}
+	}
+	return cii.CleanString(strings.Join(parts, "\n"))
 }
 
 // goblFaultFromCDAR maps a SpecifiedDocumentCharacteristic onto a
@@ -286,10 +300,9 @@ func participantInbox(uri cbc.URI) *org.Inbox {
 // hydratePartyInboxes fills a business party's Peppol inbox from the envelope's
 // transport routing (the SBD From / To) when the CDV body omitted it. A
 // conformant CDAR need not repeat the issuer's electronic address in the
-// document body — it travels at the SBD layer — yet BR-FR-CDV-08 requires every
-// non-WK/DFH party to carry an inbox, so a received status would otherwise fail
-// validation. Each routing participant is matched to the party whose SIREN it
-// carries; any leftover participant fills a party still missing an inbox.
+// document body, as it travels at the SBD layer. Each routing participant is
+// matched to the party whose SIREN it carries; any leftover participant fills
+// a party still missing an inbox.
 // Parties that already have an inbox are left untouched.
 func hydratePartyInboxes(supplier, customer *org.Party, r routing) {
 	parties := make([]*org.Party, 0, 2)

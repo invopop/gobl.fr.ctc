@@ -153,6 +153,9 @@ flow6.StatusKeyFor("212")                     // → "paid", "response", true
 | `TypeCode` (MDT-91) | `Doc.Type` | UNTDID 1001 invoice type |
 | `ReceiptDateTime` | not currently mapped | |
 | `SpecifiedDocumentStatus[]` | one entry per `(Reason × Action)` pair, then characteristic-only entries | See §5 |
+| `SpecifiedDocumentStatus/ReasonCode` (MDT-113) | `Reasons[].ext[fr-ctc-flow6-reason]` | |
+| `SpecifiedDocumentStatus/Reason` (MDT-114) | `Reasons[].Description`, before MDT-126 | Import only. Export doesn't write it, so our own CDVs read back unchanged. |
+| `SpecifiedDocumentStatus/IncludedNote/Content` (MDT-126) | `Reasons[].Description`, after MDT-114 | Import joins it after MDT-114; export writes the description here alone. PPF requires it on a Refusée / Suspendue. A note on an entry with neither a `ReasonCode` nor characteristics has no reason to sit on and is not imported. |
 
 ### Status-required Reasons (BR-FR-CDV-15)
 
@@ -241,7 +244,7 @@ they will become hard errors in future spec releases):
 | BILL-STATUS-15 | BR-FR-CDV-CL-03 | `Issuer.ext.fr-ctc-flow6-role` present |
 | BILL-STATUS-16 | BR-FR-CDV-CL-04 | `Recipient` present (MDG-23) |
 | BILL-STATUS-17 | BR-FR-CDV-CL-04 | `Recipient.ext.fr-ctc-flow6-role` present |
-| BILL-STATUS-18 | BR-FR-CDV-08 | `Recipient` has inbox when role ≠ WK / DFH |
+| BILL-STATUS-28 | BR-FR-CDV-08 | `Supplier` or `Customer` has an `iso6523-actorid-upis` endpoint when its role ≠ WK / DFH; the status doesn't say which is the recipient. Inboxes are normalized into that endpoint |
 | BILL-STATUS-19 | BR-FR-CDV-CL-09 | reason codes allowed for the line's process code |
 | BILL-REASON-01 | — | `Reason.Key` is a known `bill.ReasonKey` |
 | BILL-REASON-02 | — | `fr-ctc-flow6-reason` known and matches `Reason.Key` bucket |
