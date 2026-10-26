@@ -3,7 +3,7 @@ package flow10
 import (
 	"testing"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
@@ -82,7 +82,7 @@ func testInvoiceB2BCrossBorder(t *testing.T) *bill.Invoice {
 		Type:      bill.InvoiceTypeStandard,
 		Tax: &bill.Tax{
 			Ext: tax.ExtensionsOf(cbc.CodeMap{
-				dgfip.ExtKeyBillingMode: dgfip.BillingModeS1,
+				ctc.ExtKeyBillingMode: ctc.BillingModeS1,
 			}),
 		},
 		Supplier: frPartyWithSIREN(),
@@ -160,14 +160,14 @@ func TestInvoiceB2CMissingSupplierSIRENFails(t *testing.T) {
 
 func TestInvoiceB2BMissingBillingModeFails(t *testing.T) {
 	inv := testInvoiceB2BCrossBorder(t)
-	inv.Tax.Ext = inv.Tax.Ext.Delete(dgfip.ExtKeyBillingMode)
+	inv.Tax.Ext = inv.Tax.Ext.Delete(ctc.ExtKeyBillingMode)
 	assert.Error(t, rules.Validate(inv))
 }
 
 func TestInvoiceB2BInvalidBillingModeFails(t *testing.T) {
 	inv := testInvoiceB2BCrossBorder(t)
 	require.NoError(t, inv.Calculate())
-	inv.Tax.Ext = inv.Tax.Ext.Merge(tax.ExtensionsOf(cbc.CodeMap{dgfip.ExtKeyBillingMode: "b2b"}))
+	inv.Tax.Ext = inv.Tax.Ext.Merge(tax.ExtensionsOf(cbc.CodeMap{ctc.ExtKeyBillingMode: "b2b"}))
 	assert.ErrorContains(t, rules.Validate(inv), "must be a valid billing-mode code")
 }
 

@@ -5,7 +5,7 @@ import (
 	"github.com/invopop/gobl/i18n"
 	"github.com/invopop/gobl/pkg/here"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 )
 
 // Flow 10 extension keys.
@@ -34,8 +34,12 @@ var extensions = []*cbc.Definition{
 	{
 		Key: ExtKeyB2CCategory,
 		Name: i18n.String{
-			i18n.EN: "B2C Transaction Category",
-			i18n.FR: "Catégorie de transaction B2C",
+			i18n.EN: "France CTC: B2C Transaction Category",
+			i18n.FR: "France CTC: Catégorie de transaction B2C",
+		},
+		Usage: &cbc.Usage{
+			Keys:    []cbc.Key{V1},
+			Schemas: []string{"bill/tax"},
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
@@ -63,5 +67,5 @@ var extensions = []*cbc.Definition{
 		},
 	},
 	// Shared DGFiP billing-mode code list (also declared by Flow 2).
-	dgfip.ExtBillingMode,
+	ctc.BillingModeExtension(V1),
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/invopop/gobl/rules/is"
 	"github.com/invopop/gobl/tax"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 )
 
 const (
@@ -87,7 +87,7 @@ func newV1Addon() *tax.AddonDef {
 			},
 		},
 		// Shared DGFiP billing-mode code list (also declared by Flow 10).
-		Extensions: []*cbc.Definition{dgfip.ExtBillingMode, extDeliveryTerms},
+		Extensions: []*cbc.Definition{ctc.BillingModeExtension(V1), extDeliveryTerms},
 		Tags:       []*tax.TagSet{invoiceTags},
 		Scenarios:  scenarios,
 	}

@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
@@ -160,7 +160,7 @@ func orgPartyRules() *rules.Set {
 							is.Length(0, 100),
 						),
 						rules.Assert("07", "party identity code for private-id (0224) must contain only alphanumeric characters and +, -, _, . (BR-FR-24)",
-							is.MatchesRegexp(dgfip.SchemeIDFormat),
+							is.MatchesRegexp(ctc.SchemeIDFormat),
 						),
 					),
 				),
@@ -261,7 +261,7 @@ func inboxCodeValid(val any) bool {
 	if len(code) > 125 {
 		return false
 	}
-	return dgfip.SchemeIDFormat.MatchString(code)
+	return ctc.SchemeIDFormat.MatchString(code)
 }
 
 // migrateDocRefType moves a legacy type code from Type onto the

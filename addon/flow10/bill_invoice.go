@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
@@ -78,17 +78,17 @@ func invoiceIsB2CDoc(inv *bill.Invoice) bool {
 // extension when the caller hasn't supplied one. M2 when the invoice
 // is fully paid, M1 otherwise.
 func normalizeBillingMode(inv *bill.Invoice) {
-	if inv.Tax != nil && !inv.Tax.Ext.IsZero() && inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode) != "" {
+	if inv.Tax != nil && !inv.Tax.Ext.IsZero() && inv.Tax.Ext.Get(ctc.ExtKeyBillingMode) != "" {
 		return
 	}
-	mode := dgfip.BillingModeM1
+	mode := ctc.BillingModeM1
 	if inv.Totals != nil && inv.Totals.Paid() {
-		mode = dgfip.BillingModeM2
+		mode = ctc.BillingModeM2
 	}
 	if inv.Tax == nil {
 		inv.Tax = &bill.Tax{}
 	}
-	inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, mode)
+	inv.Tax.Ext = inv.Tax.Ext.Set(ctc.ExtKeyBillingMode, mode)
 }
 
 // normalizeB2CCategoryOnInvoice defaults the B2C transaction category
@@ -162,14 +162,14 @@ func billInvoiceRules() *rules.Set {
 					rules.Assert("08", fmt.Sprintf("invoice tax ext %s must be one of the Flow 10 permitted UNTDID 1001 codes", untdid.ExtKeyDocumentType),
 						tax.ExtensionsHasCodes(untdid.ExtKeyDocumentType, allowedDocumentTypes...),
 					),
-					rules.Assert("09", fmt.Sprintf("invoice tax ext %s is required and must be a valid billing-mode code (G1.02)", dgfip.ExtKeyBillingMode),
-						tax.ExtensionsRequire(dgfip.ExtKeyBillingMode),
-						tax.ExtensionHasValidCode(dgfip.ExtKeyBillingMode),
+					rules.Assert("09", fmt.Sprintf("invoice tax ext %s is required and must be a valid billing-mode code (G1.02)", ctc.ExtKeyBillingMode),
+						tax.ExtensionsRequire(ctc.ExtKeyBillingMode),
+						tax.ExtensionHasValidCode(ctc.ExtKeyBillingMode),
 					),
 				),
 			),
 			rules.When(
-				invoiceTaxExtIn(dgfip.ExtKeyBillingMode, dgfip.BillingModeB4, dgfip.BillingModeS4, dgfip.BillingModeM4),
+				invoiceTaxExtIn(ctc.ExtKeyBillingMode, ctc.BillingModeB4, ctc.BillingModeS4, ctc.BillingModeM4),
 				rules.Field("tax",
 					rules.Field("ext",
 						rules.Assert("10", fmt.Sprintf("invoice tax ext %s must not be an advance-payment code (386, 500, 503) when billing mode is final-after-advance (B4, S4, M4) (G1.60)", untdid.ExtKeyDocumentType),

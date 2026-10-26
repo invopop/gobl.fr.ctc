@@ -2,7 +2,7 @@ package ubl
 
 import (
 	"github.com/invopop/gobl"
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
@@ -40,7 +40,7 @@ func exportCIUS(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document) err
 		return nil
 	}
 	// The UBL ProfileID carries the billing mode.
-	if profile := inv.Tax.GetExt(dgfip.ExtKeyBillingMode); profile != cbc.CodeEmpty {
+	if profile := inv.Tax.GetExt(ctc.ExtKeyBillingMode); profile != cbc.CodeEmpty {
 		out.ProfileID = &goblubl.IDType{Value: profile.String()}
 	}
 	for _, p := range goblubl.InvoiceParties(inv, out) {
@@ -76,7 +76,7 @@ func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) err
 	if in.ProfileID != nil {
 		profileID = in.ProfileID.Value
 	}
-	inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code(profileID))
+	inv.Tax.Ext = inv.Tax.Ext.Set(ctc.ExtKeyBillingMode, cbc.Code(profileID))
 	importDocumentType(inv, in)
 	return nil
 }

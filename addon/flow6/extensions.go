@@ -202,8 +202,12 @@ var extensions = []*cbc.Definition{
 	{
 		Key: ExtKeyRole,
 		Name: i18n.String{
-			i18n.EN: "Party Role Code",
-			i18n.FR: "Code rôle partie",
+			i18n.EN: "France CTC: Party Role Code",
+			i18n.FR: "France CTC: Code rôle partie",
+		},
+		Usage: &cbc.Usage{
+			Keys:    []cbc.Key{V1},
+			Schemas: []string{"org/party"},
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
@@ -235,8 +239,12 @@ var extensions = []*cbc.Definition{
 	{
 		Key: ExtKeyReason,
 		Name: i18n.String{
-			i18n.EN: "CDAR Reason Code",
-			i18n.FR: "Code motif CDAR",
+			i18n.EN: "France CTC: CDAR Reason Code",
+			i18n.FR: "France CTC: Code motif CDAR",
+		},
+		Usage: &cbc.Usage{
+			Keys:    []cbc.Key{V1},
+			Schemas: []string{"bill/reason"},
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
@@ -303,8 +311,12 @@ var extensions = []*cbc.Definition{
 	{
 		Key: ExtKeyStatus,
 		Name: i18n.String{
-			i18n.EN: "CDAR Process Condition Code",
-			i18n.FR: "Code condition processus CDAR",
+			i18n.EN: "France CTC: CDAR Process Condition Code",
+			i18n.FR: "France CTC: Code condition processus CDAR",
+		},
+		Usage: &cbc.Usage{
+			Keys:    []cbc.Key{V1},
+			Schemas: []string{"bill/status-line", "bill/payment"},
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
@@ -346,8 +358,12 @@ var extensions = []*cbc.Definition{
 	{
 		Key: ExtKeyCondition,
 		Name: i18n.String{
-			i18n.EN: "Flow 6 Condition Code",
-			i18n.FR: "Code condition Flux 6",
+			i18n.EN: "France CTC: Flow 6 Condition Code",
+			i18n.FR: "France CTC: Code condition Flux 6",
+		},
+		Usage: &cbc.Usage{
+			Keys:    []cbc.Key{V1},
+			Schemas: []string{"bill/reason", "bill/payment"},
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`
@@ -391,8 +407,12 @@ var extensions = []*cbc.Definition{
 	{
 		Key: ExtKeyAction,
 		Name: i18n.String{
-			i18n.EN: "Flow 6 Action Code",
-			i18n.FR: "Code action Flux 6",
+			i18n.EN: "France CTC: Flow 6 Action Code",
+			i18n.FR: "France CTC: Code action Flux 6",
+		},
+		Usage: &cbc.Usage{
+			Keys:    []cbc.Key{V1},
+			Schemas: []string{"bill/action"},
 		},
 		Desc: i18n.String{
 			i18n.EN: here.Doc(`

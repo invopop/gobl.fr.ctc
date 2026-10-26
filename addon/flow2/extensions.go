@@ -13,8 +13,12 @@ const ExtKeyDeliveryTerms cbc.Key = "fr-ctc-delivery-terms"
 var extDeliveryTerms = &cbc.Definition{
 	Key: ExtKeyDeliveryTerms,
 	Name: i18n.String{
-		i18n.EN: "Incoterm Delivery Terms",
-		i18n.FR: "Conditions de livraison (Incoterms)",
+		i18n.EN: "France CTC: Incoterm Delivery Terms",
+		i18n.FR: "France CTC: Conditions de livraison (Incoterms)",
+	},
+	Usage: &cbc.Usage{
+		Keys:    []cbc.Key{V1},
+		Schemas: []string{"bill/delivery-details"},
 	},
 	Desc: i18n.String{
 		i18n.EN: here.Doc(`

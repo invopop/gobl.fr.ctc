@@ -3,7 +3,7 @@ package flow2
 import (
 	"testing"
 
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
@@ -20,17 +20,17 @@ import (
 func TestNormalizeBillingMode(t *testing.T) {
 	t.Run("keeps caller-supplied mode", func(t *testing.T) {
 		inv := &bill.Invoice{Tax: &bill.Tax{
-			Ext: tax.ExtensionsOf(cbc.CodeMap{dgfip.ExtKeyBillingMode: dgfip.BillingModeB2}),
+			Ext: tax.ExtensionsOf(cbc.CodeMap{ctc.ExtKeyBillingMode: ctc.BillingModeB2}),
 		}}
 		normalizeBillingMode(inv)
-		assert.Equal(t, dgfip.BillingModeB2, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.Equal(t, ctc.BillingModeB2, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 
 	t.Run("defaults to M1 when unpaid", func(t *testing.T) {
 		inv := &bill.Invoice{}
 		normalizeBillingMode(inv)
 		require.NotNil(t, inv.Tax)
-		assert.Equal(t, dgfip.BillingModeM1, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.Equal(t, ctc.BillingModeM1, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 
 	t.Run("defaults to M2 when fully paid", func(t *testing.T) {
@@ -40,7 +40,7 @@ func TestNormalizeBillingMode(t *testing.T) {
 			Due:          &due,
 		}}
 		normalizeBillingMode(inv)
-		assert.Equal(t, dgfip.BillingModeM2, inv.Tax.Ext.Get(dgfip.ExtKeyBillingMode))
+		assert.Equal(t, ctc.BillingModeM2, inv.Tax.Ext.Get(ctc.ExtKeyBillingMode))
 	})
 }
 
@@ -157,10 +157,10 @@ func TestNotesNoDuplicates(t *testing.T) {
 
 func TestInvoiceTaxExtInGuards(t *testing.T) {
 	inv := &bill.Invoice{Tax: &bill.Tax{
-		Ext: tax.ExtensionsOf(cbc.CodeMap{dgfip.ExtKeyBillingMode: dgfip.BillingModeB4}),
+		Ext: tax.ExtensionsOf(cbc.CodeMap{ctc.ExtKeyBillingMode: ctc.BillingModeB4}),
 	}}
-	in := invoiceTaxExtIn(dgfip.ExtKeyBillingMode, dgfip.BillingModeB4)
-	notIn := invoiceTaxExtNotIn(dgfip.ExtKeyBillingMode, dgfip.BillingModeB4)
+	in := invoiceTaxExtIn(ctc.ExtKeyBillingMode, ctc.BillingModeB4)
+	notIn := invoiceTaxExtNotIn(ctc.ExtKeyBillingMode, ctc.BillingModeB4)
 
 	assert.True(t, in.Check(inv))
 	assert.False(t, notIn.Check(inv))
@@ -174,15 +174,15 @@ func TestInvoiceTaxExtInGuards(t *testing.T) {
 
 func TestBillingModeAcceptsV14Codes(t *testing.T) {
 	codes := []cbc.Code{
-		dgfip.BillingModeS3,
-		dgfip.BillingModeB8, dgfip.BillingModeS8,
-		dgfip.BillingModeM8, dgfip.BillingModeB9, dgfip.BillingModeS9,
-		dgfip.BillingModeM9,
+		ctc.BillingModeS3,
+		ctc.BillingModeB8, ctc.BillingModeS8,
+		ctc.BillingModeM8, ctc.BillingModeB9, ctc.BillingModeS9,
+		ctc.BillingModeM9,
 	}
 	for _, code := range codes {
 		t.Run(string(code), func(t *testing.T) {
 			inv := testInvoiceB2BStandard(t)
-			inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, code)
+			inv.Tax.Ext = inv.Tax.Ext.Set(ctc.ExtKeyBillingMode, code)
 			require.NoError(t, inv.Calculate())
 			assert.NoError(t, rules.Validate(inv))
 		})

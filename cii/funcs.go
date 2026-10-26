@@ -3,7 +3,7 @@ package cii
 import (
 	"github.com/invopop/gobl"
 	goblcii "github.com/invopop/gobl.cii"
-	"github.com/invopop/gobl.fr.ctc/addon/dgfip"
+	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	"github.com/invopop/gobl/addons/fr/choruspro"
 	"github.com/invopop/gobl/bill"
@@ -43,7 +43,7 @@ func exportBillingMode(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Docume
 	if !ok {
 		return nil
 	}
-	if profile := inv.Tax.GetExt(dgfip.ExtKeyBillingMode); profile != cbc.CodeEmpty {
+	if profile := inv.Tax.GetExt(ctc.ExtKeyBillingMode); profile != cbc.CodeEmpty {
 		out.ExchangedContext.BusinessContext = &goblcii.ExchangedContextParameter{ID: profile.String()}
 	}
 	return nil
@@ -56,7 +56,7 @@ func importBillingMode(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelo
 		return nil
 	}
 	if in.ExchangedContext != nil && in.ExchangedContext.BusinessContext != nil {
-		inv.Tax.Ext = inv.Tax.Ext.Set(dgfip.ExtKeyBillingMode, cbc.Code(in.ExchangedContext.BusinessContext.ID))
+		inv.Tax.Ext = inv.Tax.Ext.Set(ctc.ExtKeyBillingMode, cbc.Code(in.ExchangedContext.BusinessContext.ID))
 	}
 	return nil
 }
