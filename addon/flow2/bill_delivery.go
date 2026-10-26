@@ -14,15 +14,15 @@ import (
 func billDeliveryDetailsRules() *rules.Set {
 	return rules.For(new(bill.DeliveryDetails),
 		rules.Field("ext",
-			rules.Assert("01", "delivery ext incoterm-delivery-terms must be one of "+incotermDeliveryTermsCodes()+" (BR-FREXT-CL-27)",
-				tax.ExtensionHasValidCode(ExtKeyIncotermDeliveryTerms),
+			rules.Assert("01", "delivery ext fr-ctc-delivery-terms must be one of "+deliveryTermsCodes()+" (BR-FREXT-CL-27)",
+				tax.ExtensionHasValidCode(ExtKeyDeliveryTerms),
 			),
 		),
 	)
 }
 
-// incotermDeliveryTermsCodes lists the codes of the incoterm-delivery-terms
+// deliveryTermsCodes lists the codes of the fr-ctc-delivery-terms
 // extension, so the rule message follows its definition.
-func incotermDeliveryTermsCodes() string {
-	return strings.Join(cbc.CodeStrings(cbc.DefinitionCodes(extIncotermDeliveryTerms.Values)), ", ")
+func deliveryTermsCodes() string {
+	return strings.Join(cbc.CodeStrings(cbc.DefinitionCodes(extDeliveryTerms.Values)), ", ")
 }

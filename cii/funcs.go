@@ -136,7 +136,7 @@ func exportExtended(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document)
 	// extension, and the delivery location name (EXT-FR-FE-186) from the
 	// label of the receiver's address.
 	if del := inv.Delivery; del != nil && out.Transaction.Agreement != nil {
-		if code := del.Ext.Get(flow2.ExtKeyIncotermDeliveryTerms); code != cbc.CodeEmpty {
+		if code := del.Ext.Get(flow2.ExtKeyDeliveryTerms); code != cbc.CodeEmpty {
 			terms := &goblcii.DeliveryTerms{Code: code.String()}
 			if del.Receiver != nil && len(del.Receiver.Addresses) > 0 && del.Receiver.Addresses[0].Label != "" {
 				terms.Location = &goblcii.TradeLocation{Name: del.Receiver.Addresses[0].Label}
@@ -191,7 +191,7 @@ func importExtended(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope)
 		if inv.Delivery == nil {
 			inv.Delivery = new(bill.DeliveryDetails)
 		}
-		inv.Delivery.Ext = inv.Delivery.Ext.Set(flow2.ExtKeyIncotermDeliveryTerms, cbc.Code(dt.Code))
+		inv.Delivery.Ext = inv.Delivery.Ext.Set(flow2.ExtKeyDeliveryTerms, cbc.Code(dt.Code))
 		if dt.Location != nil && dt.Location.Name != "" {
 			if inv.Delivery.Receiver == nil {
 				inv.Delivery.Receiver = new(org.Party)

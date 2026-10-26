@@ -18,13 +18,13 @@ func TestDeliveryTermsRules(t *testing.T) {
 		t.Helper()
 		inv := testInvoiceB2BStandard(t)
 		inv.Delivery = &bill.DeliveryDetails{
-			Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyIncotermDeliveryTerms: code}),
+			Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyDeliveryTerms: code}),
 		}
 		require.NoError(t, inv.Calculate())
 		return inv
 	}
 
-	for _, code := range cbc.DefinitionCodes(extIncotermDeliveryTerms.Values) {
+	for _, code := range cbc.DefinitionCodes(extDeliveryTerms.Values) {
 		t.Run("accepts "+code.String(), func(t *testing.T) {
 			assert.NoError(t, rules.Validate(withTerms(t, code)))
 		})
@@ -32,7 +32,7 @@ func TestDeliveryTermsRules(t *testing.T) {
 
 	for _, code := range []cbc.Code{"DAT", "DAF", "XXX"} {
 		t.Run("rejects "+code.String(), func(t *testing.T) {
-			assert.ErrorContains(t, rules.Validate(withTerms(t, code)), "delivery ext incoterm-delivery-terms must be one of")
+			assert.ErrorContains(t, rules.Validate(withTerms(t, code)), "delivery ext fr-ctc-delivery-terms must be one of")
 		})
 	}
 

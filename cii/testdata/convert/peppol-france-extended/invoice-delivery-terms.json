@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "d1553da9748e7c330dfe1e8bbea7806b12a2787761d127935a5c5be7bac4021d"
+			"val": "8463204c6b816479744d53dc7971cb4520fedfa5abf20d1dd2e46f4fb2c76259"
 		},
 		"from": "iso6523-actorid-upis::0225:356000000",
 		"to": "iso6523-actorid-upis::0225:732829320"
@@ -211,7 +211,7 @@
 			],
 			"date": "2026-01-15",
 			"ext": {
-				"incoterm-delivery-terms": "DAP"
+				"fr-ctc-delivery-terms": "DAP"
 			}
 		},
 		"totals": {

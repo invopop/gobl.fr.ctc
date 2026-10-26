@@ -6,12 +6,12 @@ import (
 	"github.com/invopop/gobl/pkg/here"
 )
 
-// ExtKeyIncotermDeliveryTerms is the delivery terms code (EXT-FR-FE-185) of the
+// ExtKeyDeliveryTerms is the delivery terms code (EXT-FR-FE-185) of the
 // French CTC Extended profile.
-const ExtKeyIncotermDeliveryTerms cbc.Key = "incoterm-delivery-terms"
+const ExtKeyDeliveryTerms cbc.Key = "fr-ctc-delivery-terms"
 
-var extIncotermDeliveryTerms = &cbc.Definition{
-	Key: ExtKeyIncotermDeliveryTerms,
+var extDeliveryTerms = &cbc.Definition{
+	Key: ExtKeyDeliveryTerms,
 	Name: i18n.String{
 		i18n.EN: "Incoterm Delivery Terms",
 		i18n.FR: "Conditions de livraison (Incoterms)",
