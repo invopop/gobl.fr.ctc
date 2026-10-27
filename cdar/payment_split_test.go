@@ -206,6 +206,24 @@ func TestCDARPaymentRefundRoundTrip(t *testing.T) {
 		require.NoError(t, env.Validate(), "refund payment must pass flow6 validation")
 	})
 
+	t.Run("comment", func(t *testing.T) {
+		pmt := buildSyntheticPayment(t, num.Amount{})
+		pmt.Lines[0].Refund = true
+		pmt.Lines[0].Description = "Remboursement"
+
+		cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
+		require.NoError(t, err)
+		ds := cdar.AcknowledgementDocuments[0].ReferenceReferencedDocument[0].SpecifiedDocumentStatuses[0]
+		require.Len(t, ds.IncludedNotes, 1)
+		assert.Equal(t, []string{"Remboursement"}, ds.IncludedNotes[0].Content, "MDT-126 carries the line description")
+
+		data, err := cii.Encode(cdar)
+		require.NoError(t, err)
+		out, err := parsePayment(data)
+		require.NoError(t, err)
+		assert.Equal(t, "Remboursement", out.Lines[0].Description)
+	})
+
 	t.Run("amount only", func(t *testing.T) {
 		pmt := buildSyntheticPayment(t, num.Amount{})
 		pmt.Lines[0].Refund = true
