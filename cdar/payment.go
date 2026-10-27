@@ -175,7 +175,10 @@ func newCDARVATSplitCharacteristics(typeCode cbc.Code, line *bill.PaymentLine, c
 	if line == nil || line.Tax == nil {
 		return nil
 	}
-	var chars []*cii.CDARDocumentCharacteristic
+	// PPF rejects the same rate twice in one encaissement (MDT-224), so rates
+	// sharing a percentage add up into one characteristic.
+	var pcts []string
+	gross := make(map[string]num.Amount)
 	for _, cat := range line.Tax.Categories {
 		if cat == nil {
 			continue
@@ -193,16 +196,26 @@ func newCDARVATSplitCharacteristics(typeCode cbc.Code, line *bill.PaymentLine, c
 			if rt.Percent != nil {
 				pct = rt.Percent.Amount().Rescale(2).String()
 			}
-			gross := rt.Base.Add(rt.Amount)
+			g := rt.Base.Add(rt.Amount)
 			if line.Refund {
-				gross = gross.Negate()
+				g = g.Negate()
 			}
-			chars = append(chars, &cii.CDARDocumentCharacteristic{
-				TypeCode:     typeCode.String(),
-				ValueAmount:  &cii.CDARValueAmount{Value: gross.String(), CurrencyID: cur.String()},
-				ValuePercent: pct,
-			})
+			sum, seen := gross[pct]
+			if !seen {
+				pcts = append(pcts, pct)
+				gross[pct] = g
+				continue
+			}
+			gross[pct] = sum.MatchPrecision(g).Add(g)
 		}
+	}
+	chars := make([]*cii.CDARDocumentCharacteristic, 0, len(pcts))
+	for _, pct := range pcts {
+		chars = append(chars, &cii.CDARDocumentCharacteristic{
+			TypeCode:     typeCode.String(),
+			ValueAmount:  &cii.CDARValueAmount{Value: gross[pct].String(), CurrencyID: cur.String()},
+			ValuePercent: pct,
+		})
 	}
 	return chars
 }
