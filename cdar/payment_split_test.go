@@ -222,6 +222,13 @@ func TestCDARPaymentRefundRoundTrip(t *testing.T) {
 		out, err := parsePayment(data)
 		require.NoError(t, err)
 		assert.Equal(t, "Remboursement", out.Lines[0].Description)
+
+		ds.Reason = []string{"Libellé"}
+		data, err = cii.Encode(cdar)
+		require.NoError(t, err)
+		out, err = parsePayment(data)
+		require.NoError(t, err)
+		assert.Equal(t, "Remboursement", out.Lines[0].Description, "the reason label (MDT-114) stays out of the description")
 	})
 
 	t.Run("amount only", func(t *testing.T) {

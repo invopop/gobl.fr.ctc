@@ -2,6 +2,7 @@ package cdar
 
 import (
 	"fmt"
+	"strings"
 
 	cii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/flow6"
@@ -212,6 +213,18 @@ func newCDARVATSplitCharacteristics(typeCode cbc.Code, line *bill.PaymentLine, c
 	return chars
 }
 
+// cdarNoteText is a status's comment (MDT-126) alone, which is what a payment
+// line's description becomes.
+func cdarNoteText(ds *cii.CDARDocumentStatus) string {
+	var parts []string
+	for _, n := range ds.IncludedNotes {
+		if n != nil {
+			parts = append(parts, n.Content...)
+		}
+	}
+	return cii.CleanString(strings.Join(parts, "\n"))
+}
+
 func newCDARAmountCharacteristic(typeCode cbc.Code, amount num.Amount, cur currency.Code) *cii.CDARDocumentCharacteristic {
 	return &cii.CDARDocumentCharacteristic{
 		TypeCode: typeCode.String(),
@@ -329,7 +342,7 @@ func goblPaymentLineFromCDAR(pmt *bill.Payment, ref *cii.CDARReferencedDocument)
 			continue
 		}
 		if line.Description == "" {
-			line.Description = cdarReasonText(ds)
+			line.Description = cdarNoteText(ds)
 		}
 		for _, dc := range ds.SpecifiedDocumentCharacteristics {
 			if dc == nil || dc.ValueAmount == nil || dc.ValueAmount.Value == "" {
