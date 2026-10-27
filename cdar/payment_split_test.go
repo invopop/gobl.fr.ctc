@@ -81,6 +81,24 @@ func TestCDARPaymentVATSplitRoundTrip(t *testing.T) {
 			wantAmount: grossZro,
 		},
 		{
+			name: "same rate twice adds up",
+			rates: []*tax.RateTotal{
+				vatRate(amt(30000), amt(6000), pct(20)), // gross 360.00
+				vatRate(amt(20000), amt(4000), pct(20)), // gross 240.00
+			},
+			wantChars:  []wantChar{{grossStd, rate20}},
+			wantAmount: grossStd,
+		},
+		{
+			name: "zero and exempt add up",
+			rates: []*tax.RateTotal{
+				vatRate(amt(10000), amt(0), pct(0)), // gross 100.00
+				vatRate(amt(20000), amt(0), nil),    // exempt, gross 200.00
+			},
+			wantChars:  []wantChar{{grossZro, rateZero}},
+			wantAmount: grossZro,
+		},
+		{
 			name: "mixed taxed and exempt",
 			rates: []*tax.RateTotal{
 				vatRate(amt(50000), amt(10000), pct(20)), // gross 600.00
