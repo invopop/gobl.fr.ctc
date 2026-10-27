@@ -2,6 +2,7 @@ package cdar
 
 import (
 	"fmt"
+	"strings"
 
 	cii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/flow6"
@@ -158,6 +159,11 @@ func newCDARPaymentAcknowledgement(pmt *bill.Payment, line *bill.PaymentLine, ac
 		ds.SpecifiedDocumentCharacteristics = append(ds.SpecifiedDocumentCharacteristics,
 			newCDARAmountCharacteristic(condition, amount, pmt.Currency))
 	}
+	// MDT-126: the line's description is the status comment. PPF requires
+	// one on a refund (décaissement, G7.45) and accepts it otherwise.
+	if line.Description != "" {
+		ds.IncludedNotes = []*cii.CDARNote{{Content: []string{line.Description}}}
+	}
 	ref.SpecifiedDocumentStatuses = []*cii.CDARDocumentStatus{ds}
 
 	ack.ReferenceReferencedDocument = []*cii.CDARReferencedDocument{ref}
@@ -205,6 +211,18 @@ func newCDARVATSplitCharacteristics(typeCode cbc.Code, line *bill.PaymentLine, c
 		}
 	}
 	return chars
+}
+
+// cdarNoteText is a status's comment (MDT-126) alone, which is what a payment
+// line's description becomes.
+func cdarNoteText(ds *cii.CDARDocumentStatus) string {
+	var parts []string
+	for _, n := range ds.IncludedNotes {
+		if n != nil {
+			parts = append(parts, n.Content...)
+		}
+	}
+	return cii.CleanString(strings.Join(parts, "\n"))
 }
 
 func newCDARAmountCharacteristic(typeCode cbc.Code, amount num.Amount, cur currency.Code) *cii.CDARDocumentCharacteristic {
@@ -322,6 +340,9 @@ func goblPaymentLineFromCDAR(pmt *bill.Payment, ref *cii.CDARReferencedDocument)
 	for _, ds := range ref.SpecifiedDocumentStatuses {
 		if ds == nil {
 			continue
+		}
+		if line.Description == "" {
+			line.Description = cdarNoteText(ds)
 		}
 		for _, dc := range ds.SpecifiedDocumentCharacteristics {
 			if dc == nil || dc.ValueAmount == nil || dc.ValueAmount.Value == "" {
