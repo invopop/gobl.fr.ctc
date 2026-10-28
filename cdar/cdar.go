@@ -257,7 +257,7 @@ func (converter) Detect(in *convert.Input) cbc.Key {
 	return KeyCDV
 }
 
-func (converter) Import(_ cbc.Key, data []byte) (*convert.ImportResult, error) {
+func (converter) Import(_ cbc.Key, data []byte, _ *convert.ImportOptions) (*convert.ImportResult, error) {
 	doc, err := cii.Decode(data)
 	if err != nil {
 		return nil, err
