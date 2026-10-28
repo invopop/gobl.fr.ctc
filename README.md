@@ -57,13 +57,15 @@ documents take on its weight.
   import and export French CII documents through `cii.Import`/`cii.Export` or
   `convert.Import`/`convert.Export`. Factur-X EN 16931 XML reads exactly like
   the CTC CIUS, as only its PDF tells it apart, so
-  `cii+fr-ctc-facturx-cius-v1` is export-only and its XML imports as
-  `cii+fr-ctc-cius-v1`.
+  `cii+fr-ctc-facturx-cius-v1` is never detected and its XML imports as
+  `cii+fr-ctc-cius-v1`, unless the format is asked for with
+  `convert.WithFormats`, as when the XML was taken from a Factur-X PDF.
   The plain Factur-X profiles outside the reform, EN 16931
   (`cii+fr-facturx-v1`) and EXTENDED (`cii+fr-facturx-v1+extended`), only add
   EN 16931; BASIC is not supported. ZUGFeRD 2.1+ shares their guidelines, so
-  they are export-only: without a French billing mode in BT-23, their
-  documents import as plain EN 16931.
+  they are never detected: without a French billing mode in BT-23, their
+  documents import as plain EN 16931 unless the format is asked for with
+  `convert.WithFormats`.
 - `cdar/` — the Flow 6 lifecycle statuses and payments, mapped between
   `bill.Status`/`bill.Payment` and the CDAR structures of gobl.cii, for the
   end-party (`cdar+fr-ctc-cdv-v1`) and PPF (`cdar+fr-ctc-cdv-v1+ppf`) formats.
