@@ -11,6 +11,7 @@ import (
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/regimes/fr"
+	"github.com/invopop/gobl/tax"
 )
 
 // UNCL 3035 role codes the French extended profile pins on the parties it
@@ -75,6 +76,23 @@ func importDocumentType(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envel
 	}
 	inv.Type = typ
 	for _, tag := range tags {
+		if !inv.HasTags(tag) {
+			inv.SetTags(append(inv.GetTags(), tag)...)
+		}
+	}
+	return nil
+}
+
+// importNoLines tags an invoice that arrived without lines, as BASIC WL ones
+// do, so it validates on the totals it states. The base import only bypasses
+// calculation when those totals differ from the calculated ones, and no-lines
+// requires bypass either way.
+func importNoLines(_ *goblcii.Format, _ goblcii.Document, env *gobl.Envelope) error {
+	inv, ok := env.Extract().(*bill.Invoice)
+	if !ok || len(inv.Lines) > 0 {
+		return nil
+	}
+	for _, tag := range []cbc.Key{tax.TagBypass, tax.TagNoLines} {
 		if !inv.HasTags(tag) {
 			inv.SetTags(append(inv.GetTags(), tag)...)
 		}

@@ -1,0 +1,527 @@
+{
+	"$schema": "https://gobl.org/draft-0/envelope",
+	"head": {
+		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
+		"dig": {
+			"alg": "sha256",
+			"val": "77d124faaec1505f264acf56d5d59abee8d8fa434443333c3377905efde2ed50"
+		},
+		"from": "iso6523-actorid-upis::0225:123456782",
+		"to": "iso6523-actorid-upis::0225:987654321"
+	},
+	"doc": {
+		"$schema": "https://gobl.org/draft-0/bill/invoice",
+		"$regime": "FR",
+		"$addons": [
+			"eu-en16931-v2017",
+			"fr-ctc-flow2-v1"
+		],
+		"$tags": [
+			"bypass",
+			"no-lines"
+		],
+		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
+		"type": "standard",
+		"code": "F20260023",
+		"issue_date": "2026-01-31",
+		"currency": "EUR",
+		"preceding": [
+			{
+				"issue_date": "2026-01-01",
+				"code": "F20260003"
+			}
+		],
+		"tax": {
+			"rounding": "currency",
+			"point": "payment",
+			"ext": {
+				"fr-ctc-billing-mode": "S1",
+				"untdid-document-type": "380"
+			},
+			"notes": [
+				{
+					"cat": "VAT",
+					"key": "exempt",
+					"text": "DEBOURS",
+					"ext": {
+						"untdid-tax-category": "E"
+					}
+				},
+				{
+					"cat": "VAT",
+					"key": "intra-community",
+					"text": "LIVRAISON INTRACOMMUNAUTAIRE",
+					"ext": {
+						"untdid-tax-category": "K"
+					}
+				}
+			]
+		},
+		"supplier": {
+			"name": "LE FOURNISSEUR",
+			"alias": "SELLER TRADE NAME",
+			"tax_id": {
+				"country": "FR",
+				"code": "11123456782"
+			},
+			"identities": [
+				{
+					"scope": "legal",
+					"code": "123456782",
+					"ext": {
+						"iso-scheme-id": "0002"
+					}
+				},
+				{
+					"code": "587451236587",
+					"ext": {
+						"iso-scheme-id": "0088"
+					}
+				},
+				{
+					"code": "12345678200077",
+					"ext": {
+						"iso-scheme-id": "0009"
+					}
+				},
+				{
+					"code": "DUNS1235487",
+					"ext": {
+						"iso-scheme-id": "0060"
+					}
+				},
+				{
+					"code": "ODETTE254879",
+					"ext": {
+						"iso-scheme-id": "0177"
+					}
+				}
+			],
+			"endpoints": [
+				{
+					"uri": "iso6523-actorid-upis::0225:123456782"
+				}
+			],
+			"inboxes": [
+				{
+					"key": "peppol",
+					"scheme": "0225",
+					"code": "123456782"
+				}
+			],
+			"addresses": [
+				{
+					"street": "35 rue d'ici",
+					"street_extra": "Seller line 2",
+					"locality": "PARIS",
+					"code": "75018",
+					"country": "FR"
+				}
+			]
+		},
+		"customer": {
+			"name": "LE CLIENT",
+			"tax_id": {
+				"country": "FR",
+				"code": "05987654321"
+			},
+			"identities": [
+				{
+					"scope": "legal",
+					"code": "987654321",
+					"ext": {
+						"iso-scheme-id": "0002"
+					}
+				},
+				{
+					"code": "3654789851",
+					"ext": {
+						"iso-scheme-id": "0088"
+					}
+				}
+			],
+			"endpoints": [
+				{
+					"uri": "iso6523-actorid-upis::0225:987654321"
+				}
+			],
+			"inboxes": [
+				{
+					"key": "peppol",
+					"scheme": "0225",
+					"code": "987654321"
+				}
+			],
+			"addresses": [
+				{
+					"street": "MON ADRESSE LIGNE 1",
+					"street_extra": "Buyer line 2",
+					"locality": "MA VILLE",
+					"code": "06000",
+					"country": "FR"
+				}
+			]
+		},
+		"discounts": [
+			{
+				"i": 1,
+				"reason": "REMISE COMMERCIALE",
+				"base": "100.00",
+				"percent": "5.00%",
+				"amount": "5.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "20.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"ext": {
+					"untdid-allowance": "95"
+				}
+			},
+			{
+				"i": 2,
+				"reason": "REMISE COMMERCIALE",
+				"base": "100.00",
+				"percent": "1.00%",
+				"amount": "1.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "20.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"ext": {
+					"untdid-allowance": "100"
+				}
+			},
+			{
+				"i": 3,
+				"reason": "REMISE COMMERCIALE",
+				"base": "100.00",
+				"percent": "1.00%",
+				"amount": "1.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "20.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"ext": {
+					"untdid-allowance": "100"
+				}
+			},
+			{
+				"i": 4,
+				"reason": "REMISE COMMERCIALE",
+				"base": "100.00",
+				"percent": "2.00%",
+				"amount": "2.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "10.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				]
+			}
+		],
+		"charges": [
+			{
+				"i": 1,
+				"reason": "FRAIS DEPLACEMENT",
+				"base": "100.00",
+				"percent": "10.00%",
+				"amount": "10.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "20.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"ext": {
+					"untdid-charge": "FC"
+				}
+			},
+			{
+				"i": 2,
+				"reason": "FRAIS DEPLACEMENT",
+				"base": "100.00",
+				"percent": "1.00%",
+				"amount": "1.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "20.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"ext": {
+					"untdid-charge": "ADR"
+				}
+			},
+			{
+				"i": 3,
+				"reason": "FRAIS DEPLACEMENT",
+				"base": "100.00",
+				"percent": "2.00%",
+				"amount": "2.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "intra-community",
+						"ext": {
+							"cef-vatex": "VATEX-EU-IC",
+							"untdid-tax-category": "K"
+						}
+					}
+				],
+				"ext": {
+					"untdid-charge": "FC"
+				}
+			},
+			{
+				"i": 4,
+				"reason": "FRAIS DEPLACEMENT",
+				"base": "100.00",
+				"percent": "1.00%",
+				"amount": "1.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "10.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"ext": {
+					"untdid-charge": "FC"
+				}
+			}
+		],
+		"ordering": {
+			"code": "SERVEXEC",
+			"cost": "BUYER ACCOUNT REF",
+			"period": {
+				"start": "2026-01-01",
+				"end": "2026-12-31"
+			},
+			"seller": {
+				"name": "SELLER TAX REP",
+				"tax_id": {
+					"country": "FR",
+					"code": "05987654321"
+				},
+				"identities": [
+					{
+						"scope": "legal",
+						"type": "SIREN",
+						"code": "987654321",
+						"ext": {
+							"iso-scheme-id": "0002"
+						}
+					}
+				],
+				"addresses": [
+					{
+						"street": "35 rue d'ici",
+						"street_extra": "Seller line 2",
+						"locality": "PARIS",
+						"code": "75018",
+						"country": "FR"
+					}
+				]
+			},
+			"contracts": [
+				{
+					"code": "CT2018120802"
+				}
+			],
+			"purchases": [
+				{
+					"code": "PO201925478"
+				}
+			],
+			"despatch": [
+				{
+					"code": "DESPADV002"
+				}
+			]
+		},
+		"payment": {
+			"payee": {
+				"name": "PAYEE NAME"
+			},
+			"advances": [
+				{
+					"amount": "0.00"
+				}
+			],
+			"terms": {
+				"due_dates": [
+					{
+						"date": "2026-03-02",
+						"amount": "104.90",
+						"percent": "100%"
+					}
+				],
+				"notes": "PAIEMENT 30 JOURS NET"
+			},
+			"instructions": {
+				"key": "credit-transfer",
+				"ref": "F20260023BUYER",
+				"credit_transfer": [
+					{
+						"iban": "FR20 1254 2547 2569 8542 5874 698"
+					}
+				],
+				"direct_debit": {
+					"ref": "MANDATE PT",
+					"creditor": "CREDID",
+					"account": "FRDEBIT"
+				},
+				"ext": {
+					"untdid-payment-means": "30"
+				}
+			}
+		},
+		"delivery": {
+			"receiver": {
+				"name": "DEL Name",
+				"addresses": [
+					{
+						"street": "DEL ADRESSE LIGNE 1",
+						"street_extra": "DEL line 2",
+						"locality": "NICE",
+						"code": "06000",
+						"country": "FR"
+					}
+				]
+			},
+			"identities": [
+				{
+					"code": "PRIVATE_ID_DEL"
+				}
+			],
+			"date": "2026-01-28"
+		},
+		"totals": {
+			"sum": "95.00",
+			"discount": "9.00",
+			"charge": "14.00",
+			"total": "100.00",
+			"taxes": {
+				"categories": [
+					{
+						"code": "VAT",
+						"rates": [
+							{
+								"ext": {
+									"untdid-tax-category": "S"
+								},
+								"base": "11.00",
+								"percent": "20.00%",
+								"amount": "2.20"
+							},
+							{
+								"ext": {
+									"cef-vatex": "VATEX-EU-79-C",
+									"untdid-tax-category": "E"
+								},
+								"base": "60.00",
+								"percent": "0.00%",
+								"amount": "0.00"
+							},
+							{
+								"ext": {
+									"untdid-tax-category": "S"
+								},
+								"base": "27.00",
+								"percent": "10.00%",
+								"amount": "2.70"
+							},
+							{
+								"ext": {
+									"cef-vatex": "VATEX-EU-IC",
+									"untdid-tax-category": "K"
+								},
+								"base": "2.00",
+								"percent": "0.00%",
+								"amount": "0.00"
+							}
+						],
+						"amount": "4.90"
+					}
+				],
+				"sum": "4.90"
+			},
+			"tax": "4.90",
+			"total_with_tax": "104.90",
+			"payable": "104.90",
+			"advance": "0.00",
+			"due": "104.90"
+		},
+		"notes": [
+			{
+				"text": "FOURNISSEUR F SARL au capital de 50 000 EUR",
+				"ext": {
+					"untdid-text-subject": "REG"
+				}
+			},
+			{
+				"text": "RCS MAVILLE 123 456 782",
+				"ext": {
+					"untdid-text-subject": "ABL"
+				}
+			},
+			{
+				"text": "35 ma rue a moi, code postal Ville Pays – contact@masociete.fr - www.masociete.fr  – N° TVA : FR32 123 456 789",
+				"ext": {
+					"untdid-text-subject": "AAI"
+				}
+			},
+			{
+				"text": "Tout retard de paiement engendre une pénalité exigible à compter de la date d'échéance, calculée sur la base de trois fois le taux d'intérêt légal.",
+				"ext": {
+					"untdid-text-subject": "PMD"
+				}
+			},
+			{
+				"text": "Indemnité forfaitaire pour frais de recouvrement en cas de retard de paiement : 40 €.",
+				"ext": {
+					"untdid-text-subject": "PMT"
+				}
+			},
+			{
+				"text": "Les réglements reçus avant la date d'échéance ne donneront pas lieu à escompte.",
+				"ext": {
+					"untdid-text-subject": "AAB"
+				}
+			}
+		]
+	}
+}
