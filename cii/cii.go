@@ -45,8 +45,9 @@ var countriesFR = []l10n.Code{l10n.FR}
 
 // The plain Factur-X profiles, outside the French reform, only add EN 16931.
 // ZUGFeRD 2.1+ shares their guidelines, so nothing in the CII tells their
-// documents apart from ZUGFeRD or plain EN 16931 ones: they are export-only,
-// which keeps them out of detection, and their documents import as EN 16931.
+// documents apart from ZUGFeRD or plain EN 16931 ones: they are only imported
+// on request, by a caller that took the CII from a Factur-X PDF, and are
+// otherwise never detected, so their documents import as EN 16931.
 // BASIC, BASIC WL and MINIMUM are not supported.
 
 // FormatFacturX is the Factur-X EN 16931 (COMFORT) profile.
@@ -54,7 +55,9 @@ var FormatFacturX = goblcii.Format{
 	Key:         KeyFacturX,
 	Name:        i18n.NewString("CII Factur-X EN 16931"),
 	Countries:   countriesFR,
+	Import:      []schema.ID{invoiceSchema},
 	Export:      []schema.ID{invoiceSchema},
+	OnRequest:   true,
 	GuidelineID: goblcii.GuidelineIDEN16931,
 	Version:     goblcii.VersionD22B,
 	Addons:      []cbc.Key{en16931.V2017},
@@ -68,7 +71,9 @@ var FormatFacturXExtended = goblcii.Format{
 	Key:         KeyFacturXExtended,
 	Name:        i18n.NewString("CII Factur-X EXTENDED"),
 	Countries:   countriesFR,
+	Import:      []schema.ID{invoiceSchema},
 	Export:      []schema.ID{invoiceSchema},
+	OnRequest:   true,
 	GuidelineID: GuidelineIDFacturXExtended,
 	Version:     goblcii.VersionD22B,
 	Addons:      []cbc.Key{en16931.V2017},
@@ -83,18 +88,21 @@ var FormatFacturXExtended = goblcii.Format{
 
 // FormatCTCFacturXCIUS is used for French CTC Factur-X EN 16931 documents.
 // Their CII only differs from a CIUS one by the PDF it travels in, so the
-// format is export-only: its CII imports as CIUS.
+// format is only imported on request: otherwise its CII imports as CIUS.
 var FormatCTCFacturXCIUS = goblcii.Format{
 	Key:         KeyCTCFacturXCIUS,
 	Name:        i18n.NewString("CII France CTC Factur-X CIUS"),
 	Countries:   countriesFR,
+	Import:      []schema.ID{invoiceSchema},
 	Export:      []schema.ID{invoiceSchema},
+	OnRequest:   true,
 	GuidelineID: goblcii.GuidelineIDEN16931,
 	BusinessID:  ProcessIDRegulated,
 	Version:     goblcii.VersionD22B,
 	Addons:      []cbc.Key{flow2.V1},
 	VESID:       "fr.ctc:facturx-en16931:1.4.0-04",
 	ExportFuncs: []goblcii.ExportFunc{exportBillingMode},
+	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType},
 	Attachments: true,
 }
 
