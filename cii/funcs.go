@@ -7,10 +7,12 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	"github.com/invopop/gobl/addons/fr/choruspro"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/cef"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/regimes/fr"
+	"github.com/invopop/gobl/tax"
 )
 
 // UNCL 3035 role codes the French extended profile pins on the parties it
@@ -77,6 +79,42 @@ func importDocumentType(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envel
 	for _, tag := range tags {
 		if !inv.HasTags(tag) {
 			inv.SetTags(append(inv.GetTags(), tag)...)
+		}
+	}
+	return nil
+}
+
+// exportAllowanceChargeExemptions writes the exemption reason (BT-120/121) on
+// each document allowance and charge, which the EXTENDED profiles allow since
+// 1.09 and EN 16931 does not. The base writes charges first, then discounts.
+func exportAllowanceChargeExemptions(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document) error {
+	inv, out, ok := invoices(env, doc)
+	if !ok || out.Transaction == nil || out.Transaction.Settlement == nil {
+		return nil
+	}
+	var notes []*tax.Note
+	if inv.Tax != nil {
+		notes = inv.Tax.Notes
+	}
+	var sets []tax.Set
+	for _, c := range inv.Charges {
+		sets = append(sets, c.Taxes)
+	}
+	for _, d := range inv.Discounts {
+		sets = append(sets, d.Taxes)
+	}
+	for i, ac := range out.Transaction.Settlement.AllowanceCharges {
+		if i >= len(sets) || len(sets[i]) == 0 || ac.Tax == nil {
+			continue
+		}
+		combo := sets[i][0]
+		ac.Tax.ExemptionReasonCode = combo.Ext.Get(cef.ExtKeyVATEX).String()
+		for _, n := range notes {
+			code := n.Ext.Get(untdid.ExtKeyTaxCategory)
+			if n.Category == combo.Category && code != "" && code == combo.Ext.Get(untdid.ExtKeyTaxCategory) {
+				ac.Tax.ExemptionReason = n.Text
+				break
+			}
 		}
 	}
 	return nil
