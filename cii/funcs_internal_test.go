@@ -13,33 +13,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// importNoLines keeps the totals of a document without lines, even when they
-// already matched the calculated ones and the base import set no bypass.
-func TestImportNoLines(t *testing.T) {
-	envelope := func(t *testing.T, inv *bill.Invoice) *gobl.Envelope {
-		t.Helper()
-		env := gobl.NewEnvelope()
-		var err error
-		env.Document, err = schema.NewObject(inv)
-		require.NoError(t, err)
-		return env
+// importVATBreakdownLines only fills in an invoice that has no lines.
+func TestImportVATBreakdownLines(t *testing.T) {
+	pct := num.MakePercentage(200, 3)
+	inv := &bill.Invoice{
+		Tags:  tax.WithTags(tax.TagBypass),
+		Lines: []*bill.Line{{Quantity: num.MakeAmount(1, 0), Item: &org.Item{Name: "Item"}}},
+		Totals: &bill.Totals{Taxes: &tax.Total{Categories: []*tax.CategoryTotal{{
+			Code:  tax.CategoryVAT,
+			Rates: []*tax.RateTotal{{Base: num.MakeAmount(1000, 2), Percent: &pct}},
+		}}}},
 	}
+	env := gobl.NewEnvelope()
+	var err error
+	env.Document, err = schema.NewObject(inv)
+	require.NoError(t, err)
 
-	t.Run("an invoice without lines gets no-lines and bypass", func(t *testing.T) {
-		inv := new(bill.Invoice)
-		env := envelope(t, inv)
-		require.NoError(t, importNoLines(nil, nil, env))
-		inv = env.Extract().(*bill.Invoice)
-		assert.True(t, inv.HasTags(tax.TagNoLines, tax.TagBypass), "tags %v", inv.GetTags())
-	})
-
-	t.Run("an invoice with lines is left alone", func(t *testing.T) {
-		inv := &bill.Invoice{
-			Lines: []*bill.Line{{Quantity: num.MakeAmount(1, 0), Item: &org.Item{Name: "Item"}}},
-		}
-		env := envelope(t, inv)
-		require.NoError(t, importNoLines(nil, nil, env))
-		inv = env.Extract().(*bill.Invoice)
-		assert.Empty(t, inv.GetTags())
-	})
+	require.NoError(t, importVATBreakdownLines(nil, nil, env))
+	inv = env.Extract().(*bill.Invoice)
+	assert.Len(t, inv.Lines, 1)
+	assert.Equal(t, "Item", inv.Lines[0].Item.Name)
+	assert.True(t, inv.HasTags(tax.TagBypass))
 }

@@ -1,6 +1,7 @@
 package cii_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -212,17 +213,21 @@ func TestFacturXProfiles(t *testing.T) {
 }
 
 // BASIC WL documents carry their totals and VAT breakdown but no lines: they
-// import with the totals they state, and validate without lines.
+// import with one line per breakdown, priced so the totals calculate to the
+// stated ones, and the result is a valid EN 16931 invoice (XP Z12-012 §4.7).
 func TestFacturXBasicWLImport(t *testing.T) {
 	for _, tt := range []struct {
 		fixture string
+		prices  []string
 		sum     string
 		total   string
 		tax     string
 		payable string
 	}{
-		{"invoice-allowances-charges.xml", "95.00", "100.00", "4.90", "104.90"},
-		{"invoice-exempt.xml", "95.00", "100.00", "8.00", "108.00"},
+		// Each S rate nets out the document charges and allowances it carries;
+		// the K rate is all charge.
+		{"invoice-allowances-charges.xml", []string{"7.00", "60.00", "28.00", "0.00"}, "95.00", "100.00", "4.90", "104.90"},
+		{"invoice-exempt.xml", []string{"35.00", "60.00"}, "95.00", "100.00", "8.00", "108.00"},
 	} {
 		t.Run(tt.fixture, func(t *testing.T) {
 			data, err := os.ReadFile(filepath.Join(getParsePath(), "peppol-france-facturx-basicwl", tt.fixture))
@@ -235,17 +240,53 @@ func TestFacturXBasicWLImport(t *testing.T) {
 			require.NoError(t, err)
 			inv, ok := env.Extract().(*bill.Invoice)
 			require.True(t, ok)
-			assert.Empty(t, inv.Lines)
-			assert.True(t, inv.HasTags(tax.TagNoLines, tax.TagBypass), "tags %v", inv.GetTags())
 			assert.Contains(t, inv.GetAddons(), flow2.V1)
+			assert.False(t, inv.HasTags(tax.TagBypass), "the stated totals calculate, so no bypass")
+
+			var prices []string
+			for _, l := range inv.Lines {
+				prices = append(prices, l.Item.Price.String())
+			}
+			assert.Equal(t, tt.prices, prices)
+
 			require.NotNil(t, inv.Totals)
 			assert.Equal(t, tt.sum, inv.Totals.Sum.String())
 			assert.Equal(t, tt.total, inv.Totals.Total.String())
 			assert.Equal(t, tt.tax, inv.Totals.Tax.String())
 			assert.Equal(t, tt.payable, inv.Totals.Payable.String())
-			assert.NoError(t, env.Validate())
+			require.NoError(t, env.Validate())
+
+			t.Run("exports as a valid CTC CIUS", func(t *testing.T) {
+				pc := phormClient(t)
+				doc, err := goblcii.Export(env, goblcii.WithFormat(frcii.FormatCTCCIUS))
+				require.NoError(t, err)
+				out, err := goblcii.Encode(doc)
+				require.NoError(t, err)
+				validateXML(t, pc, frcii.FormatCTCCIUS.VESID, out)
+			})
 		})
 	}
+}
+
+// A BASIC WL document whose stated totals don't calculate from its breakdown
+// still gets its lines, but keeps the totals it states.
+func TestFacturXBasicWLImportStatedTotals(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(getParsePath(), "peppol-france-facturx-basicwl", "invoice-exempt.xml"))
+	require.NoError(t, err)
+	// 8.01 of VAT on a 40.00 base at 20%.
+	data = bytes.Replace(data, []byte("<ram:CalculatedAmount>8.00<"), []byte("<ram:CalculatedAmount>8.01<"), 1)
+	data = bytes.Replace(data, []byte(">8.00</ram:TaxTotalAmount>"), []byte(">8.01</ram:TaxTotalAmount>"), 1)
+	data = bytes.ReplaceAll(data, []byte(">108.00<"), []byte(">108.01<"))
+
+	env, err := parseCII(data)
+	require.NoError(t, err)
+	inv, ok := env.Extract().(*bill.Invoice)
+	require.True(t, ok)
+	assert.Len(t, inv.Lines, 2)
+	assert.True(t, inv.HasTags(tax.TagBypass))
+	assert.Equal(t, "8.01", inv.Totals.Tax.String())
+	assert.Equal(t, "108.01", inv.Totals.Payable.String())
+	require.NoError(t, env.Validate())
 }
 
 // The plain Factur-X profiles share their guidelines with ZUGFeRD and EN 16931,

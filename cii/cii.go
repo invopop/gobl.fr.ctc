@@ -130,11 +130,11 @@ var FormatCTCFacturXExtended = goblcii.Format{
 
 // FormatCTCFacturXBasicWL is used for received French CTC Factur-X BASIC WL
 // documents, a Flux 2 profile until 2027-09-01. They state their totals and VAT
-// breakdown but carry no lines, so they import with the no-lines tag; we never
-// issue them, so the format is import-only. Factur-X shares the BT-24 with
-// ZUGFeRD 2.1+, so the format only claims a document carrying either BASIC WL
-// guideline together with a French BT-23: flow2 would otherwise fill in a
-// billing mode the document never gave. Its GuidelineID is the format key,
+// breakdown but carry no lines, so they import with one line per VAT breakdown
+// (XP Z12-012 §4.7); we never issue them, so the format is import-only.
+// Factur-X shares the BT-24 with ZUGFeRD 2.1+, so the format only claims a
+// document carrying either BASIC WL guideline together with a French BT-23:
+// flow2 would otherwise fill in a billing mode the document never gave. Its GuidelineID is the format key,
 // which no BT-24 carries, so that only Match identifies it.
 var FormatCTCFacturXBasicWL = goblcii.Format{
 	Key:         KeyCTCFacturXBasicWL,
@@ -145,7 +145,7 @@ var FormatCTCFacturXBasicWL = goblcii.Format{
 	BusinessID:  ProcessIDRegulated,
 	Addons:      []cbc.Key{flow2.V1},
 	VESID:       "fr.ctc:facturx-basicwl:1.4.0-04",
-	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importNoLines},
+	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importVATBreakdownLines},
 }
 
 // FormatCTCCIUS is used for French CTC CIUS documents.

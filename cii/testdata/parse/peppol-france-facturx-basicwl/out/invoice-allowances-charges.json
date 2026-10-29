@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "77d124faaec1505f264acf56d5d59abee8d8fa434443333c3377905efde2ed50"
+			"val": "ff45b3e104d886f4745446c86fbb5e6b8723ff818ad51a5122ff4f06d00e257b"
 		},
 		"from": "iso6523-actorid-upis::0225:123456782",
 		"to": "iso6523-actorid-upis::0225:987654321"
@@ -15,10 +15,6 @@
 		"$addons": [
 			"eu-en16931-v2017",
 			"fr-ctc-flow2-v1"
-		],
-		"$tags": [
-			"bypass",
-			"no-lines"
 		],
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"type": "standard",
@@ -162,6 +158,92 @@
 				}
 			]
 		},
+		"lines": [
+			{
+				"i": 1,
+				"quantity": "1",
+				"item": {
+					"name": "VAT S 20.00%",
+					"price": "7.00",
+					"unit": "one"
+				},
+				"sum": "7.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "20.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"total": "7.00"
+			},
+			{
+				"i": 2,
+				"quantity": "1",
+				"item": {
+					"name": "VAT E",
+					"price": "60.00",
+					"unit": "one"
+				},
+				"sum": "60.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "exempt",
+						"ext": {
+							"cef-vatex": "VATEX-EU-79-C",
+							"untdid-tax-category": "E"
+						}
+					}
+				],
+				"total": "60.00"
+			},
+			{
+				"i": 3,
+				"quantity": "1",
+				"item": {
+					"name": "VAT S 10.00%",
+					"price": "28.00",
+					"unit": "one"
+				},
+				"sum": "28.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "standard",
+						"percent": "10.00%",
+						"ext": {
+							"untdid-tax-category": "S"
+						}
+					}
+				],
+				"total": "28.00"
+			},
+			{
+				"i": 4,
+				"quantity": "1",
+				"item": {
+					"name": "VAT K",
+					"price": "0.00",
+					"unit": "one"
+				},
+				"sum": "0.00",
+				"taxes": [
+					{
+						"cat": "VAT",
+						"key": "intra-community",
+						"ext": {
+							"cef-vatex": "VATEX-EU-IC",
+							"untdid-tax-category": "K"
+						}
+					}
+				],
+				"total": "0.00"
+			}
+		],
 		"discounts": [
 			{
 				"i": 1,
@@ -440,6 +522,7 @@
 						"code": "VAT",
 						"rates": [
 							{
+								"key": "standard",
 								"ext": {
 									"untdid-tax-category": "S"
 								},
@@ -448,15 +531,16 @@
 								"amount": "2.20"
 							},
 							{
+								"key": "exempt",
 								"ext": {
 									"cef-vatex": "VATEX-EU-79-C",
 									"untdid-tax-category": "E"
 								},
 								"base": "60.00",
-								"percent": "0.00%",
 								"amount": "0.00"
 							},
 							{
+								"key": "standard",
 								"ext": {
 									"untdid-tax-category": "S"
 								},
@@ -465,12 +549,12 @@
 								"amount": "2.70"
 							},
 							{
+								"key": "intra-community",
 								"ext": {
 									"cef-vatex": "VATEX-EU-IC",
 									"untdid-tax-category": "K"
 								},
 								"base": "2.00",
-								"percent": "0.00%",
 								"amount": "0.00"
 							}
 						],
