@@ -191,21 +191,40 @@ func TestFacturXProfiles(t *testing.T) {
 }
 
 // The plain Factur-X profiles share their guidelines with ZUGFeRD and EN 16931,
-// so they are export-only, which keeps them out of detection.
+// so they are never detected, only imported when asked for.
 func TestPlainFacturX(t *testing.T) {
 	t.Run("never detected", func(t *testing.T) {
 		assert.Equal(t, goblcii.FormatEN16931.Key, goblcii.FindFormat(goblcii.GuidelineIDEN16931, "").Key)
 		assert.Nil(t, goblcii.FindFormat(frcii.GuidelineIDFacturXExtended, ""))
 	})
 
-	t.Run("export-only in the convert register", func(t *testing.T) {
+	t.Run("in the convert register", func(t *testing.T) {
 		for _, k := range []cbc.Key{frcii.KeyFacturX, frcii.KeyFacturXExtended} {
 			f := convert.FormatFor(k)
 			require.NotNil(t, f, k)
 			assert.NotEmpty(t, f.Export, k)
-			assert.Empty(t, f.Import, k)
+			assert.NotEmpty(t, f.Import, k)
 		}
 		assert.Nil(t, convert.FormatFor("cii+fr-facturx-v1+basic"))
+	})
+
+	t.Run("imported on request", func(t *testing.T) {
+		for k, dir := range map[cbc.Key]string{
+			frcii.KeyFacturX:         "facturx",
+			frcii.KeyFacturXExtended: "facturx-extended",
+		} {
+			data, err := os.ReadFile(filepath.Join("testdata", "convert", dir, "out", "invoice-complete.xml"))
+			require.NoError(t, err)
+
+			d, err := convert.Detect(data)
+			if err == nil {
+				assert.NotEqual(t, k, d.Key, "never detected")
+			}
+
+			imported, err := convert.Import(data, convert.WithFormats(k))
+			require.NoError(t, err, k)
+			assert.Equal(t, k, imported.Format.Key)
+		}
 	})
 
 	t.Run("export writes each profile's guideline", func(t *testing.T) {
@@ -365,9 +384,7 @@ func TestConvertRegister(t *testing.T) {
 			f := convert.FormatFor(k)
 			require.NotNil(t, f, k)
 			assert.Equal(t, cbc.Key("cii"), f.Syntax)
-			if k != frcii.KeyCTCFacturXCIUS {
-				assert.NotEmpty(t, f.Import, k)
-			}
+			assert.NotEmpty(t, f.Import, k)
 			assert.True(t, f.Attachments, k)
 		}
 	})
@@ -414,13 +431,20 @@ func TestConvertRegister(t *testing.T) {
 		assert.Equal(t, pdf.Data, imported.Attachments[0].Data)
 	})
 
-	t.Run("factur-x cius is export-only", func(t *testing.T) {
+	t.Run("factur-x cius is imported on request", func(t *testing.T) {
 		env := loadEnvelope(t, "peppol-france-cius/invoice-standard.json")
 		out, err := convert.Export(env, frcii.KeyCTCFacturXCIUS)
 		require.NoError(t, err)
 		d, err := convert.Detect(out.Data)
 		require.NoError(t, err)
 		assert.Equal(t, frcii.KeyCTCCIUS, d.Key, "its CII reads as CIUS")
+
+		imported, err := convert.Import(out.Data, convert.WithFormats(frcii.KeyCTCFacturXCIUS))
+		require.NoError(t, err)
+		assert.Equal(t, frcii.KeyCTCFacturXCIUS, imported.Format.Key)
+		inv, ok := imported.Envelope.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		assert.Contains(t, inv.GetAddons(), flow2.V1)
 	})
 
 	t.Run("factur-x extended is detected", func(t *testing.T) {
