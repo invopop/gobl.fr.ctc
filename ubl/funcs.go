@@ -6,10 +6,12 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/incoterms"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	cur "github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/org"
+	"github.com/invopop/gobl/tax"
 )
 
 // UNCL 3035 role codes the French extended profile pins on the parties it
@@ -30,6 +32,24 @@ func invoices(env *gobl.Envelope, doc goblubl.Document) (*bill.Invoice, *goblubl
 	inv, ok := env.Extract().(*bill.Invoice)
 	out, ok2 := doc.(*goblubl.Invoice)
 	return inv, out, ok && ok2
+}
+
+// deliveryTermsCode provides the delivery terms code (EXT-FR-FE-185) from
+// whichever of the Incoterm or UNTDID 4053 extensions is set.
+func deliveryTermsCode(ext tax.Extensions) cbc.Code {
+	if code := ext.Get(incoterms.ExtKeyIncoterm); code != cbc.CodeEmpty {
+		return code
+	}
+	return ext.Get(untdid.ExtKeyDeliveryTerms)
+}
+
+// deliveryTermsKey provides the extension key for a delivery terms code
+// (EXT-FR-FE-185): UNTDID 4053 when its definition has the code, Incoterms otherwise.
+func deliveryTermsKey(code cbc.Code) cbc.Key {
+	if tax.ExtensionForKey(untdid.ExtKeyDeliveryTerms).HasCode(code) {
+		return untdid.ExtKeyDeliveryTerms
+	}
+	return incoterms.ExtKeyIncoterm
 }
 
 // exportCIUS applies the French CIUS rules shared by the CIUS and Extended
@@ -193,11 +213,11 @@ func exportExtended(_ *goblubl.Format, env *gobl.Envelope, doc goblubl.Document)
 		}
 	}
 
-	// EXT-FR-FE-BG-14: the Incoterms code (EXT-FR-FE-185) from the delivery
-	// extension, and the delivery location name (EXT-FR-FE-186) from the
-	// label of the receiver's address.
+	// EXT-FR-FE-BG-14: the delivery terms code (EXT-FR-FE-185) from the
+	// Incoterm or UNTDID 4053 delivery extension, and the delivery location
+	// name (EXT-FR-FE-186) from the label of the receiver's address.
 	if del := inv.Delivery; del != nil {
-		if code := del.Ext.Get(flow2.ExtKeyDeliveryTerms); code != cbc.CodeEmpty {
+		if code := deliveryTermsCode(del.Ext); code != cbc.CodeEmpty {
 			out.DeliveryTerms = &goblubl.DeliveryTerms{ID: code.String()}
 			if del.Receiver != nil && len(del.Receiver.Addresses) > 0 && del.Receiver.Addresses[0].Label != "" {
 				name := del.Receiver.Addresses[0].Label
@@ -267,13 +287,14 @@ func importExtended(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope)
 		}
 	}
 
-	// EXT-FR-FE-BG-14: the Incoterms code into the delivery extension, and the
-	// delivery location name into the label of the receiver's address.
+	// EXT-FR-FE-BG-14: the delivery terms code into the Incoterm or UNTDID
+	// 4053 delivery extension, and the delivery location name into the label
+	// of the receiver's address.
 	if dt := in.DeliveryTerms; dt != nil && dt.ID != "" {
 		if inv.Delivery == nil {
 			inv.Delivery = new(bill.DeliveryDetails)
 		}
-		inv.Delivery.Ext = inv.Delivery.Ext.Set(flow2.ExtKeyDeliveryTerms, cbc.Code(dt.ID))
+		inv.Delivery.Ext = inv.Delivery.Ext.Set(deliveryTermsKey(cbc.Code(dt.ID)), cbc.Code(dt.ID))
 		if dt.DeliveryLocation != nil && dt.DeliveryLocation.Name != nil && *dt.DeliveryLocation.Name != "" {
 			if inv.Delivery.Receiver == nil {
 				inv.Delivery.Receiver = new(org.Party)
