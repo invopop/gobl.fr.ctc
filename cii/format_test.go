@@ -11,6 +11,7 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	frcii "github.com/invopop/gobl.fr.ctc/cii"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/incoterms"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
@@ -437,8 +438,8 @@ func TestConvertRegister(t *testing.T) {
 	})
 }
 
-// TestDeliveryTerms maps the Incoterms delivery terms (EXT-FR-FE-BG-14): the
-// code to the delivery extension and the location name to the label of the
+// TestDeliveryTerms maps the delivery terms (EXT-FR-FE-BG-14): the code to the
+// Incoterm or UNTDID 4053 delivery extension and the location name to the label of the
 // receiver's address, apart from the delivery location ID (BT-71).
 func TestDeliveryTerms(t *testing.T) {
 	const fixture = "peppol-france-extended/invoice-standard.json"
@@ -453,7 +454,7 @@ func TestDeliveryTerms(t *testing.T) {
 				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
 			},
 			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
-			Ext:        tax.ExtensionsOf(cbc.CodeMap{flow2.ExtKeyDeliveryTerms: "DAP"}),
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{incoterms.ExtKeyIncoterm: "DAP"}),
 		}
 		return env
 	}
@@ -495,13 +496,36 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 
 		require.NotNil(t, inv.Delivery)
-		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(flow2.ExtKeyDeliveryTerms))
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(incoterms.ExtKeyIncoterm))
+		assert.False(t, inv.Delivery.Ext.Has(untdid.ExtKeyDeliveryTerms))
 		require.NotNil(t, inv.Delivery.Receiver)
 		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
 		assert.Equal(t, "Port of Le Havre", inv.Delivery.Receiver.Addresses[0].Label)
 		require.Len(t, inv.Delivery.Identities, 1)
 		assert.Equal(t, cbc.Code("3012345678901"), inv.Delivery.Identities[0].Code)
 		assert.Equal(t, cbc.Code("0088"), inv.Delivery.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+	})
+
+	t.Run("round trips a UNTDID 4053 code", func(t *testing.T) {
+		env := withDelivery(t)
+		inv, ok := env.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		inv.Delivery.Ext = tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyDeliveryTerms: "1"})
+
+		doc, err := goblcii.ExportInvoice(env, goblcii.WithFormat(frcii.FormatCTCExtended))
+		require.NoError(t, err)
+		require.NotNil(t, doc.Transaction.Agreement.DeliveryTerms)
+		assert.Equal(t, "1", doc.Transaction.Agreement.DeliveryTerms.Code)
+
+		data, err := goblcii.Encode(doc)
+		require.NoError(t, err)
+		parsed, err := parseCII(data)
+		require.NoError(t, err)
+		out, ok := parsed.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		require.NotNil(t, out.Delivery)
+		assert.Equal(t, cbc.Code("1"), out.Delivery.Ext.Get(untdid.ExtKeyDeliveryTerms))
+		assert.False(t, out.Delivery.Ext.Has(incoterms.ExtKeyIncoterm))
 	})
 }
 
