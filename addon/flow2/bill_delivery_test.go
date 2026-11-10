@@ -14,7 +14,7 @@ import (
 )
 
 // TestDeliveryTermsRules checks that the delivery terms (EXT-FR-FE-185) take
-// either a valid Incoterm or UNTDID 4053 code, but not both (BR-FREXT-CL-27).
+// either a valid Incoterms 2010 or UNTDID 4053 code, but not both (BR-FREXT-CL-27).
 func TestDeliveryTermsRules(t *testing.T) {
 	withTerms := func(t *testing.T, codes cbc.CodeMap) *bill.Invoice {
 		t.Helper()
@@ -24,9 +24,9 @@ func TestDeliveryTermsRules(t *testing.T) {
 		return inv
 	}
 
-	for _, code := range cbc.DefinitionCodes(tax.ExtensionForKey(icc.ExtKeyDeliveryCode).Values) {
-		t.Run("accepts icc-delivery-code "+code.String(), func(t *testing.T) {
-			assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{icc.ExtKeyDeliveryCode: code})))
+	for _, code := range cbc.DefinitionCodes(tax.ExtensionForKey(icc.ExtKeyIncoterms2010Rule).Values) {
+		t.Run("accepts icc-incoterms-2010-rule "+code.String(), func(t *testing.T) {
+			assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: code})))
 		})
 	}
 
@@ -36,15 +36,19 @@ func TestDeliveryTermsRules(t *testing.T) {
 		})
 	}
 
-	t.Run("rejects both together", func(t *testing.T) {
-		inv := withTerms(t, cbc.CodeMap{icc.ExtKeyDeliveryCode: "DAP", untdid.ExtKeyDeliveryTerms: "1"})
-		assert.ErrorContains(t, rules.Validate(inv), "delivery ext may include only one of icc-delivery-code or untdid-delivery-terms")
+	t.Run("accepts the 2010-only incoterm DAT", func(t *testing.T) {
+		assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: "DAT"})))
 	})
 
-	for _, code := range []cbc.Code{"DAT", "DAF", "XXX", "1"} {
-		t.Run("rejects icc-delivery-code "+code.String(), func(t *testing.T) {
-			inv := withTerms(t, cbc.CodeMap{icc.ExtKeyDeliveryCode: code})
-			assert.ErrorContains(t, rules.Validate(inv), "delivery ext icc-delivery-code must be a valid Incoterms code (BR-FREXT-CL-27)")
+	t.Run("rejects both together", func(t *testing.T) {
+		inv := withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: "DAP", untdid.ExtKeyDeliveryTerms: "1"})
+		assert.ErrorContains(t, rules.Validate(inv), "delivery ext may include only one of icc-incoterms-2010-rule or untdid-delivery-terms")
+	})
+
+	for _, code := range []cbc.Code{"DPU", "DAF", "XXX", "1"} {
+		t.Run("rejects icc-incoterms-2010-rule "+code.String(), func(t *testing.T) {
+			inv := withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: code})
+			assert.ErrorContains(t, rules.Validate(inv), "delivery ext icc-incoterms-2010-rule must be a valid Incoterms 2010 code (BR-FREXT-CL-27)")
 		})
 	}
 

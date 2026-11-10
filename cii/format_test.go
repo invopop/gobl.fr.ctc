@@ -454,7 +454,7 @@ func TestDeliveryTerms(t *testing.T) {
 				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
 			},
 			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
-			Ext:        tax.ExtensionsOf(cbc.CodeMap{icc.ExtKeyDeliveryCode: "DAP"}),
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: "DAP"}),
 		}
 		return env
 	}
@@ -496,7 +496,7 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 
 		require.NotNil(t, inv.Delivery)
-		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(icc.ExtKeyDeliveryCode))
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(icc.ExtKeyIncoterms2010Rule))
 		assert.False(t, inv.Delivery.Ext.Has(untdid.ExtKeyDeliveryTerms))
 		require.NotNil(t, inv.Delivery.Receiver)
 		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
@@ -525,7 +525,7 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 		require.NotNil(t, out.Delivery)
 		assert.Equal(t, cbc.Code("1"), out.Delivery.Ext.Get(untdid.ExtKeyDeliveryTerms))
-		assert.False(t, out.Delivery.Ext.Has(icc.ExtKeyDeliveryCode))
+		assert.False(t, out.Delivery.Ext.Has(icc.ExtKeyIncoterms2010Rule))
 	})
 }
 

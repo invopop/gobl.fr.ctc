@@ -37,7 +37,7 @@ func invoices(env *gobl.Envelope, doc goblubl.Document) (*bill.Invoice, *goblubl
 // deliveryTermsCode provides the delivery terms code (EXT-FR-FE-185) from
 // whichever of the Incoterm or UNTDID 4053 extensions is set.
 func deliveryTermsCode(ext tax.Extensions) cbc.Code {
-	if code := ext.Get(icc.ExtKeyDeliveryCode); code != cbc.CodeEmpty {
+	if code := ext.Get(icc.ExtKeyIncoterms2010Rule); code != cbc.CodeEmpty {
 		return code
 	}
 	return ext.Get(untdid.ExtKeyDeliveryTerms)
@@ -49,7 +49,7 @@ func deliveryTermsKey(code cbc.Code) cbc.Key {
 	if tax.ExtensionForKey(untdid.ExtKeyDeliveryTerms).HasCode(code) {
 		return untdid.ExtKeyDeliveryTerms
 	}
-	return icc.ExtKeyDeliveryCode
+	return icc.ExtKeyIncoterms2010Rule
 }
 
 // exportCIUS applies the French CIUS rules shared by the CIUS and Extended
