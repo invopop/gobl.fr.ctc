@@ -12,7 +12,7 @@ import (
 	"github.com/invopop/gobl/addons/eu/en16931"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
-	"github.com/invopop/gobl/catalogues/incoterms"
+	"github.com/invopop/gobl/catalogues/icc"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
@@ -551,7 +551,7 @@ func TestDeliveryTerms(t *testing.T) {
 				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
 			},
 			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
-			Ext:        tax.ExtensionsOf(cbc.CodeMap{incoterms.ExtKeyIncoterm: "DAP"}),
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{icc.ExtKeyDeliveryCode: "DAP"}),
 		}
 	}
 
@@ -604,7 +604,7 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 
 		require.NotNil(t, inv.Delivery)
-		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(incoterms.ExtKeyIncoterm))
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(icc.ExtKeyDeliveryCode))
 		assert.False(t, inv.Delivery.Ext.Has(untdid.ExtKeyDeliveryTerms))
 		require.NotNil(t, inv.Delivery.Receiver)
 		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
@@ -635,7 +635,7 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 		require.NotNil(t, inv.Delivery)
 		assert.Equal(t, cbc.Code("2"), inv.Delivery.Ext.Get(untdid.ExtKeyDeliveryTerms))
-		assert.False(t, inv.Delivery.Ext.Has(incoterms.ExtKeyIncoterm))
+		assert.False(t, inv.Delivery.Ext.Has(icc.ExtKeyDeliveryCode))
 	})
 }
 

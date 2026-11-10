@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "5c52625052a725bf92abf11068c4800b9e1c738d398246835a174c4394d00664"
+			"val": "c4cae9cd80a39a2e8e03852f142bd7eebcced50f0aea2ff245f00396a8834689"
 		},
 		"from": "iso6523-actorid-upis::0225:356000000",
 		"to": "iso6523-actorid-upis::0225:732829320"
@@ -211,7 +211,7 @@
 			],
 			"date": "2026-01-15",
 			"ext": {
-				"icc-incoterm": "DAP"
+				"icc-delivery-code": "DAP"
 			}
 		},
 		"totals": {

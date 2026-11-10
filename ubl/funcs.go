@@ -6,7 +6,7 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
-	"github.com/invopop/gobl/catalogues/incoterms"
+	"github.com/invopop/gobl/catalogues/icc"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	cur "github.com/invopop/gobl/currency"
@@ -37,7 +37,7 @@ func invoices(env *gobl.Envelope, doc goblubl.Document) (*bill.Invoice, *goblubl
 // deliveryTermsCode provides the delivery terms code (EXT-FR-FE-185) from
 // whichever of the Incoterm or UNTDID 4053 extensions is set.
 func deliveryTermsCode(ext tax.Extensions) cbc.Code {
-	if code := ext.Get(incoterms.ExtKeyIncoterm); code != cbc.CodeEmpty {
+	if code := ext.Get(icc.ExtKeyDeliveryCode); code != cbc.CodeEmpty {
 		return code
 	}
 	return ext.Get(untdid.ExtKeyDeliveryTerms)
@@ -49,7 +49,7 @@ func deliveryTermsKey(code cbc.Code) cbc.Key {
 	if tax.ExtensionForKey(untdid.ExtKeyDeliveryTerms).HasCode(code) {
 		return untdid.ExtKeyDeliveryTerms
 	}
-	return incoterms.ExtKeyIncoterm
+	return icc.ExtKeyDeliveryCode
 }
 
 // exportCIUS applies the French CIUS rules shared by the CIUS and Extended

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/invopop/gobl/bill"
-	"github.com/invopop/gobl/catalogues/incoterms"
+	"github.com/invopop/gobl/catalogues/icc"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/rules"
@@ -24,9 +24,9 @@ func TestDeliveryTermsRules(t *testing.T) {
 		return inv
 	}
 
-	for _, code := range cbc.DefinitionCodes(tax.ExtensionForKey(incoterms.ExtKeyIncoterm).Values) {
-		t.Run("accepts incoterm "+code.String(), func(t *testing.T) {
-			assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{incoterms.ExtKeyIncoterm: code})))
+	for _, code := range cbc.DefinitionCodes(tax.ExtensionForKey(icc.ExtKeyDeliveryCode).Values) {
+		t.Run("accepts icc-delivery-code "+code.String(), func(t *testing.T) {
+			assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{icc.ExtKeyDeliveryCode: code})))
 		})
 	}
 
@@ -37,14 +37,14 @@ func TestDeliveryTermsRules(t *testing.T) {
 	}
 
 	t.Run("rejects both together", func(t *testing.T) {
-		inv := withTerms(t, cbc.CodeMap{incoterms.ExtKeyIncoterm: "DAP", untdid.ExtKeyDeliveryTerms: "1"})
-		assert.ErrorContains(t, rules.Validate(inv), "delivery ext may include only one of icc-incoterm or untdid-delivery-terms")
+		inv := withTerms(t, cbc.CodeMap{icc.ExtKeyDeliveryCode: "DAP", untdid.ExtKeyDeliveryTerms: "1"})
+		assert.ErrorContains(t, rules.Validate(inv), "delivery ext may include only one of icc-delivery-code or untdid-delivery-terms")
 	})
 
 	for _, code := range []cbc.Code{"DAT", "DAF", "XXX", "1"} {
-		t.Run("rejects incoterm "+code.String(), func(t *testing.T) {
-			inv := withTerms(t, cbc.CodeMap{incoterms.ExtKeyIncoterm: code})
-			assert.ErrorContains(t, rules.Validate(inv), "delivery ext icc-incoterm must be a valid Incoterms code (BR-FREXT-CL-27)")
+		t.Run("rejects icc-delivery-code "+code.String(), func(t *testing.T) {
+			inv := withTerms(t, cbc.CodeMap{icc.ExtKeyDeliveryCode: code})
+			assert.ErrorContains(t, rules.Validate(inv), "delivery ext icc-delivery-code must be a valid Incoterms code (BR-FREXT-CL-27)")
 		})
 	}
 
