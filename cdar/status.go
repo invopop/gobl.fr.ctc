@@ -2,6 +2,7 @@ package cdar
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	cii "github.com/invopop/gobl.cii"
@@ -341,7 +342,7 @@ var statusCharacteristicTypeCodes = map[cbc.Code]bool{
 // it belongs to the MDT-207 vocabulary, the message the data Name and
 // the first path the XML Location.
 func newCDARDocumentStatus(reason *bill.Reason, action *bill.Action, seq int) *cii.CDARDocumentStatus {
-	ds := &cii.CDARDocumentStatus{SequenceNumeric: seq}
+	ds := &cii.CDARDocumentStatus{SequenceNumeric: strconv.Itoa(seq)}
 	if reason != nil {
 		ds.ReasonCode = reason.Ext.Get(flow6.ExtKeyReason).String()
 		if reason.Description != "" {

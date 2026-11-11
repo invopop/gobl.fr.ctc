@@ -11,10 +11,13 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	frcii "github.com/invopop/gobl.fr.ctc/cii"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/cef"
+	"github.com/invopop/gobl/catalogues/icc"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/convert"
+	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
@@ -42,6 +45,74 @@ func TestExportFormats(t *testing.T) {
 		assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr", out.ExchangedContext.GuidelineContext.ID)
 		assert.Equal(t, "S1", out.ExchangedContext.BusinessContext.ID)
 	})
+}
+
+// Only the EXTENDED profiles carry an exemption reason (BT-120/121) on a
+// document allowance or charge; the EN 16931 ones leave it to the VAT
+// breakdown.
+func TestAllowanceChargeExemptions(t *testing.T) {
+	env := loadEnvelope(t, "peppol-france-extended/invoice-standard.json")
+	inv, ok := env.Extract().(*bill.Invoice)
+	require.True(t, ok)
+	exempt := &tax.Combo{
+		Category: tax.CategoryVAT,
+		Ext: tax.ExtensionsOf(cbc.CodeMap{
+			untdid.ExtKeyTaxCategory: "E",
+			cef.ExtKeyVATEX:          "VATEX-EU-132",
+		}),
+	}
+	price := num.MakeAmount(10000, 2)
+	inv.Lines = append(inv.Lines, &bill.Line{
+		Quantity: num.MakeAmount(1, 0),
+		Item:     &org.Item{Name: "Exempt service", Price: &price},
+		Taxes:    tax.Set{exempt},
+	})
+	inv.Discounts = append(inv.Discounts, &bill.Discount{
+		Reason: "Loyalty discount",
+		Amount: num.MakeAmount(500, 2),
+		Taxes:  tax.Set{exempt},
+	})
+	if inv.Tax == nil {
+		inv.Tax = new(bill.Tax)
+	}
+	inv.Tax.Notes = append(inv.Tax.Notes, &tax.Note{
+		Category: tax.CategoryVAT,
+		Key:      tax.KeyExempt,
+		Text:     "Exempt under article 132",
+		Ext:      tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyTaxCategory: "E"}),
+	})
+	require.NoError(t, env.Calculate())
+	require.NoError(t, env.Validate())
+
+	for _, tt := range []struct {
+		format goblcii.Format
+		code   string
+		reason string
+	}{
+		{frcii.FormatCTCExtended, "VATEX-EU-132", "Exempt under article 132"},
+		{frcii.FormatCTCFacturXExtended, "VATEX-EU-132", "Exempt under article 132"},
+		{frcii.FormatCTCCIUS, "", ""},
+		{frcii.FormatCTCFacturXCIUS, "", ""},
+	} {
+		t.Run(tt.format.Key.String(), func(t *testing.T) {
+			out, err := goblcii.ExportInvoice(env, goblcii.WithFormat(tt.format))
+			require.NoError(t, err)
+			acs := out.Transaction.Settlement.AllowanceCharges
+			require.NotEmpty(t, acs)
+			ac := acs[len(acs)-1]
+			require.NotNil(t, ac.Tax)
+			assert.Equal(t, "E", ac.Tax.CategoryCode)
+			assert.Equal(t, tt.code, ac.Tax.ExemptionReasonCode)
+			assert.Equal(t, tt.reason, ac.Tax.ExemptionReason)
+
+			t.Run("validates", func(t *testing.T) {
+				pc := phormClient(t)
+				data, err := goblcii.Encode(out)
+				require.NoError(t, err)
+				validateXML(t, pc, tt.format.VESID, data)
+			})
+		})
+	}
 }
 
 func TestFindFormat(t *testing.T) {
@@ -437,8 +508,8 @@ func TestConvertRegister(t *testing.T) {
 	})
 }
 
-// TestDeliveryTerms maps the Incoterms delivery terms (EXT-FR-FE-BG-14): the
-// code to the delivery extension and the location name to the label of the
+// TestDeliveryTerms maps the delivery terms (EXT-FR-FE-BG-14): the code to the
+// Incoterm or UNTDID 4053 delivery extension and the location name to the label of the
 // receiver's address, apart from the delivery location ID (BT-71).
 func TestDeliveryTerms(t *testing.T) {
 	const fixture = "peppol-france-extended/invoice-standard.json"
@@ -453,7 +524,7 @@ func TestDeliveryTerms(t *testing.T) {
 				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
 			},
 			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
-			Ext:        tax.ExtensionsOf(cbc.CodeMap{flow2.ExtKeyDeliveryTerms: "DAP"}),
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{icc.ExtKeyIncoterms2010: "DAP"}),
 		}
 		return env
 	}
@@ -495,13 +566,36 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 
 		require.NotNil(t, inv.Delivery)
-		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(flow2.ExtKeyDeliveryTerms))
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(icc.ExtKeyIncoterms2010))
+		assert.False(t, inv.Delivery.Ext.Has(untdid.ExtKeyDeliveryTerms))
 		require.NotNil(t, inv.Delivery.Receiver)
 		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
 		assert.Equal(t, "Port of Le Havre", inv.Delivery.Receiver.Addresses[0].Label)
 		require.Len(t, inv.Delivery.Identities, 1)
 		assert.Equal(t, cbc.Code("3012345678901"), inv.Delivery.Identities[0].Code)
 		assert.Equal(t, cbc.Code("0088"), inv.Delivery.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+	})
+
+	t.Run("round trips a UNTDID 4053 code", func(t *testing.T) {
+		env := withDelivery(t)
+		inv, ok := env.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		inv.Delivery.Ext = tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyDeliveryTerms: "1"})
+
+		doc, err := goblcii.ExportInvoice(env, goblcii.WithFormat(frcii.FormatCTCExtended))
+		require.NoError(t, err)
+		require.NotNil(t, doc.Transaction.Agreement.DeliveryTerms)
+		assert.Equal(t, "1", doc.Transaction.Agreement.DeliveryTerms.Code)
+
+		data, err := goblcii.Encode(doc)
+		require.NoError(t, err)
+		parsed, err := parseCII(data)
+		require.NoError(t, err)
+		out, ok := parsed.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		require.NotNil(t, out.Delivery)
+		assert.Equal(t, cbc.Code("1"), out.Delivery.Ext.Get(untdid.ExtKeyDeliveryTerms))
+		assert.False(t, out.Delivery.Ext.Has(icc.ExtKeyIncoterms2010))
 	})
 }
 
