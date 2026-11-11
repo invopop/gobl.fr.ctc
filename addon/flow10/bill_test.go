@@ -56,6 +56,110 @@ func TestNormalizeB2CCategoryOnInvoice(t *testing.T) {
 	})
 }
 
+func TestNormalizeB2CCategoryOnLines(t *testing.T) {
+	vat := func(ext ...cbc.Code) *tax.Combo {
+		combo := &tax.Combo{Category: tax.CategoryVAT}
+		if len(ext) > 0 {
+			combo.Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: ext[0]})
+		}
+		return combo
+	}
+
+	t.Run("fills the lines that declare nothing", func(t *testing.T) {
+		inv := &bill.Invoice{
+			Tax: &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: B2CCategoryServices})},
+			Lines: []*bill.Line{
+				{Taxes: tax.Set{vat()}},
+				{Taxes: tax.Set{vat(B2CCategoryGoods)}},
+			},
+		}
+		normalizeB2CCategoryOnLines(inv)
+		assert.Equal(t, B2CCategoryServices, inv.Lines[0].Taxes[0].Ext.Get(ExtKeyB2CCategory))
+		assert.Equal(t, B2CCategoryGoods, inv.Lines[1].Taxes[0].Ext.Get(ExtKeyB2CCategory),
+			"a line's own category wins over the invoice's")
+	})
+
+	t.Run("one category: document adjustments inherit too", func(t *testing.T) {
+		inv := &bill.Invoice{
+			Tax:       &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: B2CCategoryServices})},
+			Lines:     []*bill.Line{{Taxes: tax.Set{vat()}}},
+			Discounts: []*bill.Discount{{Taxes: tax.Set{vat()}}},
+			Charges:   []*bill.Charge{{Taxes: tax.Set{vat()}}},
+		}
+		normalizeB2CCategoryOnLines(inv)
+		assert.Equal(t, B2CCategoryServices, inv.Discounts[0].Taxes[0].Ext.Get(ExtKeyB2CCategory))
+		assert.Equal(t, B2CCategoryServices, inv.Charges[0].Taxes[0].Ext.Get(ExtKeyB2CCategory))
+	})
+
+	t.Run("several categories: document adjustments are left to the issuer", func(t *testing.T) {
+		inv := &bill.Invoice{
+			Tax: &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: B2CCategoryServices})},
+			Lines: []*bill.Line{
+				{Taxes: tax.Set{vat(B2CCategoryServices)}},
+				{Taxes: tax.Set{vat(B2CCategoryGoods)}},
+			},
+			Discounts: []*bill.Discount{{Taxes: tax.Set{vat()}}},
+		}
+		normalizeB2CCategoryOnLines(inv)
+		assert.Empty(t, inv.Discounts[0].Taxes[0].Ext.Get(ExtKeyB2CCategory),
+			"nothing sound to inherit; rule 19 turns this invoice away")
+	})
+
+	t.Run("leaves non-VAT combos alone", func(t *testing.T) {
+		other := &tax.Combo{Category: "IRPF"}
+		inv := &bill.Invoice{
+			Tax:   &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: B2CCategoryServices})},
+			Lines: []*bill.Line{{Taxes: tax.Set{other}}},
+		}
+		normalizeB2CCategoryOnLines(inv)
+		assert.Empty(t, other.Ext.Get(ExtKeyB2CCategory))
+	})
+
+	t.Run("dispatch reaches the lines", func(t *testing.T) {
+		inv := &bill.Invoice{ // no customer => B2C
+			Tax:   &bill.Tax{Ext: tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: B2CCategoryGoods})},
+			Lines: []*bill.Line{{Taxes: tax.Set{vat()}}, {Taxes: nil}},
+		}
+		normalizeInvoice(inv)
+		assert.Equal(t, B2CCategoryGoods, inv.Lines[0].Taxes[0].Ext.Get(ExtKeyB2CCategory))
+	})
+}
+
+func TestInvoiceHasNoAdjustmentsWhenMixed(t *testing.T) {
+	vat := func(ext ...cbc.Code) *tax.Combo {
+		combo := &tax.Combo{Category: tax.CategoryVAT}
+		if len(ext) > 0 {
+			combo.Ext = tax.ExtensionsOf(cbc.CodeMap{ExtKeyB2CCategory: ext[0]})
+		}
+		return combo
+	}
+	mixed := func(discounts []*bill.Discount, charges []*bill.Charge) *bill.Invoice {
+		return &bill.Invoice{
+			Lines: []*bill.Line{
+				{Taxes: tax.Set{vat(B2CCategoryServices)}},
+				{Taxes: tax.Set{vat(B2CCategoryGoods)}},
+			},
+			Discounts: discounts,
+			Charges:   charges,
+		}
+	}
+
+	assert.True(t, invoiceHasNoAdjustmentsWhenMixed(nil))
+	assert.True(t, invoiceHasNoAdjustmentsWhenMixed(mixed(nil, nil)))
+	assert.False(t, invoiceHasNoAdjustmentsWhenMixed(mixed([]*bill.Discount{{}}, nil)),
+		"no way to say which category a document discount belongs to")
+	assert.False(t, invoiceHasNoAdjustmentsWhenMixed(mixed(nil, []*bill.Charge{{}})))
+
+	// One category on the lines: a document adjustment is unambiguous and
+	// keeps working as before.
+	single := &bill.Invoice{
+		Lines:     []*bill.Line{{Taxes: tax.Set{vat(B2CCategoryServices)}}},
+		Discounts: []*bill.Discount{{Taxes: tax.Set{vat()}}},
+		Charges:   []*bill.Charge{{Taxes: tax.Set{vat()}}},
+	}
+	assert.True(t, invoiceHasNoAdjustmentsWhenMixed(single))
+}
+
 func TestNormalizeInvoiceDispatch(t *testing.T) {
 	assert.NotPanics(t, func() { normalizeInvoice(nil) })
 
