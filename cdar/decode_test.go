@@ -165,7 +165,7 @@ func TestUnmarshalCDARDispute(t *testing.T) {
 	assert.Equal(t, "TX_TVA_ERR", status.ReasonCode)
 	assert.Equal(t, "NIN", status.RequestedActionCode)
 	assert.Equal(t, "Créer une Facture Rectificative", status.RequestedAction)
-	assert.Equal(t, 1, status.SequenceNumeric)
+	assert.Equal(t, "1", status.SequenceNumeric)
 
 	// Verify SpecifiedDocumentCharacteristics
 	require.Len(t, status.SpecifiedDocumentCharacteristics, 2)
