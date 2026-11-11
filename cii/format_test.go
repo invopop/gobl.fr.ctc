@@ -11,10 +11,13 @@ import (
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	frcii "github.com/invopop/gobl.fr.ctc/cii"
 	"github.com/invopop/gobl/bill"
+	"github.com/invopop/gobl/catalogues/cef"
+	"github.com/invopop/gobl/catalogues/icc"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/convert"
+	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/tax"
 	"github.com/stretchr/testify/assert"
@@ -42,6 +45,74 @@ func TestExportFormats(t *testing.T) {
 		assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn.cpro.gouv.fr:1p0:extended-ctc-fr", out.ExchangedContext.GuidelineContext.ID)
 		assert.Equal(t, "S1", out.ExchangedContext.BusinessContext.ID)
 	})
+}
+
+// Only the EXTENDED profiles carry an exemption reason (BT-120/121) on a
+// document allowance or charge; the EN 16931 ones leave it to the VAT
+// breakdown.
+func TestAllowanceChargeExemptions(t *testing.T) {
+	env := loadEnvelope(t, "peppol-france-extended/invoice-standard.json")
+	inv, ok := env.Extract().(*bill.Invoice)
+	require.True(t, ok)
+	exempt := &tax.Combo{
+		Category: tax.CategoryVAT,
+		Ext: tax.ExtensionsOf(cbc.CodeMap{
+			untdid.ExtKeyTaxCategory: "E",
+			cef.ExtKeyVATEX:          "VATEX-EU-132",
+		}),
+	}
+	price := num.MakeAmount(10000, 2)
+	inv.Lines = append(inv.Lines, &bill.Line{
+		Quantity: num.MakeAmount(1, 0),
+		Item:     &org.Item{Name: "Exempt service", Price: &price},
+		Taxes:    tax.Set{exempt},
+	})
+	inv.Discounts = append(inv.Discounts, &bill.Discount{
+		Reason: "Loyalty discount",
+		Amount: num.MakeAmount(500, 2),
+		Taxes:  tax.Set{exempt},
+	})
+	if inv.Tax == nil {
+		inv.Tax = new(bill.Tax)
+	}
+	inv.Tax.Notes = append(inv.Tax.Notes, &tax.Note{
+		Category: tax.CategoryVAT,
+		Key:      tax.KeyExempt,
+		Text:     "Exempt under article 132",
+		Ext:      tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyTaxCategory: "E"}),
+	})
+	require.NoError(t, env.Calculate())
+	require.NoError(t, env.Validate())
+
+	for _, tt := range []struct {
+		format goblcii.Format
+		code   string
+		reason string
+	}{
+		{frcii.FormatCTCExtended, "VATEX-EU-132", "Exempt under article 132"},
+		{frcii.FormatCTCFacturXExtended, "VATEX-EU-132", "Exempt under article 132"},
+		{frcii.FormatCTCCIUS, "", ""},
+		{frcii.FormatCTCFacturXCIUS, "", ""},
+	} {
+		t.Run(tt.format.Key.String(), func(t *testing.T) {
+			out, err := goblcii.ExportInvoice(env, goblcii.WithFormat(tt.format))
+			require.NoError(t, err)
+			acs := out.Transaction.Settlement.AllowanceCharges
+			require.NotEmpty(t, acs)
+			ac := acs[len(acs)-1]
+			require.NotNil(t, ac.Tax)
+			assert.Equal(t, "E", ac.Tax.CategoryCode)
+			assert.Equal(t, tt.code, ac.Tax.ExemptionReasonCode)
+			assert.Equal(t, tt.reason, ac.Tax.ExemptionReason)
+
+			t.Run("validates", func(t *testing.T) {
+				pc := phormClient(t)
+				data, err := goblcii.Encode(out)
+				require.NoError(t, err)
+				validateXML(t, pc, tt.format.VESID, data)
+			})
+		})
+	}
 }
 
 func TestFindFormat(t *testing.T) {
@@ -191,21 +262,40 @@ func TestFacturXProfiles(t *testing.T) {
 }
 
 // The plain Factur-X profiles share their guidelines with ZUGFeRD and EN 16931,
-// so they are export-only, which keeps them out of detection.
+// so they are never detected, only imported when asked for.
 func TestPlainFacturX(t *testing.T) {
 	t.Run("never detected", func(t *testing.T) {
 		assert.Equal(t, goblcii.FormatEN16931.Key, goblcii.FindFormat(goblcii.GuidelineIDEN16931, "").Key)
 		assert.Nil(t, goblcii.FindFormat(frcii.GuidelineIDFacturXExtended, ""))
 	})
 
-	t.Run("export-only in the convert register", func(t *testing.T) {
+	t.Run("in the convert register", func(t *testing.T) {
 		for _, k := range []cbc.Key{frcii.KeyFacturX, frcii.KeyFacturXExtended} {
 			f := convert.FormatFor(k)
 			require.NotNil(t, f, k)
 			assert.NotEmpty(t, f.Export, k)
-			assert.Empty(t, f.Import, k)
+			assert.NotEmpty(t, f.Import, k)
 		}
 		assert.Nil(t, convert.FormatFor("cii+fr-facturx-v1+basic"))
+	})
+
+	t.Run("imported on request", func(t *testing.T) {
+		for k, dir := range map[cbc.Key]string{
+			frcii.KeyFacturX:         "facturx",
+			frcii.KeyFacturXExtended: "facturx-extended",
+		} {
+			data, err := os.ReadFile(filepath.Join("testdata", "convert", dir, "out", "invoice-complete.xml"))
+			require.NoError(t, err)
+
+			d, err := convert.Detect(data)
+			if err == nil {
+				assert.NotEqual(t, k, d.Key, "never detected")
+			}
+
+			imported, err := convert.Import(data, convert.WithFormats(k))
+			require.NoError(t, err, k)
+			assert.Equal(t, k, imported.Format.Key)
+		}
 	})
 
 	t.Run("export writes each profile's guideline", func(t *testing.T) {
@@ -365,9 +455,7 @@ func TestConvertRegister(t *testing.T) {
 			f := convert.FormatFor(k)
 			require.NotNil(t, f, k)
 			assert.Equal(t, cbc.Key("cii"), f.Syntax)
-			if k != frcii.KeyCTCFacturXCIUS {
-				assert.NotEmpty(t, f.Import, k)
-			}
+			assert.NotEmpty(t, f.Import, k)
 			assert.True(t, f.Attachments, k)
 		}
 	})
@@ -414,13 +502,20 @@ func TestConvertRegister(t *testing.T) {
 		assert.Equal(t, pdf.Data, imported.Attachments[0].Data)
 	})
 
-	t.Run("factur-x cius is export-only", func(t *testing.T) {
+	t.Run("factur-x cius is imported on request", func(t *testing.T) {
 		env := loadEnvelope(t, "peppol-france-cius/invoice-standard.json")
 		out, err := convert.Export(env, frcii.KeyCTCFacturXCIUS)
 		require.NoError(t, err)
 		d, err := convert.Detect(out.Data)
 		require.NoError(t, err)
 		assert.Equal(t, frcii.KeyCTCCIUS, d.Key, "its CII reads as CIUS")
+
+		imported, err := convert.Import(out.Data, convert.WithFormats(frcii.KeyCTCFacturXCIUS))
+		require.NoError(t, err)
+		assert.Equal(t, frcii.KeyCTCFacturXCIUS, imported.Format.Key)
+		inv, ok := imported.Envelope.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		assert.Contains(t, inv.GetAddons(), flow2.V1)
 	})
 
 	t.Run("factur-x extended is detected", func(t *testing.T) {
@@ -437,8 +532,8 @@ func TestConvertRegister(t *testing.T) {
 	})
 }
 
-// TestDeliveryTerms maps the Incoterms delivery terms (EXT-FR-FE-BG-14): the
-// code to the delivery extension and the location name to the label of the
+// TestDeliveryTerms maps the delivery terms (EXT-FR-FE-BG-14): the code to the
+// Incoterm or UNTDID 4053 delivery extension and the location name to the label of the
 // receiver's address, apart from the delivery location ID (BT-71).
 func TestDeliveryTerms(t *testing.T) {
 	const fixture = "peppol-france-extended/invoice-standard.json"
@@ -453,7 +548,7 @@ func TestDeliveryTerms(t *testing.T) {
 				Addresses: []*org.Address{{Label: "Port of Le Havre", Street: "1 Quai", Locality: "Le Havre", Code: "76600", Country: "FR"}},
 			},
 			Identities: []*org.Identity{{Code: "3012345678901", Ext: tax.ExtensionsOf(cbc.CodeMap{iso.ExtKeySchemeID: "0088"})}},
-			Ext:        tax.ExtensionsOf(cbc.CodeMap{flow2.ExtKeyDeliveryTerms: "DAP"}),
+			Ext:        tax.ExtensionsOf(cbc.CodeMap{icc.ExtKeyIncoterms2010: "DAP"}),
 		}
 		return env
 	}
@@ -495,13 +590,36 @@ func TestDeliveryTerms(t *testing.T) {
 		require.True(t, ok)
 
 		require.NotNil(t, inv.Delivery)
-		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(flow2.ExtKeyDeliveryTerms))
+		assert.Equal(t, cbc.Code("DAP"), inv.Delivery.Ext.Get(icc.ExtKeyIncoterms2010))
+		assert.False(t, inv.Delivery.Ext.Has(untdid.ExtKeyDeliveryTerms))
 		require.NotNil(t, inv.Delivery.Receiver)
 		require.Len(t, inv.Delivery.Receiver.Addresses, 1)
 		assert.Equal(t, "Port of Le Havre", inv.Delivery.Receiver.Addresses[0].Label)
 		require.Len(t, inv.Delivery.Identities, 1)
 		assert.Equal(t, cbc.Code("3012345678901"), inv.Delivery.Identities[0].Code)
 		assert.Equal(t, cbc.Code("0088"), inv.Delivery.Identities[0].Ext.Get(iso.ExtKeySchemeID))
+	})
+
+	t.Run("round trips a UNTDID 4053 code", func(t *testing.T) {
+		env := withDelivery(t)
+		inv, ok := env.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		inv.Delivery.Ext = tax.ExtensionsOf(cbc.CodeMap{untdid.ExtKeyDeliveryTerms: "1"})
+
+		doc, err := goblcii.ExportInvoice(env, goblcii.WithFormat(frcii.FormatCTCExtended))
+		require.NoError(t, err)
+		require.NotNil(t, doc.Transaction.Agreement.DeliveryTerms)
+		assert.Equal(t, "1", doc.Transaction.Agreement.DeliveryTerms.Code)
+
+		data, err := goblcii.Encode(doc)
+		require.NoError(t, err)
+		parsed, err := parseCII(data)
+		require.NoError(t, err)
+		out, ok := parsed.Extract().(*bill.Invoice)
+		require.True(t, ok)
+		require.NotNil(t, out.Delivery)
+		assert.Equal(t, cbc.Code("1"), out.Delivery.Ext.Get(untdid.ExtKeyDeliveryTerms))
+		assert.False(t, out.Delivery.Ext.Has(icc.ExtKeyIncoterms2010))
 	})
 }
 

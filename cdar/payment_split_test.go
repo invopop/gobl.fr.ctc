@@ -81,6 +81,24 @@ func TestCDARPaymentVATSplitRoundTrip(t *testing.T) {
 			wantAmount: grossZro,
 		},
 		{
+			name: "same rate twice adds up",
+			rates: []*tax.RateTotal{
+				vatRate(amt(30000), amt(6000), pct(20)), // gross 360.00
+				vatRate(amt(20000), amt(4000), pct(20)), // gross 240.00
+			},
+			wantChars:  []wantChar{{grossStd, rate20}},
+			wantAmount: grossStd,
+		},
+		{
+			name: "zero and exempt add up",
+			rates: []*tax.RateTotal{
+				vatRate(amt(10000), amt(0), pct(0)), // gross 100.00
+				vatRate(amt(20000), amt(0), nil),    // exempt, gross 200.00
+			},
+			wantChars:  []wantChar{{grossZro, rateZero}},
+			wantAmount: grossZro,
+		},
+		{
 			name: "mixed taxed and exempt",
 			rates: []*tax.RateTotal{
 				vatRate(amt(50000), amt(10000), pct(20)), // gross 600.00
@@ -204,6 +222,31 @@ func TestCDARPaymentRefundRoundTrip(t *testing.T) {
 		env, err := gobl.Envelop(out)
 		require.NoError(t, err, "refund payment must calculate")
 		require.NoError(t, env.Validate(), "refund payment must pass flow6 validation")
+	})
+
+	t.Run("comment", func(t *testing.T) {
+		pmt := buildSyntheticPayment(t, num.Amount{})
+		pmt.Lines[0].Refund = true
+		pmt.Lines[0].Description = "Remboursement"
+
+		cdar, err := frcdar.ExportPayment(pmt, frcdar.FormatCDV)
+		require.NoError(t, err)
+		ds := cdar.AcknowledgementDocuments[0].ReferenceReferencedDocument[0].SpecifiedDocumentStatuses[0]
+		require.Len(t, ds.IncludedNotes, 1)
+		assert.Equal(t, []string{"Remboursement"}, ds.IncludedNotes[0].Content, "MDT-126 carries the line description")
+
+		data, err := cii.Encode(cdar)
+		require.NoError(t, err)
+		out, err := parsePayment(data)
+		require.NoError(t, err)
+		assert.Equal(t, "Remboursement", out.Lines[0].Description)
+
+		ds.Reason = []string{"Libellé"}
+		data, err = cii.Encode(cdar)
+		require.NoError(t, err)
+		out, err = parsePayment(data)
+		require.NoError(t, err)
+		assert.Equal(t, "Remboursement", out.Lines[0].Description, "the reason label (MDT-114) stays out of the description")
 	})
 
 	t.Run("amount only", func(t *testing.T) {
