@@ -2,6 +2,7 @@ package cdar
 
 import (
 	"fmt"
+	"strings"
 
 	cii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/flow6"
@@ -158,6 +159,11 @@ func newCDARPaymentAcknowledgement(pmt *bill.Payment, line *bill.PaymentLine, ac
 		ds.SpecifiedDocumentCharacteristics = append(ds.SpecifiedDocumentCharacteristics,
 			newCDARAmountCharacteristic(condition, amount, pmt.Currency))
 	}
+	// MDT-126: the line's description is the status comment. PPF requires
+	// one on a refund (décaissement, G7.45) and accepts it otherwise.
+	if line.Description != "" {
+		ds.IncludedNotes = []*cii.CDARNote{{Content: []string{line.Description}}}
+	}
 	ref.SpecifiedDocumentStatuses = []*cii.CDARDocumentStatus{ds}
 
 	ack.ReferenceReferencedDocument = []*cii.CDARReferencedDocument{ref}
@@ -175,7 +181,10 @@ func newCDARVATSplitCharacteristics(typeCode cbc.Code, line *bill.PaymentLine, c
 	if line == nil || line.Tax == nil {
 		return nil
 	}
-	var chars []*cii.CDARDocumentCharacteristic
+	// PPF rejects the same rate twice in one encaissement (MDT-224), so rates
+	// sharing a percentage add up into one characteristic.
+	var pcts []string
+	gross := make(map[string]num.Amount)
 	for _, cat := range line.Tax.Categories {
 		if cat == nil {
 			continue
@@ -193,18 +202,40 @@ func newCDARVATSplitCharacteristics(typeCode cbc.Code, line *bill.PaymentLine, c
 			if rt.Percent != nil {
 				pct = rt.Percent.Amount().Rescale(2).String()
 			}
-			gross := rt.Base.Add(rt.Amount)
+			g := rt.Base.Add(rt.Amount)
 			if line.Refund {
-				gross = gross.Negate()
+				g = g.Negate()
 			}
-			chars = append(chars, &cii.CDARDocumentCharacteristic{
-				TypeCode:     typeCode.String(),
-				ValueAmount:  &cii.CDARValueAmount{Value: gross.String(), CurrencyID: cur.String()},
-				ValuePercent: pct,
-			})
+			sum, seen := gross[pct]
+			if !seen {
+				pcts = append(pcts, pct)
+				gross[pct] = g
+				continue
+			}
+			gross[pct] = sum.MatchPrecision(g).Add(g)
 		}
 	}
+	chars := make([]*cii.CDARDocumentCharacteristic, 0, len(pcts))
+	for _, pct := range pcts {
+		chars = append(chars, &cii.CDARDocumentCharacteristic{
+			TypeCode:     typeCode.String(),
+			ValueAmount:  &cii.CDARValueAmount{Value: gross[pct].String(), CurrencyID: cur.String()},
+			ValuePercent: pct,
+		})
+	}
 	return chars
+}
+
+// cdarNoteText is a status's comment (MDT-126) alone, which is what a payment
+// line's description becomes.
+func cdarNoteText(ds *cii.CDARDocumentStatus) string {
+	var parts []string
+	for _, n := range ds.IncludedNotes {
+		if n != nil {
+			parts = append(parts, n.Content...)
+		}
+	}
+	return cii.CleanString(strings.Join(parts, "\n"))
 }
 
 func newCDARAmountCharacteristic(typeCode cbc.Code, amount num.Amount, cur currency.Code) *cii.CDARDocumentCharacteristic {
@@ -322,6 +353,9 @@ func goblPaymentLineFromCDAR(pmt *bill.Payment, ref *cii.CDARReferencedDocument)
 	for _, ds := range ref.SpecifiedDocumentStatuses {
 		if ds == nil {
 			continue
+		}
+		if line.Description == "" {
+			line.Description = cdarNoteText(ds)
 		}
 		for _, dc := range ds.SpecifiedDocumentCharacteristics {
 			if dc == nil || dc.ValueAmount == nil || dc.ValueAmount.Value == "" {

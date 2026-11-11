@@ -8,6 +8,7 @@ import (
 	"github.com/invopop/gobl/addons/fr/choruspro"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/cef"
+	"github.com/invopop/gobl/catalogues/icc"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
@@ -29,6 +30,24 @@ func invoices(env *gobl.Envelope, doc goblcii.Document) (*bill.Invoice, *goblcii
 	inv, ok := env.Extract().(*bill.Invoice)
 	out, ok2 := doc.(*goblcii.Invoice)
 	return inv, out, ok && ok2
+}
+
+// deliveryTermsCode provides the delivery terms code (EXT-FR-FE-185) from
+// whichever of the Incoterm or UNTDID 4053 extensions is set.
+func deliveryTermsCode(ext tax.Extensions) cbc.Code {
+	if code := ext.Get(icc.ExtKeyIncoterms2010); code != cbc.CodeEmpty {
+		return code
+	}
+	return ext.Get(untdid.ExtKeyDeliveryTerms)
+}
+
+// deliveryTermsKey provides the extension key for a delivery terms code
+// (EXT-FR-FE-185): UNTDID 4053 when its definition has the code, Incoterms otherwise.
+func deliveryTermsKey(code cbc.Code) cbc.Key {
+	if tax.ExtensionForKey(untdid.ExtKeyDeliveryTerms).HasCode(code) {
+		return untdid.ExtKeyDeliveryTerms
+	}
+	return icc.ExtKeyIncoterms2010
 }
 
 // exportFacturXExtended writes the Factur-X EXTENDED guideline into BT-24.
@@ -170,11 +189,11 @@ func exportExtended(_ *goblcii.Format, env *gobl.Envelope, doc goblcii.Document)
 		}
 	}
 
-	// EXT-FR-FE-BG-14: the Incoterm code (EXT-FR-FE-185) from the delivery
-	// extension, and the delivery location name (EXT-FR-FE-186) from the
-	// label of the receiver's address.
+	// EXT-FR-FE-BG-14: the delivery terms code (EXT-FR-FE-185) from the
+	// Incoterm or UNTDID 4053 delivery extension, and the delivery location
+	// name (EXT-FR-FE-186) from the label of the receiver's address.
 	if del := inv.Delivery; del != nil && out.Transaction.Agreement != nil {
-		if code := del.Ext.Get(flow2.ExtKeyDeliveryTerms); code != cbc.CodeEmpty {
+		if code := deliveryTermsCode(del.Ext); code != cbc.CodeEmpty {
 			terms := &goblcii.DeliveryTerms{Code: code.String()}
 			if del.Receiver != nil && len(del.Receiver.Addresses) > 0 && del.Receiver.Addresses[0].Label != "" {
 				terms.Location = &goblcii.TradeLocation{Name: del.Receiver.Addresses[0].Label}
@@ -222,14 +241,15 @@ func importExtended(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope)
 		}
 	}
 
-	// EXT-FR-FE-BG-14: the Incoterm code into the delivery extension, and the
-	// delivery location name into the label of the receiver's address.
+	// EXT-FR-FE-BG-14: the delivery terms code into the Incoterm or UNTDID
+	// 4053 delivery extension, and the delivery location name into the label
+	// of the receiver's address.
 	if agmt := in.Transaction.Agreement; agmt != nil && agmt.DeliveryTerms != nil && agmt.DeliveryTerms.Code != "" {
 		dt := agmt.DeliveryTerms
 		if inv.Delivery == nil {
 			inv.Delivery = new(bill.DeliveryDetails)
 		}
-		inv.Delivery.Ext = inv.Delivery.Ext.Set(flow2.ExtKeyDeliveryTerms, cbc.Code(dt.Code))
+		inv.Delivery.Ext = inv.Delivery.Ext.Set(deliveryTermsKey(cbc.Code(dt.Code)), cbc.Code(dt.Code))
 		if dt.Location != nil && dt.Location.Name != "" {
 			if inv.Delivery.Receiver == nil {
 				inv.Delivery.Receiver = new(org.Party)
