@@ -24,9 +24,9 @@ func TestDeliveryTermsRules(t *testing.T) {
 		return inv
 	}
 
-	for _, code := range cbc.DefinitionCodes(tax.ExtensionForKey(icc.ExtKeyIncoterms2010Rule).Values) {
-		t.Run("accepts icc-incoterms-2010-rule "+code.String(), func(t *testing.T) {
-			assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: code})))
+	for _, code := range cbc.DefinitionCodes(tax.ExtensionForKey(icc.ExtKeyIncoterms2010).Values) {
+		t.Run("accepts icc-incoterms-2010 "+code.String(), func(t *testing.T) {
+			assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010: code})))
 		})
 	}
 
@@ -37,18 +37,18 @@ func TestDeliveryTermsRules(t *testing.T) {
 	}
 
 	t.Run("accepts the 2010-only incoterm DAT", func(t *testing.T) {
-		assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: "DAT"})))
+		assert.NoError(t, rules.Validate(withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010: "DAT"})))
 	})
 
 	t.Run("rejects both together", func(t *testing.T) {
-		inv := withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: "DAP", untdid.ExtKeyDeliveryTerms: "1"})
-		assert.ErrorContains(t, rules.Validate(inv), "delivery ext may include only one of icc-incoterms-2010-rule or untdid-delivery-terms")
+		inv := withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010: "DAP", untdid.ExtKeyDeliveryTerms: "1"})
+		assert.ErrorContains(t, rules.Validate(inv), "delivery ext may include only one of icc-incoterms-2010 or untdid-delivery-terms")
 	})
 
 	for _, code := range []cbc.Code{"DPU", "DAF", "XXX", "1"} {
-		t.Run("rejects icc-incoterms-2010-rule "+code.String(), func(t *testing.T) {
-			inv := withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010Rule: code})
-			assert.ErrorContains(t, rules.Validate(inv), "delivery ext icc-incoterms-2010-rule must be a valid Incoterms 2010 code (BR-FREXT-CL-27)")
+		t.Run("rejects icc-incoterms-2010 "+code.String(), func(t *testing.T) {
+			inv := withTerms(t, cbc.CodeMap{icc.ExtKeyIncoterms2010: code})
+			assert.ErrorContains(t, rules.Validate(inv), "delivery ext icc-incoterms-2010 must be a valid Incoterms 2010 code (BR-FREXT-CL-27)")
 		})
 	}
 
