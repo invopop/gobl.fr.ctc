@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "998186ed5d5e48c5d9c66114ed057fa1c58f828dc489cba18ae00f7d7617f2a5"
+			"val": "3435e7d18497e0f68a4bada548c14baad514553f0c9b6d60e495226f8b01e963"
 		},
 		"from": "iso6523-actorid-upis::0225:341200068",
 		"to": "iso6523-actorid-upis::0225:572013583_57201358347049_SERVICE_PUBLIQUE_3_57201358347049"
@@ -99,7 +99,10 @@
 				{
 					"num": "03 22 37 22 37"
 				}
-			]
+			],
+			"registration": {
+				"other": "SARL AU CAPITAL DE 1 000 EUROS"
+			}
 		},
 		"customer": {
 			"name": "\u003eDestinataire 2 57201358347049",

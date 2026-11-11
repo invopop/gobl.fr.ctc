@@ -4,7 +4,7 @@
 		"uuid": "0195ce71-dc9c-72c8-bf2c-9890a4a9f0a2",
 		"dig": {
 			"alg": "sha256",
-			"val": "0851f321f6625359620e3584a3e7b870076a7ff69c70f35cd6e68ae060c4bf2c"
+			"val": "50221e18cc23de3d81327be5a208502cc6f2a42462dade186bddcc7aa9c3787d"
 		},
 		"from": "iso6523-actorid-upis::0225:324872211",
 		"to": "iso6523-actorid-upis::0225:439368049"
@@ -106,7 +106,10 @@
 				{
 					"num": "01 02 03 54 87"
 				}
-			]
+			],
+			"registration": {
+				"other": "SARL AU CAPITAL DE 50 000 EUROS"
+			}
 		},
 		"customer": {
 			"name": "LE CLIENT",
