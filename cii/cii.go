@@ -115,7 +115,7 @@ var FormatCTCFacturXExtended = goblcii.Format{
 	Version:     goblcii.VersionD16B,
 	Addons:      []cbc.Key{flow2.V1},
 	VESID:       "fr.ctc:facturx-extended:1.4.0-04",
-	ExportFuncs: []goblcii.ExportFunc{exportFacturXExtended, exportBillingMode, exportExtended, exportSubLines},
+	ExportFuncs: []goblcii.ExportFunc{exportFacturXExtended, exportBillingMode, exportExtended, exportAllowanceChargeExemptions, exportSubLines},
 	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importExtended},
 	Attachments: true,
 }
@@ -159,7 +159,7 @@ var FormatCTCExtended = goblcii.Format{
 	Fallback: func(_, businessID string) bool {
 		return isBillingMode(businessID)
 	},
-	ExportFuncs: []goblcii.ExportFunc{exportBillingMode, exportExtended, exportSubLines},
+	ExportFuncs: []goblcii.ExportFunc{exportBillingMode, exportExtended, exportAllowanceChargeExemptions, exportSubLines},
 	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importExtended},
 	Attachments: true,
 }

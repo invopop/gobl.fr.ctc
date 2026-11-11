@@ -138,7 +138,7 @@ func newCDARPaymentAcknowledgement(pmt *bill.Payment, line *bill.PaymentLine, ac
 	// (MEN for receipts, MPA for advices). The Due remainder is not
 	// mapped — no rule requires a RAP block, and one carrying MDT-215
 	// without MDT-224 is rejected (motif REJ_ENCAISSEMENT).
-	ds := &cii.CDARDocumentStatus{SequenceNumeric: 1}
+	ds := &cii.CDARDocumentStatus{SequenceNumeric: "1"}
 	condition := pmt.Ext.Get(flow6.ExtKeyCondition)
 	if condition == "" {
 		condition = flow6.ConditionAmountReceived
