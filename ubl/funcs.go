@@ -1,12 +1,15 @@
 package ubl
 
 import (
+	"fmt"
+
 	"github.com/invopop/gobl"
 	"github.com/invopop/gobl.fr.ctc/addon/ctc"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	goblubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/icc"
+	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	cur "github.com/invopop/gobl/currency"
@@ -99,6 +102,38 @@ func importCIUS(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) err
 	inv.Tax.Ext = inv.Tax.Ext.Set(ctc.ExtKeyBillingMode, cbc.Code(profileID))
 	importDocumentType(inv, in)
 	return nil
+}
+
+// importEndpoints adds the seller's (BT-34) and buyer's (BT-49) electronic
+// address as an endpoint, since French documents always arrive through Peppol
+// whatever the EAS scheme, and keeps the inbox the base import reads it into.
+func importEndpoints(_ *goblubl.Format, doc goblubl.Document, env *gobl.Envelope) error {
+	inv, in, ok := invoices(env, doc)
+	if !ok {
+		return nil
+	}
+	if p := in.AccountingSupplierParty.Party; p != nil && inv.Supplier != nil {
+		setEndpoint(inv.Supplier, p.EndpointID)
+	}
+	if p := in.AccountingCustomerParty.Party; p != nil && inv.Customer != nil {
+		setEndpoint(inv.Customer, p.EndpointID)
+	}
+	return nil
+}
+
+// setEndpoint adds the party's endpoint for an EAS scheme and address,
+// mailto for EM and ISO 6523 otherwise, unless it has one for that URI scheme.
+func setEndpoint(party *org.Party, eID *goblubl.EndpointID) {
+	if eID == nil || eID.SchemeID == "" || eID.Value == "" {
+		return
+	}
+	uri := cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, eID.SchemeID, eID.Value))
+	if eID.SchemeID == goblubl.SchemeIDEmail {
+		uri = cbc.URI("mailto:" + eID.Value)
+	}
+	if party.Endpoint(uri.Scheme()) == nil {
+		party.Endpoints = append(party.Endpoints, &org.Endpoint{URI: uri})
+	}
 }
 
 // importDocumentType restores the invoice type and tags that BT-3 stands for

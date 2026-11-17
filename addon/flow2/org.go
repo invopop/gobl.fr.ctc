@@ -201,32 +201,25 @@ func normalizeIdentity(id *org.Identity) {
 	}
 }
 
-// normalizeInboxes flags one inbox with the peppol key when none carries it,
-// preferring the 0225 inbox and otherwise the first on the SIREN (0002) or
-// SIRET (0009) scheme.
 func normalizeInboxes(party *org.Party) {
 	if party == nil || len(party.Inboxes) == 0 {
 		return
 	}
-	var sirenInbox, fallbackInbox *org.Inbox
+	hasPeppol := false
+	var sirenInbox *org.Inbox
 	for _, inbox := range party.Inboxes {
 		if inbox == nil {
 			continue
 		}
 		if inbox.Key == org.InboxKeyPeppol {
-			return
+			hasPeppol = true
 		}
-		if inbox.Scheme == inboxSchemeSIREN && sirenInbox == nil {
+		if inbox.Scheme == inboxSchemeSIREN {
 			sirenInbox = inbox
 		}
-		if fallbackInbox == nil && inbox.Code != cbc.CodeEmpty && (inbox.Scheme == identitySchemeIDSIREN || inbox.Scheme == identitySchemeIDSIRET) {
-			fallbackInbox = inbox
-		}
 	}
-	if sirenInbox != nil {
+	if !hasPeppol && sirenInbox != nil {
 		sirenInbox.Key = org.InboxKeyPeppol
-	} else if fallbackInbox != nil {
-		fallbackInbox.Key = org.InboxKeyPeppol
 	}
 }
 

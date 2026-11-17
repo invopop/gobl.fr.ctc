@@ -176,21 +176,6 @@ func TestInvoiceB2BInboxOnlyPartiesMigrateToEndpoint(t *testing.T) {
 	assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:356000000"), inv.Supplier.Endpoints[0].URI)
 }
 
-// A supplier whose only inbox is on the SIREN identifier scheme (0002) keeps
-// it as its endpoint: BR-FR-13 requires a seller electronic address but not
-// the 0225 scheme, which only BR-FR-21/22 impose.
-func TestInvoiceB2BSupplierInboxOnScheme0002(t *testing.T) {
-	inv := testInvoiceB2BStandard(t)
-	inv.Supplier.Endpoints = nil
-	inv.Supplier.Inboxes = []*org.Inbox{
-		{Scheme: identitySchemeIDSIREN, Code: "356000000"},
-	}
-	require.NoError(t, inv.Calculate())
-	require.NoError(t, rules.Validate(inv))
-	require.Len(t, inv.Supplier.Endpoints, 1)
-	assert.Equal(t, cbc.URI("iso6523-actorid-upis::0002:356000000"), inv.Supplier.Endpoints[0].URI)
-}
-
 // BR-FR-21 constrains the buyer's electronic address (BT-49) on a normal B2B
 // invoice; BR-FR-22 constrains the seller's (BT-34) when the document is
 // self-billed. Which party carries the SIREN-matching endpoint therefore

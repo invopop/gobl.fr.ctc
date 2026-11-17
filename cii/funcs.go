@@ -1,6 +1,8 @@
 package cii
 
 import (
+	"fmt"
+
 	"github.com/invopop/gobl"
 	goblcii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/ctc"
@@ -9,6 +11,7 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/cef"
 	"github.com/invopop/gobl/catalogues/icc"
+	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
 	"github.com/invopop/gobl/org"
@@ -80,6 +83,40 @@ func importBillingMode(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelo
 		inv.Tax.Ext = inv.Tax.Ext.Set(ctc.ExtKeyBillingMode, cbc.Code(in.ExchangedContext.BusinessContext.ID))
 	}
 	return nil
+}
+
+// importEndpoints adds the seller's (BT-34) and buyer's (BT-49) electronic
+// address as an endpoint, since French documents always arrive through Peppol
+// whatever the EAS scheme, and keeps the inbox the base import reads it into.
+func importEndpoints(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope) error {
+	inv, in, ok := invoices(env, doc)
+	if !ok || in.Transaction == nil || in.Transaction.Agreement == nil {
+		return nil
+	}
+	agmt := in.Transaction.Agreement
+	importPartyEndpoint(inv.Supplier, agmt.Seller)
+	importPartyEndpoint(inv.Customer, agmt.Buyer)
+	return nil
+}
+
+// importPartyEndpoint adds the party's endpoint from the CII party's URI
+// communication, mailto for EM and ISO 6523 otherwise, unless it has one for
+// that URI scheme.
+func importPartyEndpoint(party *org.Party, in *goblcii.Party) {
+	if party == nil || in == nil || in.URIUniversalCommunication == nil {
+		return
+	}
+	id := in.URIUniversalCommunication.ID
+	if id == nil || id.SchemeID == "" || id.Value == "" {
+		return
+	}
+	uri := cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, id.SchemeID, id.Value))
+	if id.SchemeID == goblcii.SchemeIDEmail {
+		uri = cbc.URI("mailto:" + id.Value)
+	}
+	if party.Endpoint(uri.Scheme()) == nil {
+		party.Endpoints = append(party.Endpoints, &org.Endpoint{URI: uri})
+	}
 }
 
 // importDocumentType restores the invoice type and tags that BT-3 stands for

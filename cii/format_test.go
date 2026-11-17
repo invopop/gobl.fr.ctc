@@ -689,3 +689,45 @@ func TestImportDocumentType(t *testing.T) {
 		})
 	}
 }
+
+// French documents always arrive through Peppol, so the seller's electronic
+// address (BT-34) becomes an endpoint whatever its EAS scheme, which is all
+// BR-FR-13 needs.
+func TestImportSupplierEndpoint(t *testing.T) {
+	const seller = `<ram:URIID schemeID="0225">356000000</ram:URIID>`
+	tests := []struct {
+		name     string
+		endpoint string
+		uri      cbc.URI
+	}{
+		{"siren scheme", `<ram:URIID schemeID="0002">356000000</ram:URIID>`, "iso6523-actorid-upis::0002:356000000"},
+		{"siret scheme", `<ram:URIID schemeID="0009">35600000000048</ram:URIID>`, "iso6523-actorid-upis::0009:35600000000048"},
+		{"french peppol scheme", seller, "iso6523-actorid-upis::0225:356000000"},
+		{"email", `<ram:URIID schemeID="EM">billing@example.com</ram:URIID>`, "mailto:billing@example.com"},
+		{"empty scheme", `<ram:URIID>356000000</ram:URIID>`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join("testdata", "parse", "peppol-france-extended", "invoice-standard.xml"))
+			require.NoError(t, err)
+			require.Contains(t, string(data), seller)
+			data = []byte(strings.Replace(string(data), seller, tt.endpoint, 1))
+
+			env, err := parseCII(data)
+			require.NoError(t, err)
+			inv, ok := env.Extract().(*bill.Invoice)
+			require.True(t, ok)
+
+			if tt.uri == "" {
+				assert.Empty(t, inv.Supplier.Endpoints)
+				return
+			}
+			assert.Len(t, inv.Supplier.Inboxes, 1)
+			require.Len(t, inv.Supplier.Endpoints, 1)
+			assert.Equal(t, tt.uri, inv.Supplier.Endpoints[0].URI)
+			if err := env.Validate(); err != nil {
+				assert.NotContains(t, err.Error(), "GOBL-FR-CTC-FLOW2-BILL-INVOICE-44")
+			}
+		})
+	}
+}

@@ -102,7 +102,7 @@ var FormatCTCFacturXCIUS = goblcii.Format{
 	Addons:      []cbc.Key{flow2.V1},
 	VESID:       "fr.ctc:facturx-en16931:1.4.0-04",
 	ExportFuncs: []goblcii.ExportFunc{exportBillingMode},
-	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType},
+	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importEndpoints},
 	Attachments: true,
 }
 
@@ -124,7 +124,7 @@ var FormatCTCFacturXExtended = goblcii.Format{
 	Addons:      []cbc.Key{flow2.V1},
 	VESID:       "fr.ctc:facturx-extended:1.4.0-04",
 	ExportFuncs: []goblcii.ExportFunc{exportFacturXExtended, exportBillingMode, exportExtended, exportAllowanceChargeExemptions, exportSubLines},
-	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importExtended},
+	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importExtended, importEndpoints},
 	Attachments: true,
 }
 
@@ -142,7 +142,7 @@ var FormatCTCCIUS = goblcii.Format{
 	Addons:            []cbc.Key{flow2.V1},
 	VESID:             "fr.ctc:cii:1.4.0-04",
 	ExportFuncs:       []goblcii.ExportFunc{exportBillingMode},
-	ImportFuncs:       []goblcii.ImportFunc{importBillingMode, importDocumentType},
+	ImportFuncs:       []goblcii.ImportFunc{importBillingMode, importDocumentType, importEndpoints},
 	Attachments:       true,
 }
 
@@ -168,7 +168,7 @@ var FormatCTCExtended = goblcii.Format{
 		return isBillingMode(businessID)
 	},
 	ExportFuncs: []goblcii.ExportFunc{exportBillingMode, exportExtended, exportAllowanceChargeExemptions, exportSubLines},
-	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importExtended},
+	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importExtended, importEndpoints},
 	Attachments: true,
 }
 
