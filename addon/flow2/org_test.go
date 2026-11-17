@@ -121,6 +121,56 @@ func TestNormalizeParty(t *testing.T) {
 		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:732829320_PEP"), p.Endpoints[0].URI)
 	})
 
+	t.Run("migrates a 0002 inbox that arrives without the peppol key", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Scheme: identitySchemeIDSIREN, Code: "356000000"},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, org.InboxKeyPeppol, p.Inboxes[0].Key)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0002:356000000"), p.Endpoints[0].URI)
+	})
+
+	t.Run("migrates a 0009 inbox that arrives without the peppol key", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Scheme: identitySchemeIDSIRET, Code: "35600000000048"},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, org.InboxKeyPeppol, p.Inboxes[0].Key)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0009:35600000000048"), p.Endpoints[0].URI)
+	})
+
+	t.Run("prefers a 0225 inbox over a 0009 inbox", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Scheme: identitySchemeIDSIRET, Code: "35600000000048"},
+			{Scheme: inboxSchemeSIREN, Code: "356000000"},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, cbc.Key(""), p.Inboxes[0].Key)
+		assert.Equal(t, org.InboxKeyPeppol, p.Inboxes[1].Key)
+		require.Len(t, p.Endpoints, 1)
+		assert.Equal(t, cbc.URI("iso6523-actorid-upis::0225:356000000"), p.Endpoints[0].URI)
+	})
+
+	t.Run("ignores an inbox on another scheme", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Scheme: "0088", Code: "1234567890128"},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, cbc.Key(""), p.Inboxes[0].Key)
+		assert.Empty(t, p.Endpoints)
+	})
+
+	t.Run("ignores an inbox without a scheme", func(t *testing.T) {
+		p := &org.Party{Inboxes: []*org.Inbox{
+			{Email: "billing@example.com"},
+		}}
+		normalizeParty(p)
+		assert.Equal(t, cbc.Key(""), p.Inboxes[0].Key)
+		assert.Empty(t, p.Endpoints)
+	})
+
 	t.Run("does not duplicate an existing peppol endpoint", func(t *testing.T) {
 		p := &org.Party{
 			Inboxes:   []*org.Inbox{{Key: org.InboxKeyPeppol, Scheme: inboxSchemeSIREN, Code: "732829320_PEP"}},
