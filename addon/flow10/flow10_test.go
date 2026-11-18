@@ -8,6 +8,7 @@ import (
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
+	"github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
@@ -215,4 +216,36 @@ func TestPaymentRejectsNonReceiptType(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	pmt.Type = bill.PaymentTypeRequest
 	assert.Error(t, rules.Validate(pmt))
+}
+
+func TestPaymentForeignCurrencyExchangeRate(t *testing.T) {
+	const code = "GOBL-FR-CTC-FLOW10-BILL-PAYMENT-09"
+
+	t.Run("without a rate to EUR fails", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Currency = currency.USD
+		faults := rules.Validate(pmt)
+		require.Error(t, faults)
+		assert.True(t, faults.HasCode(code), "want %s, got %s", code, faults)
+	})
+
+	t.Run("with a rate to another currency fails", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Currency = currency.USD
+		pmt.ExchangeRates = []*currency.ExchangeRate{
+			{From: currency.USD, To: currency.GBP, Amount: num.MakeAmount(79, 2)},
+		}
+		faults := rules.Validate(pmt)
+		require.Error(t, faults)
+		assert.True(t, faults.HasCode(code), "want %s, got %s", code, faults)
+	})
+
+	t.Run("with a rate to EUR passes", func(t *testing.T) {
+		pmt := testPaymentReceipt(t)
+		pmt.Currency = currency.USD
+		pmt.ExchangeRates = []*currency.ExchangeRate{
+			{From: currency.USD, To: currency.EUR, Amount: num.MakeAmount(92, 2)},
+		}
+		require.NoError(t, rules.Validate(pmt))
+	})
 }
