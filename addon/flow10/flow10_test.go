@@ -8,6 +8,7 @@ import (
 	"github.com/invopop/gobl/cal"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/cbc"
+	"github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
@@ -215,4 +216,38 @@ func TestPaymentRejectsNonReceiptType(t *testing.T) {
 	pmt := testPaymentReceipt(t)
 	pmt.Type = bill.PaymentTypeRequest
 	assert.Error(t, rules.Validate(pmt))
+}
+
+func TestInvoiceForeignCurrencyExchangeRate(t *testing.T) {
+	const code = "GOBL-FR-CTC-FLOW10-BILL-INVOICE-01"
+	hasCode := func(inv *bill.Invoice) bool {
+		faults := rules.Validate(inv)
+		return faults != nil && faults.HasCode(code)
+	}
+
+	t.Run("with tax and no rate fails", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Currency = currency.USD
+		require.NoError(t, inv.Calculate())
+		assert.True(t, hasCode(inv))
+	})
+
+	t.Run("with tax and a rate passes", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Currency = currency.USD
+		inv.ExchangeRates = []*currency.ExchangeRate{
+			{From: currency.USD, To: currency.EUR, Amount: num.MakeAmount(92, 2)},
+		}
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("without tax and no rate passes", func(t *testing.T) {
+		inv := testInvoiceB2BCrossBorder(t)
+		inv.Currency = currency.USD
+		inv.Lines[0].Taxes = tax.Set{{Category: tax.CategoryVAT, Key: tax.KeyExempt}}
+		require.NoError(t, inv.Calculate())
+		require.True(t, inv.Totals.Tax.IsZero())
+		assert.False(t, hasCode(inv))
+	})
 }
