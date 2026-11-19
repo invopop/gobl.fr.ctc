@@ -35,6 +35,7 @@ func init() {
 		billPaymentRules(),
 		orgPartyRules(),
 		orgIdentityRules(),
+		taxComboRules(),
 	)
 	norm.RegisterWithGuard(is.InContext(tax.AddonIn(V1)),
 		norm.For(normalizeInvoice),

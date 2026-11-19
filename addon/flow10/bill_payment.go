@@ -37,6 +37,9 @@ func billPaymentRules() *rules.Set {
 		rules.Assert("03", "payment VAT line percent must be one of the Flow 10 permitted values (G1.24)",
 			is.Func("allowed Flow 10 VAT percents", paymentVATPercentsAllowed),
 		),
+		rules.Assert("09", "Flux 10 e-reporting can only report French VAT; payment tax line category must be VAT and country must not be a foreign VAT jurisdiction (G1.24)",
+			is.Func("payment tax lines are domestic VAT", paymentTaxLinesAreDomesticVAT),
+		),
 		rules.Field("supplier",
 			rules.Assert("04", "payment supplier is required",
 				is.Present,
@@ -68,6 +71,32 @@ func billPaymentRules() *rules.Set {
 			),
 		),
 	)
+}
+
+func paymentTaxLinesAreDomesticVAT(v any) bool {
+	pmt, ok := v.(*bill.Payment)
+	if !ok || pmt == nil {
+		return true
+	}
+	for _, line := range pmt.Lines {
+		if line == nil || line.Tax == nil {
+			continue
+		}
+		for _, cat := range line.Tax.Categories {
+			if cat == nil {
+				continue
+			}
+			if cat.Code != tax.CategoryVAT {
+				return false
+			}
+			for _, rate := range cat.Rates {
+				if rate != nil && !taxComboCountryIsDomestic(rate.Country) {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 func paymentVATPercentsAllowed(v any) bool {
