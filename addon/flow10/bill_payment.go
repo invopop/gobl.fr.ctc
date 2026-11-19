@@ -2,7 +2,6 @@ package flow10
 
 import (
 	"github.com/invopop/gobl/bill"
-	"github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/rules"
 	"github.com/invopop/gobl/rules/is"
 	"github.com/invopop/gobl/tax"
@@ -68,24 +67,11 @@ func billPaymentRules() *rules.Set {
 				),
 			),
 		),
+		// G6.27: the amounts received (TT-95, TT-99) are stated in euros.
 		rules.Assert("09", "payment must be in EUR or provide an exchange rate to EUR (G6.27)",
-			is.Func("can convert to EUR", paymentCanConvertToEUR),
+			is.Expr(`string(Currency) == "EUR" || any(ExchangeRates, string(#?.From) == string(Currency) && string(#?.To) == "EUR")`),
 		),
 	)
-}
-
-// paymentCanConvertToEUR reports whether the amounts received can be stated
-// in euros, as G6.27 requires of TT-95 and TT-99: the payment is either in
-// EUR or carries an exchange rate from its currency to EUR.
-func paymentCanConvertToEUR(v any) bool {
-	pmt, ok := v.(*bill.Payment)
-	if !ok || pmt == nil {
-		return true
-	}
-	if pmt.Currency == currency.EUR {
-		return true
-	}
-	return currency.MatchExchangeRate(pmt.ExchangeRates, pmt.Currency, currency.EUR) != nil
 }
 
 func paymentVATPercentsAllowed(v any) bool {
