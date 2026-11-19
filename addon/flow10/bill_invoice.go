@@ -103,23 +103,14 @@ func normalizeB2CCategoryOnInvoice(inv *bill.Invoice) {
 	inv.Tax.Ext = inv.Tax.Ext.Set(ExtKeyB2CCategory, B2CCategoryNotTaxable)
 }
 
-// invoiceHasTaxAmount reports whether the invoice's total tax is not zero.
-// The report only states tax amounts in EUR (TT-52, TT-83), the rest stays in
-// the invoice currency, so no exchange rate is needed when there is no tax.
-func invoiceHasTaxAmount(val any) bool {
-	inv, ok := val.(*bill.Invoice)
-	if !ok || inv == nil || inv.Totals == nil {
-		return true
-	}
-	return !inv.Totals.Tax.IsZero()
-}
-
 // -- Rule set -------------------------------------------------------------
 
 func billInvoiceRules() *rules.Set {
 	return rules.For(new(bill.Invoice),
+		// The rate to EUR is only needed to state the VAT total in EUR
+		// (BT-111), which is zero at any rate when there is no tax.
 		rules.When(
-			is.Func("has tax to convert", invoiceHasTaxAmount),
+			is.Expr("Totals == nil || !Totals.Tax.IsZero()"),
 			rules.Assert("01", "invoice with tax must be in EUR or provide an exchange rate to EUR",
 				currency.CanConvertTo(currency.EUR),
 			),
