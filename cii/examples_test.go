@@ -90,7 +90,7 @@ func TestConvertExamples(t *testing.T) {
 // TestParseExamples imports each CII example into GOBL and compares the
 // invoice with its expected output.
 func TestParseExamples(t *testing.T) {
-	for _, dir := range []string{"peppol-france-extended"} {
+	for _, dir := range []string{"peppol-france-extended", "peppol-france-facturx-basicwl"} {
 		examples, err := filepath.Glob(filepath.Join(getParsePath(), dir, "*.xml"))
 		require.NoError(t, err)
 		require.NotEmpty(t, examples)

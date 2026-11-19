@@ -1,6 +1,7 @@
 package cii_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,8 @@ import (
 	goblcii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/flow2"
 	frcii "github.com/invopop/gobl.fr.ctc/cii"
+	frubl "github.com/invopop/gobl.fr.ctc/ubl"
+	ubl "github.com/invopop/gobl.ubl"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/cef"
 	"github.com/invopop/gobl/catalogues/icc"
@@ -20,6 +23,7 @@ import (
 	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/tax"
+	"github.com/invopop/phorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -184,6 +188,29 @@ func TestFindFormat(t *testing.T) {
 		}
 	})
 
+	t.Run("find France Factur-X BASIC WL by its guideline and a French BT-23", func(t *testing.T) {
+		ctx := goblcii.FindFormat(frcii.GuidelineIDFacturXBasicWL, "M1")
+		require.NotNil(t, ctx)
+		assert.Equal(t, frcii.KeyCTCFacturXBasicWL, ctx.Key)
+	})
+
+	t.Run("leave BASIC WL without a French BT-23 alone", func(t *testing.T) {
+		// flow2 would otherwise fill in a billing mode the document never gave.
+		for _, bt23 := range []string{"", frcii.ProcessIDRegulated, "urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"} {
+			assert.Nil(t, goblcii.FindFormat(frcii.GuidelineIDFacturXBasicWL, bt23), "BT-23 %q", bt23)
+		}
+	})
+
+	t.Run("leave ZUGFeRD 2.0 BASIC WL alone", func(t *testing.T) {
+		// It is a non-regulated flow, even with a French BT-23.
+		for _, bt23 := range []string{"", "M1", "S1"} {
+			ctx := goblcii.FindFormat(zugferdBasicWL, bt23)
+			if ctx != nil {
+				assert.NotEqual(t, frcii.KeyCTCFacturXBasicWL, ctx.Key, "BT-23 %q", bt23)
+			}
+		}
+	})
+
 	t.Run("leave plain Factur-X and ZUGFeRD EXTENDED to EN 16931", func(t *testing.T) {
 		// ZUGFeRD 2.1+ EXTENDED carries the same guideline, so without a
 		// French BT-23 it is not a French CTC document.
@@ -259,6 +286,199 @@ func TestFacturXProfiles(t *testing.T) {
 	assert.Empty(t, frcii.FormatCTCFacturXExtended.OutputGuidelineID)
 	assert.Equal(t, "urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:extended", frcii.GuidelineIDFacturXExtended)
 	assert.Equal(t, "fr.ctc:facturx-extended:1.4.0-04", frcii.FormatCTCFacturXExtended.VESID)
+
+	assert.Equal(t, "urn:factur-x.eu:1p0:basicwl", frcii.GuidelineIDFacturXBasicWL)
+	assert.Equal(t, "fr.ctc:facturx-basicwl:1.4.0-04", frcii.FormatCTCFacturXBasicWL.VESID)
+}
+
+// zugferdBasicWL is the BT-24 ZUGFeRD 2.0 gave the BASIC WL profile.
+const zugferdBasicWL = "urn:zugferd.de:2p0:basicwl"
+
+// TestFacturXBasicWLImport checks that BASIC WL documents import with one line
+// per VAT breakdown and convert to CII and UBL like any invoice (XP Z12-012 §4.7).
+// BASIC WL has no line-level BR-S-02, so a document without the seller VAT ID
+// (BT-31) is valid as received, but the lines the import creates bring the rule
+// in and its EN 16931 exports fail it, since the converter never invents a VAT ID.
+func TestFacturXBasicWLImport(t *testing.T) {
+	for _, tt := range []struct {
+		fixture string
+		prices  []string
+		sum     string
+		total   string
+		tax     string
+		payable string
+		// ciiErrors and ublErrors are the rules the CIUS exports are known to
+		// break under -validate; empty means they must validate clean.
+		ciiErrors []string
+		ublErrors []string
+	}{
+		// Each S rate nets out the document charges and allowances it carries;
+		// the K rate is all charge. Its delivery ID (BT-71) has no scheme, which
+		// the French UBL rules require (BR-FR-CO-10).
+		{"invoice-allowances-charges.xml", []string{"7.00", "60.00", "28.00", "0.00"}, "95.00", "100.00", "4.90", "104.90",
+			nil, []string{"BR-FR-CO-10_BT-71-1"}},
+		{"invoice-exempt.xml", []string{"35.00", "60.00"}, "95.00", "100.00", "8.00", "108.00", nil, nil},
+		{"invoice.xml", []string{"1000.00"}, "1000.00", "1000.00", "200.00", "1200.00", nil, nil},
+		{"invoice-no-seller-vat.xml", []string{"1000.00"}, "1000.00", "1000.00", "200.00", "1200.00",
+			[]string{"BR-S-02"}, []string{"BR-S-02"}},
+	} {
+		t.Run(tt.fixture, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join(getParsePath(), "peppol-france-facturx-basicwl", tt.fixture))
+			require.NoError(t, err)
+			f, err := convert.Detect(data)
+			require.NoError(t, err)
+			assert.Equal(t, frcii.KeyCTCFacturXBasicWL, f.Key)
+
+			env, err := parseCII(data)
+			require.NoError(t, err)
+			inv, ok := env.Extract().(*bill.Invoice)
+			require.True(t, ok)
+			assert.Contains(t, inv.GetAddons(), flow2.V1)
+			assert.Empty(t, inv.GetTags(), "a regular invoice, without bypass")
+
+			var prices []string
+			for _, l := range inv.Lines {
+				prices = append(prices, l.Item.Price.String())
+			}
+			assert.Equal(t, tt.prices, prices)
+
+			require.NotNil(t, inv.Totals)
+			assert.Equal(t, tt.sum, inv.Totals.Sum.String())
+			assert.Equal(t, tt.total, inv.Totals.Total.String())
+			assert.Equal(t, tt.tax, inv.Totals.Tax.String())
+			assert.Equal(t, tt.payable, inv.Totals.Payable.String())
+			require.NoError(t, env.Validate())
+
+			stated := statedCIIBases(t, data)
+			assert.Equal(t, stated, lineBases(inv), "line totals with their charges and allowances")
+
+			t.Run("exports as CTC CIUS CII", func(t *testing.T) {
+				doc, err := goblcii.Export(env, goblcii.WithFormat(frcii.FormatCTCCIUS))
+				require.NoError(t, err)
+				out, err := goblcii.Encode(doc)
+				require.NoError(t, err)
+				assert.Equal(t, stated, statedCIIBases(t, out))
+
+				validateKnown(t, phormClient(t), frcii.FormatCTCCIUS.VESID, out, tt.ciiErrors)
+			})
+
+			t.Run("exports as CTC CIUS UBL", func(t *testing.T) {
+				doc, err := ubl.Export(env, ubl.WithFormat(frubl.FormatCIUS))
+				require.NoError(t, err)
+				data, err := ubl.Encode(doc)
+				require.NoError(t, err)
+				out, ok := doc.(*ubl.Invoice)
+				require.True(t, ok)
+				var bases []string
+				for _, tt := range out.TaxTotal {
+					for _, st := range tt.TaxSubtotal {
+						bases = append(bases, st.TaxableAmount.Value)
+					}
+				}
+				assert.ElementsMatch(t, stated, bases)
+
+				validateKnown(t, phormClient(t), frubl.FormatCIUS.VESIDs.Invoice, data, tt.ublErrors)
+			})
+		})
+	}
+}
+
+// TestFacturXBasicWLZUGFeRD checks that a ZUGFeRD 2.0 BASIC WL document, a
+// non-regulated flow, is not detected as French CTC BASIC WL and gets no lines.
+func TestFacturXBasicWLZUGFeRD(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(getParsePath(), "peppol-france-facturx-basicwl", "invoice-exempt.xml"))
+	require.NoError(t, err)
+	data = bytes.Replace(data, []byte(frcii.GuidelineIDFacturXBasicWL), []byte(zugferdBasicWL), 1)
+
+	f, err := convert.Detect(data)
+	require.NoError(t, err)
+	assert.NotEqual(t, frcii.KeyCTCFacturXBasicWL, f.Key)
+
+	env, err := parseCII(data)
+	require.NoError(t, err)
+	inv, ok := env.Extract().(*bill.Invoice)
+	require.True(t, ok)
+	assert.Empty(t, inv.Lines)
+}
+
+// statedCIIBases returns the VAT breakdown bases (BT-116) a CII document states.
+func statedCIIBases(t *testing.T, data []byte) []string {
+	t.Helper()
+	doc, err := goblcii.Decode(data)
+	require.NoError(t, err)
+	in, ok := doc.(*goblcii.Invoice)
+	require.True(t, ok)
+	var bases []string
+	for _, tx := range in.Transaction.Settlement.Tax {
+		bases = append(bases, tx.BasisAmount)
+	}
+	return bases
+}
+
+// lineBases returns, per VAT breakdown of the invoice, the sum of its line
+// totals plus its document charges and less its allowances.
+func lineBases(inv *bill.Invoice) []string {
+	var bases []string
+	for _, ct := range inv.Totals.Taxes.Categories {
+		for _, rt := range ct.Rates {
+			key := rt.Ext.Get(untdid.ExtKeyTaxCategory)
+			same := func(ts tax.Set) bool {
+				c := ts.Get(ct.Code)
+				return c != nil && c.Ext.Get(untdid.ExtKeyTaxCategory) == key && percentEq(c.Percent, rt.Percent)
+			}
+			base := num.MakeAmount(0, 2)
+			for _, l := range inv.Lines {
+				if same(l.Taxes) {
+					base = base.Add(*l.Total)
+				}
+			}
+			for _, c := range inv.Charges {
+				if same(c.Taxes) {
+					base = base.Add(c.Amount)
+				}
+			}
+			for _, d := range inv.Discounts {
+				if same(d.Taxes) {
+					base = base.Subtract(d.Amount)
+				}
+			}
+			bases = append(bases, base.String())
+		}
+	}
+	return bases
+}
+
+// percentEq compares two optional percentages, treating nil as zero.
+func percentEq(a, b *num.Percentage) bool {
+	z := num.PercentageZero
+	if a == nil {
+		a = &z
+	}
+	if b == nil {
+		b = &z
+	}
+	return a.Equals(*b)
+}
+
+// A BASIC WL document whose stated totals don't calculate from its breakdown
+// still gets its lines, but keeps the totals it states.
+func TestFacturXBasicWLImportStatedTotals(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(getParsePath(), "peppol-france-facturx-basicwl", "invoice-exempt.xml"))
+	require.NoError(t, err)
+	// 8.01 of VAT on a 40.00 base at 20%.
+	data = bytes.Replace(data, []byte("<ram:CalculatedAmount>8.00<"), []byte("<ram:CalculatedAmount>8.01<"), 1)
+	data = bytes.Replace(data, []byte(">8.00</ram:TaxTotalAmount>"), []byte(">8.01</ram:TaxTotalAmount>"), 1)
+	data = bytes.ReplaceAll(data, []byte(">108.00<"), []byte(">108.01<"))
+
+	env, err := parseCII(data)
+	require.NoError(t, err)
+	inv, ok := env.Extract().(*bill.Invoice)
+	require.True(t, ok)
+	assert.Len(t, inv.Lines, 2)
+	assert.True(t, inv.HasTags(tax.TagBypass))
+	assert.Equal(t, "8.01", inv.Totals.Tax.String())
+	assert.Equal(t, "108.01", inv.Totals.Payable.String())
+	require.NoError(t, env.Validate())
 }
 
 // The plain Factur-X profiles share their guidelines with ZUGFeRD and EN 16931,
@@ -458,6 +678,13 @@ func TestConvertRegister(t *testing.T) {
 			assert.NotEmpty(t, f.Import, k)
 			assert.True(t, f.Attachments, k)
 		}
+	})
+
+	t.Run("BASIC WL is import-only", func(t *testing.T) {
+		f := convert.FormatFor(frcii.KeyCTCFacturXBasicWL)
+		require.NotNil(t, f)
+		assert.NotEmpty(t, f.Import)
+		assert.Empty(t, f.Export)
 	})
 
 	t.Run("detect and import", func(t *testing.T) {
@@ -688,4 +915,62 @@ func TestImportDocumentType(t *testing.T) {
 				"the scenario must regenerate the stated code")
 		})
 	}
+}
+
+// French documents always arrive through Peppol, so the seller's electronic
+// address (BT-34) becomes an endpoint whatever its EAS scheme, which is all
+// BR-FR-13 needs.
+func TestImportSupplierEndpoint(t *testing.T) {
+	const seller = `<ram:URIID schemeID="0225">356000000</ram:URIID>`
+	tests := []struct {
+		name     string
+		endpoint string
+		uri      cbc.URI
+	}{
+		{"siren scheme", `<ram:URIID schemeID="0002">356000000</ram:URIID>`, "iso6523-actorid-upis::0002:356000000"},
+		{"siret scheme", `<ram:URIID schemeID="0009">35600000000048</ram:URIID>`, "iso6523-actorid-upis::0009:35600000000048"},
+		{"french peppol scheme", seller, "iso6523-actorid-upis::0225:356000000"},
+		{"empty scheme", `<ram:URIID>356000000</ram:URIID>`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join("testdata", "parse", "peppol-france-extended", "invoice-standard.xml"))
+			require.NoError(t, err)
+			require.Contains(t, string(data), seller)
+			data = []byte(strings.Replace(string(data), seller, tt.endpoint, 1))
+
+			env, err := parseCII(data)
+			require.NoError(t, err)
+			inv, ok := env.Extract().(*bill.Invoice)
+			require.True(t, ok)
+
+			if tt.uri == "" {
+				assert.Empty(t, inv.Supplier.Endpoints)
+				return
+			}
+			assert.Len(t, inv.Supplier.Inboxes, 1)
+			require.Len(t, inv.Supplier.Endpoints, 1)
+			assert.Equal(t, tt.uri, inv.Supplier.Endpoints[0].URI)
+			if err := env.Validate(); err != nil {
+				assert.NotContains(t, err.Error(), "GOBL-FR-CTC-FLOW2-BILL-INVOICE-44")
+			}
+		})
+	}
+}
+
+// validateKnown validates the document and, when known errors are given,
+// checks that phorm raises exactly those rules instead of a clean report.
+func validateKnown(t *testing.T, pc *phorm.Client, vesid string, data []byte, known []string) {
+	t.Helper()
+	if len(known) == 0 {
+		validateXML(t, pc, vesid, data)
+		return
+	}
+	var rules []string
+	for _, f := range phormValidate(t, pc, vesid, data) {
+		if f.Level != levelWarn {
+			rules = append(rules, f.Rule)
+		}
+	}
+	assert.Equal(t, known, rules, vesid)
 }

@@ -8,9 +8,11 @@ import (
 	"github.com/invopop/gobl/addons/eu/en16931"
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/cal"
+	"github.com/invopop/gobl/catalogues/cef"
 	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
+	"github.com/invopop/gobl/currency"
 	"github.com/invopop/gobl/norm"
 	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
@@ -675,5 +677,44 @@ func TestDocumentType(t *testing.T) {
 	t.Run("a code with no scenario", func(t *testing.T) {
 		_, _, ok := DocumentType("999")
 		assert.False(t, ok)
+	})
+}
+
+func TestInvoiceForeignCurrencyExchangeRate(t *testing.T) {
+	const code = "GOBL-FR-CTC-FLOW2-BILL-INVOICE-01"
+	exempt := func(inv *bill.Invoice) {
+		inv.Lines[0].Taxes = tax.Set{{
+			Category: "VAT",
+			Key:      tax.KeyExempt,
+			Ext:      tax.ExtensionsOf(cbc.CodeMap{cef.ExtKeyVATEX: "VATEX-FR-CGI261-1"}),
+		}}
+	}
+
+	t.Run("with tax and no rate fails", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Currency = currency.USD
+		require.NoError(t, inv.Calculate())
+		assertFault(t, inv, code)
+	})
+
+	t.Run("with tax and a rate passes", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Currency = currency.USD
+		inv.ExchangeRates = []*currency.ExchangeRate{
+			{From: currency.USD, To: currency.EUR, Amount: num.MakeAmount(92, 2)},
+		}
+		require.NoError(t, inv.Calculate())
+		require.NoError(t, rules.Validate(inv))
+	})
+
+	t.Run("without tax and no rate passes", func(t *testing.T) {
+		inv := testInvoiceB2BStandard(t)
+		inv.Currency = currency.USD
+		exempt(inv)
+		require.NoError(t, inv.Calculate())
+		require.True(t, inv.Totals.Tax.IsZero())
+		if faults := rules.Validate(inv); faults != nil {
+			assert.False(t, faults.HasCode(code), "unexpected %s in %s", code, faults)
+		}
 	})
 }

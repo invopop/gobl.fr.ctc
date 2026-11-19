@@ -1,6 +1,9 @@
 package cii
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/invopop/gobl"
 	goblcii "github.com/invopop/gobl.cii"
 	"github.com/invopop/gobl.fr.ctc/addon/ctc"
@@ -9,8 +12,10 @@ import (
 	"github.com/invopop/gobl/bill"
 	"github.com/invopop/gobl/catalogues/cef"
 	"github.com/invopop/gobl/catalogues/icc"
+	"github.com/invopop/gobl/catalogues/iso"
 	"github.com/invopop/gobl/catalogues/untdid"
 	"github.com/invopop/gobl/cbc"
+	"github.com/invopop/gobl/num"
 	"github.com/invopop/gobl/org"
 	"github.com/invopop/gobl/regimes/fr"
 	"github.com/invopop/gobl/tax"
@@ -82,6 +87,37 @@ func importBillingMode(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelo
 	return nil
 }
 
+// importEndpoints adds the seller's (BT-34) and buyer's (BT-49) electronic
+// address as an endpoint, since French documents always arrive through Peppol
+// whatever the EAS scheme, and keeps the inbox the base import reads it into.
+func importEndpoints(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope) error {
+	inv, in, ok := invoices(env, doc)
+	if !ok || in.Transaction == nil || in.Transaction.Agreement == nil {
+		return nil
+	}
+	agmt := in.Transaction.Agreement
+	importPartyEndpoint(inv.Supplier, agmt.Seller)
+	importPartyEndpoint(inv.Customer, agmt.Buyer)
+	return nil
+}
+
+// importPartyEndpoint adds the party's endpoint from the CII party's URI
+// communication as an ISO 6523 URI, unless it already has one for that URI
+// scheme.
+func importPartyEndpoint(party *org.Party, in *goblcii.Party) {
+	if party == nil || in == nil || in.URIUniversalCommunication == nil {
+		return
+	}
+	id := in.URIUniversalCommunication.ID
+	if id == nil || id.SchemeID == "" || id.Value == "" {
+		return
+	}
+	uri := cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, id.SchemeID, id.Value))
+	if party.Endpoint(uri.Scheme()) == nil {
+		party.Endpoints = append(party.Endpoints, &org.Endpoint{URI: uri})
+	}
+}
+
 // importDocumentType restores the invoice type and tags that BT-3 stands for
 // under the Flow 2 scenarios, which the base import only knows for the codes
 // EN 16931 defines. The base already keeps the code itself.
@@ -137,6 +173,102 @@ func exportAllowanceChargeExemptions(_ *goblcii.Format, env *gobl.Envelope, doc 
 		}
 	}
 	return nil
+}
+
+// importVATBreakdownLines gives an invoice without lines, as BASIC WL ones are,
+// one line per VAT breakdown (BG-23) priced at its base net of document charges
+// and allowances (XP Z12-012 §4.7).
+func importVATBreakdownLines(_ *goblcii.Format, _ goblcii.Document, env *gobl.Envelope) error {
+	inv, ok := env.Extract().(*bill.Invoice)
+	if !ok || len(inv.Lines) > 0 || inv.Totals == nil || inv.Totals.Taxes == nil {
+		return nil
+	}
+	for _, ct := range inv.Totals.Taxes.Categories {
+		for _, rt := range ct.Rates {
+			l := vatBreakdownLine(inv, ct.Code, rt)
+			l.Index = len(inv.Lines) + 1
+			inv.Lines = append(inv.Lines, l)
+		}
+	}
+	if !inv.HasTags(tax.TagBypass) {
+		return nil
+	}
+	agree, err := totalsAgree(inv)
+	if err != nil {
+		return err
+	}
+	if agree {
+		inv.RemoveTags(tax.TagBypass)
+	}
+	return nil
+}
+
+// vatBreakdownLine builds the line for one VAT breakdown, with its amounts
+// already set, since a bypassed invoice doesn't calculate its lines.
+func vatBreakdownLine(inv *bill.Invoice, cat cbc.Code, rt *tax.RateTotal) *bill.Line {
+	price := rt.Base
+	for _, c := range inv.Charges {
+		if sameRate(c.Taxes, cat, rt) {
+			price = price.Subtract(c.Amount)
+		}
+	}
+	for _, d := range inv.Discounts {
+		if sameRate(d.Taxes, cat, rt) {
+			price = price.Add(d.Amount)
+		}
+	}
+	code := rt.Ext.Get(untdid.ExtKeyTaxCategory)
+	combo := &tax.Combo{Category: cat, Ext: rt.Ext}
+	name := fmt.Sprintf("%s %s", cat, code)
+	// As the base import reads it, a 0% rate is only kept as Z.
+	if rt.Percent != nil && (!rt.Percent.IsZero() || code == "Z") {
+		p := *rt.Percent
+		combo.Percent = &p
+		name += " " + p.String()
+	}
+	sum, total := price, price
+	return &bill.Line{
+		Quantity: num.MakeAmount(1, 0),
+		Item:     &org.Item{Name: name, Price: &price},
+		Sum:      &sum,
+		Taxes:    tax.Set{combo},
+		Total:    &total,
+	}
+}
+
+// sameRate reports whether a charge or allowance falls in the VAT breakdown.
+func sameRate(taxes tax.Set, cat cbc.Code, rt *tax.RateTotal) bool {
+	combo := taxes.Get(cat)
+	if combo == nil || combo.Ext.Get(untdid.ExtKeyTaxCategory) != rt.Ext.Get(untdid.ExtKeyTaxCategory) {
+		return false
+	}
+	pct := func(p *num.Percentage) num.Percentage {
+		if p == nil {
+			return num.PercentageZero
+		}
+		return *p
+	}
+	return pct(combo.Percent).Equals(pct(rt.Percent))
+}
+
+// totalsAgree reports whether the invoice calculates, without bypass, to the
+// totals it states.
+func totalsAgree(inv *bill.Invoice) (bool, error) {
+	data, err := json.Marshal(inv)
+	if err != nil {
+		return false, err
+	}
+	calc := new(bill.Invoice)
+	if err := json.Unmarshal(data, calc); err != nil {
+		return false, err
+	}
+	calc.RemoveTags(tax.TagBypass)
+	if err := calc.Calculate(); err != nil {
+		return false, nil //nolint:nilerr // a failed calculation just keeps the bypass
+	}
+	s, c := inv.Totals, calc.Totals
+	return s.Sum.Equals(c.Sum) && s.Total.Equals(c.Total) && s.Tax.Equals(c.Tax) &&
+		s.TotalWithTax.Equals(c.TotalWithTax) && s.Payable.Equals(c.Payable), nil
 }
 
 // exportSubLines writes line breakdowns as sub-lines, which the EXTENDED
