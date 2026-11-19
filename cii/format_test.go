@@ -703,7 +703,6 @@ func TestImportSupplierEndpoint(t *testing.T) {
 		{"siren scheme", `<ram:URIID schemeID="0002">356000000</ram:URIID>`, "iso6523-actorid-upis::0002:356000000"},
 		{"siret scheme", `<ram:URIID schemeID="0009">35600000000048</ram:URIID>`, "iso6523-actorid-upis::0009:35600000000048"},
 		{"french peppol scheme", seller, "iso6523-actorid-upis::0225:356000000"},
-		{"email", `<ram:URIID schemeID="EM">billing@example.com</ram:URIID>`, "mailto:billing@example.com"},
 		{"empty scheme", `<ram:URIID>356000000</ram:URIID>`, ""},
 	}
 	for _, tt := range tests {

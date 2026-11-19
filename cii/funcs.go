@@ -100,8 +100,8 @@ func importEndpoints(_ *goblcii.Format, doc goblcii.Document, env *gobl.Envelope
 }
 
 // importPartyEndpoint adds the party's endpoint from the CII party's URI
-// communication, mailto for EM and ISO 6523 otherwise, unless it has one for
-// that URI scheme.
+// communication as an ISO 6523 URI, unless it already has one for that URI
+// scheme.
 func importPartyEndpoint(party *org.Party, in *goblcii.Party) {
 	if party == nil || in == nil || in.URIUniversalCommunication == nil {
 		return
@@ -111,9 +111,6 @@ func importPartyEndpoint(party *org.Party, in *goblcii.Party) {
 		return
 	}
 	uri := cbc.URI(fmt.Sprintf("%s::%s:%s", iso.ActorIDScheme, id.SchemeID, id.Value))
-	if id.SchemeID == goblcii.SchemeIDEmail {
-		uri = cbc.URI("mailto:" + id.Value)
-	}
 	if party.Endpoint(uri.Scheme()) == nil {
 		party.Endpoints = append(party.Endpoints, &org.Endpoint{URI: uri})
 	}
