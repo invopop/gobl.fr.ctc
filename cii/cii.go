@@ -26,6 +26,7 @@ const (
 	KeyCTCExtended        cbc.Key = "cii+fr-ctc-extended-v1"
 	KeyCTCFacturXCIUS     cbc.Key = "cii+fr-ctc-facturx-cius-v1"
 	KeyCTCFacturXExtended cbc.Key = "cii+fr-ctc-facturx-extended-v1"
+	KeyCTCFacturXBasicWL  cbc.Key = "cii+fr-ctc-facturx-basicwl-v1"
 	KeyChorusPro          cbc.Key = "cii+fr-choruspro-v1"
 	KeyFacturX            cbc.Key = "cii+fr-facturx-v1"
 	KeyFacturXExtended    cbc.Key = "cii+fr-facturx-v1+extended"
@@ -39,6 +40,9 @@ const ProcessIDRegulated = "urn:peppol:france:billing:regulated"
 // EN 16931 carries the plain EN 16931 guideline.
 const GuidelineIDFacturXExtended = goblcii.GuidelineIDEN16931 + "#conformant#urn:factur-x.eu:1p0:extended"
 
+// GuidelineIDFacturXBasicWL is the BT-24 of a Factur-X BASIC WL document.
+const GuidelineIDFacturXBasicWL = "urn:factur-x.eu:1p0:basicwl"
+
 var invoiceSchema = schema.Lookup(bill.Invoice{})
 
 var countriesFR = []l10n.Code{l10n.FR}
@@ -48,7 +52,7 @@ var countriesFR = []l10n.Code{l10n.FR}
 // documents apart from ZUGFeRD or plain EN 16931 ones: they are only imported
 // on request, by a caller that took the CII from a Factur-X PDF, and are
 // otherwise never detected, so their documents import as EN 16931.
-// BASIC, BASIC WL and MINIMUM are not supported.
+// BASIC and MINIMUM are not supported, and BASIC WL only as a Flux 2 profile.
 
 // FormatFacturX is the Factur-X EN 16931 (COMFORT) profile.
 var FormatFacturX = goblcii.Format{
@@ -128,6 +132,21 @@ var FormatCTCFacturXExtended = goblcii.Format{
 	Attachments: true,
 }
 
+// FormatCTCFacturXBasicWL is the import-only format for received Factur-X BASIC WL
+// documents (a Flux 2 profile until 2027-09-01), which have no lines and import
+// with one line per VAT breakdown (XP Z12-012 §4.7).
+var FormatCTCFacturXBasicWL = goblcii.Format{
+	Key:         KeyCTCFacturXBasicWL,
+	Name:        i18n.NewString("CII France CTC Factur-X BASIC WL"),
+	Countries:   countriesFR,
+	Import:      []schema.ID{invoiceSchema},
+	GuidelineID: KeyCTCFacturXBasicWL.String(),
+	BusinessID:  ProcessIDRegulated,
+	Addons:      []cbc.Key{flow2.V1},
+	VESID:       "fr.ctc:facturx-basicwl:1.4.0-04",
+	ImportFuncs: []goblcii.ImportFunc{importBillingMode, importDocumentType, importVATBreakdownLines, importEndpoints},
+}
+
 // FormatCTCCIUS is used for French CTC CIUS documents.
 var FormatCTCCIUS = goblcii.Format{
 	Key:               KeyCTCCIUS,
@@ -190,11 +209,12 @@ func init() {
 	// France CIUS documents use the same GuidelineID as EN 16931, but can be
 	// identified by their BusinessID carrying a billing mode code.
 	FormatCTCFacturXExtended.Match = matchBillingMode(FormatCTCFacturXExtended, GuidelineIDFacturXExtended)
+	FormatCTCFacturXBasicWL.Match = matchBillingMode(FormatCTCFacturXBasicWL, GuidelineIDFacturXBasicWL)
 	FormatCTCCIUS.Match = matchBillingMode(FormatCTCCIUS)
 	FormatCTCExtended.Match = matchBillingMode(FormatCTCExtended)
 	goblcii.RegisterFormats(
 		FormatFacturX, FormatFacturXExtended,
-		FormatCTCFacturXCIUS, FormatCTCFacturXExtended, FormatCTCCIUS, FormatCTCExtended,
+		FormatCTCFacturXCIUS, FormatCTCFacturXExtended, FormatCTCFacturXBasicWL, FormatCTCCIUS, FormatCTCExtended,
 		FormatChorusPro,
 	)
 }
