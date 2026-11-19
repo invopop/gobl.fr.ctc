@@ -392,6 +392,8 @@ func TestParseSupplierIdentifiers(t *testing.T) {
 			require.Len(t, supplier.Inboxes, 1)
 			assert.Equal(t, tt.inboxScheme, supplier.Inboxes[0].Scheme)
 			assert.Equal(t, tt.inboxCode, supplier.Inboxes[0].Code)
+			require.Len(t, supplier.Endpoints, 1)
+			assert.Equal(t, cbc.URI("iso6523-actorid-upis::"+tt.inboxScheme.String()+":"+tt.inboxCode.String()), supplier.Endpoints[0].URI)
 
 			assert.Equal(t, tt.groupSIREN, identityWithScheme(supplier, "0231"))
 
@@ -742,4 +744,45 @@ func importWithDocumentType(t *testing.T, code string) *bill.Invoice {
 	inv, ok := imported.Envelope.Extract().(*bill.Invoice)
 	require.True(t, ok)
 	return inv
+}
+
+// French documents always arrive through Peppol, so the seller's electronic
+// address (BT-34) becomes an endpoint whatever its EAS scheme, which is all
+// BR-FR-13 needs.
+func TestImportSupplierEndpoint(t *testing.T) {
+	const seller = `<cbc:EndpointID schemeID="0225">324872211</cbc:EndpointID>`
+	tests := []struct {
+		name     string
+		endpoint string
+		uri      cbc.URI
+	}{
+		{"siren scheme", `<cbc:EndpointID schemeID="0002">324872211</cbc:EndpointID>`, "iso6523-actorid-upis::0002:324872211"},
+		{"siret scheme", `<cbc:EndpointID schemeID="0009">32487221100015</cbc:EndpointID>`, "iso6523-actorid-upis::0009:32487221100015"},
+		{"french peppol scheme", seller, "iso6523-actorid-upis::0225:324872211"},
+		{"empty scheme", `<cbc:EndpointID>324872211</cbc:EndpointID>`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := testLoadXML("france-cius/b2b-reg.xml")
+			require.NoError(t, err)
+			require.Contains(t, string(data), seller)
+			data = bytes.Replace(data, []byte(seller), []byte(tt.endpoint), 1)
+
+			imported, err := convert.Import(data)
+			require.NoError(t, err)
+			inv, ok := imported.Envelope.Extract().(*bill.Invoice)
+			require.True(t, ok)
+
+			if tt.uri == "" {
+				assert.Empty(t, inv.Supplier.Endpoints)
+				return
+			}
+			assert.Len(t, inv.Supplier.Inboxes, 1)
+			require.Len(t, inv.Supplier.Endpoints, 1)
+			assert.Equal(t, tt.uri, inv.Supplier.Endpoints[0].URI)
+			if err := rules.Validate(inv); err != nil {
+				assert.NotContains(t, err.Error(), "GOBL-FR-CTC-FLOW2-BILL-INVOICE-44")
+			}
+		})
+	}
 }

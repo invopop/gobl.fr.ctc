@@ -43,7 +43,7 @@ var FormatCIUS = goblubl.Format{
 		CreditNote: "fr.ctc:ubl-creditnote:1.4.0-04",
 	},
 	ExportFuncs: []goblubl.ExportFunc{exportCIUS},
-	ImportFuncs: []goblubl.ImportFunc{importCIUS},
+	ImportFuncs: []goblubl.ImportFunc{importCIUS, importEndpoints},
 }
 
 // FormatExtended defines the format for France UBL Invoice Extended.
@@ -72,7 +72,7 @@ var FormatExtended = goblubl.Format{
 	// The CIUS rules run last so they also cover the parties the Extended
 	// rules add.
 	ExportFuncs: []goblubl.ExportFunc{exportExtended, exportCIUS},
-	ImportFuncs: []goblubl.ImportFunc{importCIUS, importExtended},
+	ImportFuncs: []goblubl.ImportFunc{importCIUS, importExtended, importEndpoints},
 }
 
 func init() {

@@ -67,6 +67,10 @@ func billPaymentRules() *rules.Set {
 				),
 			),
 		),
+		// G6.27: the amounts received (TT-95, TT-99) are stated in euros.
+		rules.Assert("09", "payment must be in EUR or provide an exchange rate to EUR (G6.27)",
+			is.Expr(`string(Currency) == "EUR" || any(ExchangeRates, string(#?.From) == string(Currency) && string(#?.To) == "EUR")`),
+		),
 	)
 }
 

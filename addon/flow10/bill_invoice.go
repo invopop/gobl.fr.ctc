@@ -107,8 +107,13 @@ func normalizeB2CCategoryOnInvoice(inv *bill.Invoice) {
 
 func billInvoiceRules() *rules.Set {
 	return rules.For(new(bill.Invoice),
-		rules.Assert("01", "invoice must be in EUR or provide an exchange rate to EUR",
-			currency.CanConvertTo(currency.EUR),
+		// The report only states tax amounts in EUR (TT-52, TT-83), which
+		// are zero at any rate when there is no tax.
+		rules.When(
+			is.Expr("Totals == nil || !Totals.Tax.IsZero()"),
+			rules.Assert("01", "invoice with tax must be in EUR or provide an exchange rate to EUR",
+				currency.CanConvertTo(currency.EUR),
+			),
 		),
 		rules.Field("supplier",
 			rules.Field("addresses",
